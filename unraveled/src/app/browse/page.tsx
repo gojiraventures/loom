@@ -4,6 +4,8 @@ import { ConvergenceCard } from '@/components/ConvergenceCard';
 import { ArrowDown, BookOpen, Scale, HelpCircle } from 'lucide-react';
 import { getPublishedTopics } from '@/lib/topics';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Browse — UnraveledTruth',
   robots: { index: false, follow: false },
