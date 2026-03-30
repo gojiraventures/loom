@@ -648,7 +648,7 @@ function ContentTab() {
       ? questionsRaw.split('\n').map((q) => q.trim()).filter(Boolean)
       : [`What specific evidence exists related to: ${focus}`];
 
-    setDeepDiveStatus((s) => ({ ...s, [d.topic]: 'running pipeline…' }));
+    setDeepDiveStatus((s) => ({ ...s, [d.topic]: 'queuing…' }));
     try {
       const res = await fetch('/api/research/deep-dive', {
         method: 'POST',
@@ -662,10 +662,29 @@ function ContentTab() {
       });
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error as string);
-      const stats = data.stats as { sessionFindings?: number; totalTopicFindings?: number } | undefined;
-      setDeepDiveStatus((s) => ({ ...s, [d.topic]: `complete — ${stats?.sessionFindings ?? '?'} new findings, ${stats?.totalTopicFindings ?? '?'} total` }));
+      const sessionId = data.session_id as string;
       setDeepDiveOpen(null);
-      load();
+      setDeepDiveStatus((s) => ({ ...s, [d.topic]: `running — session ${sessionId.slice(0, 8)}…` }));
+
+      // Poll until complete
+      const poll = setInterval(async () => {
+        try {
+          const r = await fetch(`/api/research/${sessionId}`);
+          if (!r.ok) return;
+          const rd = await r.json();
+          const status = rd?.session?.status ?? 'pending';
+          if (status === 'complete') {
+            clearInterval(poll);
+            setDeepDiveStatus((s) => ({ ...s, [d.topic]: 'complete — refresh to see updated content' }));
+            load();
+          } else if (status === 'failed') {
+            clearInterval(poll);
+            setDeepDiveStatus((s) => ({ ...s, [d.topic]: `failed — ${(rd?.session?.error_log ?? []).join('; ')}` }));
+          } else {
+            setDeepDiveStatus((s) => ({ ...s, [d.topic]: `${SESSION_STATUS_LABELS[status] ?? status}…` }));
+          }
+        } catch { /* network blip */ }
+      }, 8000);
     } catch (err) {
       setDeepDiveStatus((s) => ({ ...s, [d.topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
     }
