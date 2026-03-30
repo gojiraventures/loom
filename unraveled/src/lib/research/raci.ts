@@ -46,8 +46,10 @@ export function assignRaci(
   topic: string,
   researchQuestions: string[],
   forceResponsible?: string[], // agent IDs that must be Responsible
+  additionalContext?: string,  // description / source hints — contribute to keyword scoring
 ): RaciAssignment {
-  const keywords = extractKeywords(topic, researchQuestions);
+  const contextSnippet = additionalContext ? additionalContext.slice(0, 500) : '';
+  const keywords = extractKeywords(topic + ' ' + contextSnippet, researchQuestions);
 
   const scored: RaciScored[] = RESEARCH_AGENTS.map((agent) => ({
     agent,

@@ -27,8 +27,8 @@ export async function runLayer1(
 ): Promise<Layer1Result> {
   await updateSessionStatus(sessionId, 'researching');
 
-  // Assign RACI
-  const raci = assignRaci(topic, researchQuestions);
+  // Assign RACI — include additionalContext (description) in keyword scoring
+  const raci = assignRaci(topic, researchQuestions, undefined, additionalContext);
   await setRaciAssignments(sessionId, raci);
 
   // With no research questions, run ALL research agents for broad coverage.
