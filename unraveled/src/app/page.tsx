@@ -1,165 +1,91 @@
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
-import { ConvergenceCard } from "@/components/ConvergenceCard";
-import { ArrowDown, BookOpen, Scale, HelpCircle } from "lucide-react";
-import { getPublishedTopics } from "@/lib/topics";
+import Link from 'next/link';
 
-const METHODOLOGY_STEPS = [
-  {
-    icon: BookOpen,
-    label: "Primary Sources",
-    description: "Sacred texts, archaeological reports, and academic publications — not Wikipedia summaries.",
-  },
-  {
-    icon: Scale,
-    label: "Advocate & Skeptic",
-    description: "Every claim is argued at full strength from both sides. Neither agent wins. You decide.",
-  },
-  {
-    icon: HelpCircle,
-    label: "Open Questions",
-    description: "We publish what neither side can fully explain. The unresolved tension is the point.",
-  },
-];
+export const metadata = {
+  title: 'Coming Soon — UnraveledTruth',
+  description: 'Something is being uncovered. UnraveledTruth launches soon.',
+  robots: { index: false, follow: false },
+};
 
-export default async function HomePage() {
-  const publishedTopics = await getPublishedTopics();
-
+export default function ComingSoonPage() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
+    <div className="min-h-screen bg-ground flex flex-col items-center justify-center px-6 relative overflow-hidden">
 
-      {/* Hero */}
-      <section className="flex-1 flex flex-col justify-center px-6 pt-24 pb-16">
-        <div className="max-w-[var(--spacing-content)] mx-auto w-full">
-          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
-            Cross-Tradition Evidence Index
+      {/* Background texture */}
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: `repeating-linear-gradient(
+            0deg, transparent, transparent 40px,
+            rgba(200,149,108,0.5) 40px, rgba(200,149,108,0.5) 41px
+          ), repeating-linear-gradient(
+            90deg, transparent, transparent 40px,
+            rgba(200,149,108,0.5) 40px, rgba(200,149,108,0.5) 41px
+          )`,
+        }}
+      />
+
+      {/* Radial glow */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(200,149,108,0.06) 0%, transparent 70%)',
+        }}
+      />
+
+      <div className="relative z-10 text-center max-w-2xl mx-auto">
+
+        {/* Eyebrow */}
+        <div className="inline-flex items-center gap-2 mb-10">
+          <div className="w-8 h-px bg-gold/40" />
+          <span className="font-mono text-[9px] tracking-[0.35em] uppercase text-text-tertiary">
+            Something is being uncovered
           </span>
-          <h1 className="font-serif text-[clamp(40px,8vw,72px)] font-normal leading-[1.05] tracking-tight mt-4 mb-6">
-            Unraveled
-          </h1>
-          <p className="text-lg sm:text-xl text-text-secondary leading-relaxed max-w-xl mb-4">
-            Where ancient threads meet.
-          </p>
-          <p className="text-base text-text-secondary/70 leading-relaxed max-w-xl mb-12">
-            When geographically isolated civilizations independently describe the same
-            phenomena with structural specificity — that&apos;s not coincidence.
-            That&apos;s a pattern worth investigating.
-          </p>
-          <a
-            href="/topics/the-great-flood"
-            className="inline-flex items-center gap-2 font-mono text-sm tracking-wide text-gold border border-gold/30 bg-gold/5 px-6 py-3 rounded hover:bg-gold/10 transition-colors"
-          >
-            Begin with the Flood
-            <ArrowDown size={16} />
-          </a>
+          <div className="w-8 h-px bg-gold/40" />
         </div>
-      </section>
 
-      {/* Stats bar */}
-      <section className="border-y border-border">
-        <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-8 grid grid-cols-2 sm:grid-cols-4 gap-6">
-          {[
-            { value: "268+", label: "Flood Narratives" },
-            { value: "142", label: "Cultures Documented" },
-            { value: "6", label: "Continents" },
-            { value: "47", label: "Independent Sources" },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <div className="font-serif text-3xl text-gold">{stat.value}</div>
-              <div className="font-mono text-[9px] tracking-[0.15em] uppercase text-text-tertiary mt-1">
-                {stat.label}
-              </div>
-            </div>
-          ))}
+        {/* Wordmark */}
+        <h1 className="font-serif text-[clamp(36px,8vw,80px)] font-normal leading-[1.0] tracking-tight mb-3">
+          Unraveled<span className="text-gold">Truth</span>
+        </h1>
+
+        {/* Domain */}
+        <p className="font-mono text-[11px] tracking-[0.3em] uppercase text-text-tertiary mb-10">
+          unraveledtruth.com
+        </p>
+
+        {/* Tagline */}
+        <p className="text-lg sm:text-xl text-text-secondary leading-relaxed max-w-lg mx-auto mb-4">
+          When geographically isolated civilizations independently describe the
+          same phenomena — that&apos;s not coincidence.
+        </p>
+        <p className="text-base text-text-secondary/60 leading-relaxed max-w-md mx-auto mb-16">
+          A cross-tradition evidence index. No verdicts. Just patterns — and the
+          tension between those who believe them and those who don&apos;t.
+        </p>
+
+        {/* Divider */}
+        <div className="flex items-center gap-4 justify-center mb-10">
+          <div className="flex-1 max-w-[80px] h-px bg-border" />
+          <span className="font-mono text-[8px] tracking-[0.3em] uppercase text-text-tertiary">Launching soon</span>
+          <div className="flex-1 max-w-[80px] h-px bg-border" />
         </div>
-      </section>
 
-      {/* Convergence Cards */}
-      <section className="px-6 py-20">
-        <div className="max-w-[var(--spacing-content)] mx-auto">
-          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
-            The Pattern
-          </span>
-          <h2 className="font-serif text-3xl sm:text-4xl mt-2 mb-3">
-            Convergence Points
-          </h2>
-          <p className="text-text-secondary mb-10 max-w-xl">
-            Topics where multiple independent traditions describe the same phenomena.
-            Scored by source independence, structural specificity, physical
-            corroboration, and chronological consistency.
-          </p>
-          <div className="space-y-px">
-            {publishedTopics.map((topic, i) => (
-              <ConvergenceCard
-                key={topic.slug}
-                index={i}
-                title={topic.title}
-                score={topic.convergence_score}
-                traditions={topic.key_traditions}
-                jawDrop={topic.summary ?? ''}
-                href={`/topics/${topic.slug}`}
-              />
-            ))}
-            {publishedTopics.length === 0 && (
-              <div className="py-16 text-center text-text-tertiary text-sm">
-                No published topics yet.
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+        {/* CTA */}
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest border border-gold/40 text-gold px-6 py-3 hover:bg-gold/10 transition-colors"
+        >
+          Sign In
+          <span>→</span>
+        </Link>
+      </div>
 
-      {/* Methodology */}
-      <section className="px-6 py-20 border-t border-border">
-        <div className="max-w-[var(--spacing-content)] mx-auto">
-          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
-            How We Work
-          </span>
-          <h2 className="font-serif text-3xl sm:text-4xl mt-2 mb-3">
-            The Advocate / Skeptic Model
-          </h2>
-          <p className="text-text-secondary mb-12 max-w-xl">
-            We don&apos;t tell you what to believe. We show you what we found.
-          </p>
-          <div className="grid sm:grid-cols-3 gap-8">
-            {METHODOLOGY_STEPS.map((step) => (
-              <div
-                key={step.label}
-                className="p-6 border border-border bg-ground-light/50"
-              >
-                <step.icon size={20} className="text-gold mb-4" strokeWidth={1.5} />
-                <h3 className="font-mono text-xs tracking-wider uppercase mb-2">
-                  {step.label}
-                </h3>
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  {step.description}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* Flow diagram */}
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-3 text-text-tertiary">
-            {[
-              "Primary Sources",
-              "Cross-Reference",
-              "Advocate Case",
-              "Skeptic Case",
-              "You Decide",
-            ].map((step, i) => (
-              <div key={step} className="flex items-center gap-3">
-                <span className="font-mono text-[10px] tracking-wider uppercase whitespace-nowrap">
-                  {step}
-                </span>
-                {i < 4 && <span className="text-gold">→</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <Footer />
+      {/* Bottom credit */}
+      <div className="absolute bottom-8 left-0 right-0 text-center">
+        <span className="font-mono text-[8px] tracking-[0.2em] uppercase text-text-tertiary/40">
+          Advocate · Skeptic · You Decide
+        </span>
+      </div>
     </div>
   );
 }
