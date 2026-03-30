@@ -1,24 +1,22 @@
-import { after } from 'next/server';
-import { NextRequest, NextResponse } from 'next/server';
-import { createSession, updateSessionStatus, logSessionError } from '@/lib/research/storage/sessions';
-import { getFindingsByTopic } from '@/lib/research/storage/findings';
-import { getValidationsBySession } from '@/lib/research/storage/validations';
-import { runLayer1, buildCrossValidationPlan } from '@/lib/research/pipeline';
-import { runAllCrossValidation } from '@/lib/research/agents/cross-validator';
-import { runConvergenceLayer } from '@/lib/research/agents/convergence-runner';
-import { runDebate } from '@/lib/research/agents/debate-runner';
-import { runSynthesis } from '@/lib/research/agents/synthesizer';
-import { accumulateDossier } from '@/lib/research/dossier';
-import type { AgentFinding } from '@/lib/research/types';
-
-export const maxDuration = 300;
-
 /**
  * POST /api/research/deep-dive
  *
- * Runs a targeted supplemental research session on an existing topic.
- * Returns 202 immediately with session_id — pipeline runs via after().
+ * Targeted supplemental session on an existing topic.
+ * Runs Phase 1 (with focus context) via after(), then chains to /continue.
  */
+import { after } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { createSession, updateSessionStatus, logSessionError } from '@/lib/research/storage/sessions';
+import { runLayer1 } from '@/lib/research/pipeline';
+
+export const maxDuration = 300;
+
+function getSiteUrl(req: NextRequest): string {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
+  const { protocol, host } = new URL(req.url);
+  return `${protocol}//${host}`;
+}
+
 export async function POST(req: NextRequest) {
   let body: unknown;
   try { body = await req.json(); } catch {
@@ -50,99 +48,34 @@ Do not give these topics a surface-level mention. Go deep. If you know of specif
     research_questions: research_questions.map(String),
   });
   const sessionId = session.id;
+  const siteUrl = getSiteUrl(req);
 
   after(async () => {
-    const errors: string[] = [];
     try {
-      const { AGENT_REGISTRY } = await import('@/lib/research/agents/definitions');
-      const { assignRaci, getActiveAgents } = await import('@/lib/research/raci');
-      const { executeAgent } = await import('@/lib/research/agents/executor');
-      const { setRaciAssignments } = await import('@/lib/research/storage/sessions');
+      const layer1 = await runLayer1(
+        sessionId,
+        topic.trim(),
+        research_questions.map(String),
+        additionalContext,
+      );
+      console.log(`[deep-dive:${sessionId}] Layer 1 complete: ${layer1.allFindings.length} findings`);
 
-      await updateSessionStatus(sessionId, 'researching');
-      const raci = assignRaci(topic.trim(), research_questions.map(String));
-      await setRaciAssignments(sessionId, raci);
-
-      const activeAgentIds = getActiveAgents(raci);
-      const execPromises = activeAgentIds.map((agentId) => {
-        const def = AGENT_REGISTRY[agentId];
-        if (!def) return Promise.resolve({
-          agentId, findings: [], findingIds: [], inputTokens: 0,
-          outputTokens: 0, durationMs: 0, error: `Agent not found: ${agentId}`,
-        });
-        return executeAgent(def, topic.trim(), research_questions.map(String), {
-          sessionId,
-          additionalContext,
-        });
-      });
-
-      const settled = await Promise.allSettled(execPromises);
-      const { getFindingsBySession } = await import('@/lib/research/storage/findings');
-      const sessionFindings = await getFindingsBySession(sessionId);
-
-      for (const r of settled) {
-        if (r.status === 'fulfilled' && r.value.error) {
-          errors.push(`[${r.value.agentId}] ${r.value.error}`);
-          await logSessionError(sessionId, `Agent ${r.value.agentId}: ${r.value.error}`);
-        }
-      }
-
-      if (sessionFindings.length === 0) {
+      if (layer1.allFindings.length === 0) {
         await updateSessionStatus(sessionId, 'failed');
-        await logSessionError(sessionId, 'Deep dive produced no findings');
+        await logSessionError(sessionId, 'Deep dive Layer 1 produced no findings');
         return;
       }
 
       await updateSessionStatus(sessionId, 'cross_validating');
-      const crossValPlan = buildCrossValidationPlan(sessionId, topic.trim(), research_questions.map(String), sessionFindings);
-      const reviewerIds = [...new Set(crossValPlan.map((p) => p.reviewerAgentId))];
-      await runAllCrossValidation(sessionId, topic.trim(), sessionFindings, reviewerIds);
-      const sessionValidations = await getValidationsBySession(sessionId);
 
-      await updateSessionStatus(sessionId, 'converging');
-      const convergenceResults = await runConvergenceLayer(sessionId, topic.trim(), sessionFindings);
-      const convergenceAnalyses = convergenceResults.filter((r) => r.analysis !== null).map((r) => r.analysis!);
+      fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
+        .catch((e) => console.error(`[deep-dive:${sessionId}] chain fire failed:`, e));
 
-      await updateSessionStatus(sessionId, 'debating');
-      const debateResult = await runDebate(sessionId, topic.trim(), sessionFindings, convergenceAnalyses);
-      if (debateResult.error || !debateResult.debate) {
-        await updateSessionStatus(sessionId, 'failed');
-        await logSessionError(sessionId, `Debate failed: ${debateResult.error}`);
-        return;
-      }
-
-      await updateSessionStatus(sessionId, 'synthesizing');
-      const allTopicFindings = await getFindingsByTopic(topic.trim()) as (AgentFinding & { id: string })[];
-
-      const synthesisResult = await runSynthesis(
-        sessionId,
-        topic.trim(),
-        allTopicFindings,
-        sessionValidations,
-        convergenceAnalyses,
-        debateResult.debate,
-      );
-
-      if (synthesisResult.error || !synthesisResult.output) {
-        await updateSessionStatus(sessionId, 'failed');
-        await logSessionError(sessionId, `Synthesis failed: ${synthesisResult.error}`);
-        return;
-      }
-
-      await accumulateDossier({
-        topic: topic.trim(),
-        title: title.trim(),
-        findings: allTopicFindings,
-        convergenceAnalyses,
-        debate: debateResult.debate,
-        output: synthesisResult.output,
-      });
-
-      await updateSessionStatus(sessionId, 'complete');
-      console.log(`[deep-dive] Session ${sessionId} complete`);
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[deep-dive:${sessionId}] Layer 1 error:`, message);
       await updateSessionStatus(sessionId, 'failed').catch(() => null);
-      console.error(`[deep-dive] Pipeline error for ${sessionId}:`, err instanceof Error ? err.message : err);
+      await logSessionError(sessionId, message).catch(() => null);
     }
   });
 
