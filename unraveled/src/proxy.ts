@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const ADMIN_EMAIL = 'mikeburnsninnovate@gmail.com';
+const ADMIN_EMAIL = 'mikeburnsinnovate@gmail.com';
 
 // Paths that don't require auth
 const PUBLIC_PATHS = new Set(['/', '/login']);
