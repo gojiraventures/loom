@@ -545,7 +545,7 @@ function SessionsTab() {
     }
   };
 
-  const canRerun = (status: string) => status === 'failed' || status === 'debating' || status === 'synthesizing';
+  const canRerun = (status: string) => ['failed', 'cross_validating', 'converging', 'debating', 'synthesizing'].includes(status);
 
   return (
     <div className="space-y-6">
