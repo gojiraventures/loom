@@ -26,6 +26,12 @@ export function Header() {
         </Link>
         <nav className="flex items-center gap-6">
           <Link
+            href="/explore"
+            className="font-mono text-[10px] tracking-[0.12em] uppercase text-text-tertiary hover:text-gold transition-colors"
+          >
+            Graph
+          </Link>
+          <Link
             href="/topics/the-great-flood"
             className="font-mono text-[10px] tracking-[0.12em] uppercase text-text-tertiary hover:text-text-primary transition-colors"
           >
