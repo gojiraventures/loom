@@ -1,23 +1,34 @@
 /**
  * POST /api/research
  *
- * Creates a session and runs Phase 1 (Layer 1 research agents) via after().
- * Returns 202 immediately with the session ID.
- * After Phase 1 completes, fires /api/research/[sessionId]/continue which
- * self-chains through the remaining phases — each in its own fresh 300s window.
+ * Creates a session, returns 202 immediately, then runs the ENTIRE pipeline
+ * inside after() — no HTTP self-calls, no URL dependency, no chaining.
+ *
+ * Total pipeline time ~250s, well within the 300s Vercel Pro limit.
+ *
+ * Phase 1 (Layer 1 agents):          ~150s
+ * Phase 2 (cross-validation):         ~15s
+ * Phase 3 (convergence):              ~10s
+ * Phase 4 (debate):                   ~25s
+ * Phase 5 (synthesis + dossier):      ~20s
+ *                                    ------
+ *                                    ~220s total
  */
 import { after } from 'next/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { createSession, updateSessionStatus, logSessionError } from '@/lib/research/storage/sessions';
-import { runLayer1 } from '@/lib/research/pipeline';
+import { getFindingsBySession } from '@/lib/research/storage/findings';
+import { getValidationsBySession } from '@/lib/research/storage/validations';
+import { getConvergenceBySession } from '@/lib/research/storage/convergence';
+import { runLayer1, buildCrossValidationPlan } from '@/lib/research/pipeline';
+import { runAllCrossValidation } from '@/lib/research/agents/cross-validator';
+import { runConvergenceLayer } from '@/lib/research/agents/convergence-runner';
+import { runDebate } from '@/lib/research/agents/debate-runner';
+import { runSynthesis } from '@/lib/research/agents/synthesizer';
+import { accumulateDossier } from '@/lib/research/dossier';
+import type { AgentFinding } from '@/lib/research/types';
 
 export const maxDuration = 300;
-
-function getSiteUrl(req: NextRequest): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
-  const { protocol, host } = new URL(req.url);
-  return `${protocol}//${host}`;
-}
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -57,18 +68,16 @@ export async function POST(req: NextRequest) {
   }
 
   const sessionId = session.id;
-  const siteUrl = getSiteUrl(req);
+  const topicStr = topic.trim();
+  const titleStr = title.trim();
+  const questionsArr = research_questions.map(String);
 
-  // Phase 1 only — then chain remaining phases via /continue (each gets fresh 300s)
   after(async () => {
     try {
-      const layer1 = await runLayer1(
-        sessionId,
-        topic.trim(),
-        research_questions.map(String),
-        additionalContext,
-      );
-      console.log(`[research:${sessionId}] Layer 1 complete: ${layer1.allFindings.length} findings`);
+      // Phase 1: Layer 1 research agents
+      console.log(`[research:${sessionId}] Phase 1: layer 1 agents`);
+      const layer1 = await runLayer1(sessionId, topicStr, questionsArr, additionalContext);
+      console.log(`[research:${sessionId}] Phase 1 complete: ${layer1.allFindings.length} findings`);
 
       if (layer1.allFindings.length === 0) {
         await updateSessionStatus(sessionId, 'failed');
@@ -76,15 +85,56 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      await updateSessionStatus(sessionId, 'cross_validating');
+      const findings = await getFindingsBySession(sessionId) as (AgentFinding & { id: string })[];
 
-      // Await the chain call so it is actually sent before this after() exits
-      await fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
-        .catch((e) => console.error(`[research:${sessionId}] chain fire failed:`, e));
+      // Phase 2: Cross-validation
+      console.log(`[research:${sessionId}] Phase 2: cross-validation`);
+      await updateSessionStatus(sessionId, 'cross_validating');
+      const crossValPlan = buildCrossValidationPlan(sessionId, topicStr, questionsArr, findings);
+      const reviewerIds = [...new Set(crossValPlan.map((p) => p.reviewerAgentId))];
+      await runAllCrossValidation(sessionId, topicStr, findings, reviewerIds);
+
+      // Phase 3: Convergence
+      console.log(`[research:${sessionId}] Phase 3: convergence`);
+      await updateSessionStatus(sessionId, 'converging');
+      await runConvergenceLayer(sessionId, topicStr, findings);
+      const convergenceAnalyses = await getConvergenceBySession(sessionId);
+
+      // Phase 4: Debate
+      console.log(`[research:${sessionId}] Phase 4: debate`);
+      await updateSessionStatus(sessionId, 'debating');
+      const debateResult = await runDebate(sessionId, topicStr, findings, convergenceAnalyses);
+      if (debateResult.error || !debateResult.debate) {
+        const errMsg = debateResult.error ?? 'Debate produced no output';
+        await logSessionError(sessionId, errMsg);
+        await updateSessionStatus(sessionId, 'failed');
+        return;
+      }
+
+      // Phase 5: Synthesis + dossier
+      console.log(`[research:${sessionId}] Phase 5: synthesis`);
+      await updateSessionStatus(sessionId, 'synthesizing');
+      const allValidations = await getValidationsBySession(sessionId);
+      const synthesisResult = await runSynthesis(
+        sessionId, topicStr, findings, allValidations, convergenceAnalyses, debateResult.debate,
+      );
+      if (synthesisResult.error || !synthesisResult.output) {
+        const errMsg = synthesisResult.error ?? 'Synthesis produced no output';
+        await logSessionError(sessionId, errMsg);
+        await updateSessionStatus(sessionId, 'failed');
+        return;
+      }
+
+      await accumulateDossier({
+        topic: topicStr, title: titleStr, findings, convergenceAnalyses,
+        debate: debateResult.debate, output: synthesisResult.output,
+      });
+      await updateSessionStatus(sessionId, 'complete');
+      console.log(`[research:${sessionId}] Complete ✓`);
 
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[research:${sessionId}] Layer 1 error:`, message);
+      console.error(`[research:${sessionId}] pipeline error:`, message);
       await updateSessionStatus(sessionId, 'failed').catch(() => null);
       await logSessionError(sessionId, message).catch(() => null);
     }

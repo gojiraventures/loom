@@ -2,20 +2,23 @@
  * POST /api/research/deep-dive
  *
  * Targeted supplemental session on an existing topic.
- * Runs Phase 1 (with focus context) via after(), then chains to /continue.
+ * Runs the ENTIRE pipeline inside after() — no HTTP self-calls, no chaining.
  */
 import { after } from 'next/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { createSession, updateSessionStatus, logSessionError } from '@/lib/research/storage/sessions';
-import { runLayer1 } from '@/lib/research/pipeline';
+import { getFindingsBySession } from '@/lib/research/storage/findings';
+import { getValidationsBySession } from '@/lib/research/storage/validations';
+import { getConvergenceBySession } from '@/lib/research/storage/convergence';
+import { runLayer1, buildCrossValidationPlan } from '@/lib/research/pipeline';
+import { runAllCrossValidation } from '@/lib/research/agents/cross-validator';
+import { runConvergenceLayer } from '@/lib/research/agents/convergence-runner';
+import { runDebate } from '@/lib/research/agents/debate-runner';
+import { runSynthesis } from '@/lib/research/agents/synthesizer';
+import { accumulateDossier } from '@/lib/research/dossier';
+import type { AgentFinding } from '@/lib/research/types';
 
 export const maxDuration = 300;
-
-function getSiteUrl(req: NextRequest): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
-  const { protocol, host } = new URL(req.url);
-  return `${protocol}//${host}`;
-}
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -48,17 +51,16 @@ Do not give these topics a surface-level mention. Go deep. If you know of specif
     research_questions: research_questions.map(String),
   });
   const sessionId = session.id;
-  const siteUrl = getSiteUrl(req);
+  const topicStr = topic.trim();
+  const titleStr = title.trim();
+  const questionsArr = research_questions.map(String);
 
   after(async () => {
     try {
-      const layer1 = await runLayer1(
-        sessionId,
-        topic.trim(),
-        research_questions.map(String),
-        additionalContext,
-      );
-      console.log(`[deep-dive:${sessionId}] Layer 1 complete: ${layer1.allFindings.length} findings`);
+      // Phase 1: Layer 1 research agents (with deep-dive focus context)
+      console.log(`[deep-dive:${sessionId}] Phase 1: layer 1 agents`);
+      const layer1 = await runLayer1(sessionId, topicStr, questionsArr, additionalContext);
+      console.log(`[deep-dive:${sessionId}] Phase 1 complete: ${layer1.allFindings.length} findings`);
 
       if (layer1.allFindings.length === 0) {
         await updateSessionStatus(sessionId, 'failed');
@@ -66,14 +68,56 @@ Do not give these topics a surface-level mention. Go deep. If you know of specif
         return;
       }
 
-      await updateSessionStatus(sessionId, 'cross_validating');
+      const findings = await getFindingsBySession(sessionId) as (AgentFinding & { id: string })[];
 
-      await fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
-        .catch((e) => console.error(`[deep-dive:${sessionId}] chain fire failed:`, e));
+      // Phase 2: Cross-validation
+      console.log(`[deep-dive:${sessionId}] Phase 2: cross-validation`);
+      await updateSessionStatus(sessionId, 'cross_validating');
+      const crossValPlan = buildCrossValidationPlan(sessionId, topicStr, questionsArr, findings);
+      const reviewerIds = [...new Set(crossValPlan.map((p) => p.reviewerAgentId))];
+      await runAllCrossValidation(sessionId, topicStr, findings, reviewerIds);
+
+      // Phase 3: Convergence
+      console.log(`[deep-dive:${sessionId}] Phase 3: convergence`);
+      await updateSessionStatus(sessionId, 'converging');
+      await runConvergenceLayer(sessionId, topicStr, findings);
+      const convergenceAnalyses = await getConvergenceBySession(sessionId);
+
+      // Phase 4: Debate
+      console.log(`[deep-dive:${sessionId}] Phase 4: debate`);
+      await updateSessionStatus(sessionId, 'debating');
+      const debateResult = await runDebate(sessionId, topicStr, findings, convergenceAnalyses);
+      if (debateResult.error || !debateResult.debate) {
+        const errMsg = debateResult.error ?? 'Debate produced no output';
+        await logSessionError(sessionId, errMsg);
+        await updateSessionStatus(sessionId, 'failed');
+        return;
+      }
+
+      // Phase 5: Synthesis + dossier
+      console.log(`[deep-dive:${sessionId}] Phase 5: synthesis`);
+      await updateSessionStatus(sessionId, 'synthesizing');
+      const allValidations = await getValidationsBySession(sessionId);
+      const synthesisResult = await runSynthesis(
+        sessionId, topicStr, findings, allValidations, convergenceAnalyses, debateResult.debate,
+      );
+      if (synthesisResult.error || !synthesisResult.output) {
+        const errMsg = synthesisResult.error ?? 'Synthesis produced no output';
+        await logSessionError(sessionId, errMsg);
+        await updateSessionStatus(sessionId, 'failed');
+        return;
+      }
+
+      await accumulateDossier({
+        topic: topicStr, title: titleStr, findings, convergenceAnalyses,
+        debate: debateResult.debate, output: synthesisResult.output,
+      });
+      await updateSessionStatus(sessionId, 'complete');
+      console.log(`[deep-dive:${sessionId}] Complete ✓`);
 
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[deep-dive:${sessionId}] Layer 1 error:`, message);
+      console.error(`[deep-dive:${sessionId}] pipeline error:`, message);
       await updateSessionStatus(sessionId, 'failed').catch(() => null);
       await logSessionError(sessionId, message).catch(() => null);
     }
