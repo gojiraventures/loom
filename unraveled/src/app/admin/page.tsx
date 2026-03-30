@@ -1560,6 +1560,533 @@ function PeopleTab() {
   );
 }
 
+// ── Institutions Tab ──────────────────────────────────────────────────────────
+
+interface InstitutionRow {
+  id: string;
+  slug: string;
+  name: string;
+  short_name?: string;
+  institution_type: string;
+  transparency_tier: string;
+  status: string;
+  short_bio?: string;
+  headquarters_city?: string;
+  headquarters_country?: string;
+  people_count?: number;
+  relationship_count?: number;
+}
+
+interface AIInstitutionResult {
+  name: string;
+  slug?: string;
+  short_name?: string;
+  known_as?: string[];
+  short_bio?: string;
+  bio?: string;
+  institution_type?: string;
+  transparency_tier?: string;
+  founded_year?: string;
+  headquarters_city?: string;
+  headquarters_state?: string;
+  headquarters_country?: string;
+  relevance_summary?: string;
+  controversy_summary?: string;
+  website_url?: string;
+  wikipedia_url?: string;
+  bio_sections?: Array<{ section_type: string; title: string; content: string; sort_order: number }>;
+  suggested_relationships?: Array<{ institution_name: string; relationship_type: string; description: string; covert: boolean; start_year?: string }>;
+}
+
+const INSTITUTION_TYPES = [
+  'museum', 'university', 'intelligence', 'secret_society', 'government_agency',
+  'military', 'religious', 'think_tank', 'research_institute', 'other',
+];
+
+const TRANSPARENCY_TIERS = [
+  'open', 'standard', 'opaque', 'classified', 'defunct_classified',
+];
+
+const INST_TYPE_BADGE: Record<string, string> = {
+  museum: 'text-sky-400 border-sky-400/30',
+  university: 'text-violet-400 border-violet-400/30',
+  intelligence: 'text-red-400 border-red-400/30',
+  secret_society: 'text-amber-400 border-amber-400/30',
+  government_agency: 'text-orange-400 border-orange-400/30',
+  military: 'text-red-400 border-red-400/30',
+  religious: 'text-purple-400 border-purple-400/30',
+  think_tank: 'text-emerald-400 border-emerald-400/30',
+  research_institute: 'text-teal-400 border-teal-400/30',
+};
+
+const INST_TIER_BADGE: Record<string, string> = {
+  open: 'text-emerald-400 border-emerald-400/30',
+  standard: 'text-text-tertiary border-border',
+  opaque: 'text-amber-400 border-amber-400/30',
+  classified: 'text-red-400 border-red-400/30',
+  defunct_classified: 'text-orange-400 border-orange-400/30',
+};
+
+function InstitutionsTab() {
+  const [institutions, setInstitutions] = useState<InstitutionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchName, setSearchName] = useState('');
+  const [institutionDescription, setInstitutionDescription] = useState('');
+  const [institutionSources, setInstitutionSources] = useState('');
+  const [researching, setResearching] = useState(false);
+  const [researchResult, setResearchResult] = useState<AIInstitutionResult | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editFields, setEditFields] = useState<Record<string, string>>({});
+  const [activeSection, setActiveSection] = useState<'list' | 'add'>('list');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/institutions');
+      const data = await res.json();
+      setInstitutions(data.institutions ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const runResearch = async () => {
+    if (!searchName.trim()) return;
+    setResearching(true);
+    setResearchResult(null);
+    try {
+      const res = await fetch('/api/admin/institutions/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: searchName.trim(),
+          description: institutionDescription.trim() || undefined,
+          sources: institutionSources.trim() || undefined,
+        }),
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.error as string) ?? 'Research failed');
+      setResearchResult(data.institution as AIInstitutionResult);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setResearching(false);
+    }
+  };
+
+  const saveInstitution = async () => {
+    if (!researchResult) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/institutions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          institution: { ...researchResult, status: 'draft' },
+          bio_sections: researchResult.bio_sections ?? [],
+          suggested_relationships: researchResult.suggested_relationships ?? [],
+        }),
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.error as string) ?? 'Save failed');
+      setResearchResult(null);
+      setSearchName('');
+      setActiveSection('list');
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const patchInstitution = async (id: string, fields: Record<string, unknown>) => {
+    await fetch('/api/admin/institutions', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...fields }),
+    });
+    await load();
+  };
+
+  const deleteInstitution = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    await fetch(`/api/admin/institutions?id=${id}`, { method: 'DELETE' });
+    await load();
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="font-serif text-2xl mb-1">Institutions</h2>
+          <p className="text-sm text-text-secondary">
+            Agencies, societies, universities, and organizations in the evidence index.
+            AI auto-populates profiles from a name.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveSection('list')}
+            className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border rounded transition-colors ${activeSection === 'list' ? 'border-gold text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+          >
+            List
+          </button>
+          <button
+            onClick={() => setActiveSection('add')}
+            className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border rounded transition-colors ${activeSection === 'add' ? 'border-gold text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+          >
+            + Add Institution
+          </button>
+        </div>
+      </div>
+
+      {/* ADD SECTION */}
+      {activeSection === 'add' && (
+        <div className="border border-border bg-ground-light rounded p-6 space-y-6">
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+              Institution Name
+            </label>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 bg-ground border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                placeholder="e.g. Central Intelligence Agency"
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && runResearch()}
+              />
+              <button
+                onClick={runResearch}
+                disabled={researching || !searchName.trim()}
+                className="font-mono text-sm px-5 py-2 border border-gold/30 bg-gold/5 text-gold hover:bg-gold/10 transition-colors rounded disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {researching ? 'Researching…' : 'Research with AI →'}
+              </button>
+            </div>
+            <p className="mt-1 font-mono text-[9px] text-text-tertiary">
+              Claude + Perplexity will auto-fill overview, programs, departments, and more.
+            </p>
+          </div>
+
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+              Description <span className="normal-case tracking-normal opacity-60">(optional — disambiguate or focus the AI)</span>
+            </label>
+            <textarea
+              className="w-full bg-ground border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-gold/50 rounded resize-none"
+              rows={2}
+              placeholder="e.g. US federal intelligence agency, not the UK-based charity of the same name"
+              value={institutionDescription}
+              onChange={(e) => setInstitutionDescription(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+              Source Hints <span className="normal-case tracking-normal opacity-60">(optional — URLs, one per line)</span>
+            </label>
+            <textarea
+              className="w-full bg-ground border border-border px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded resize-none"
+              rows={2}
+              placeholder={"https://www.cia.gov\nhttps://en.wikipedia.org/wiki/Central_Intelligence_Agency"}
+              value={institutionSources}
+              onChange={(e) => setInstitutionSources(e.target.value)}
+            />
+          </div>
+
+          {/* Research result preview */}
+          {researchResult && (
+            <div className="border border-gold/20 bg-gold/5 rounded p-5 space-y-5">
+              <div className="flex items-start justify-between">
+                <h3 className="font-serif text-xl">{researchResult.name}</h3>
+                <span className="font-mono text-[8px] uppercase tracking-widest border border-gold/30 text-gold px-2 py-0.5 rounded">
+                  AI Draft
+                </span>
+              </div>
+
+              {/* Editable fields preview */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: 'short_bio', label: 'Short bio' },
+                  { key: 'institution_type', label: 'Type' },
+                  { key: 'transparency_tier', label: 'Tier' },
+                  { key: 'founded_year', label: 'Founded' },
+                  { key: 'headquarters_city', label: 'HQ City' },
+                  { key: 'headquarters_country', label: 'HQ Country' },
+                ].map(({ key, label }) => (
+                  <div key={key} className={key === 'short_bio' ? 'col-span-2' : ''}>
+                    <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-0.5">{label}</p>
+                    {key === 'institution_type' ? (
+                      <select
+                        className="w-full bg-ground border border-border px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                        value={(researchResult[key as keyof AIInstitutionResult] as string) ?? ''}
+                        onChange={(e) => setResearchResult((prev) => prev ? { ...prev, [key]: e.target.value } : null)}
+                      >
+                        <option value="">—</option>
+                        {INSTITUTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    ) : key === 'transparency_tier' ? (
+                      <select
+                        className="w-full bg-ground border border-border px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                        value={(researchResult[key as keyof AIInstitutionResult] as string) ?? ''}
+                        onChange={(e) => setResearchResult((prev) => prev ? { ...prev, [key]: e.target.value } : null)}
+                      >
+                        <option value="">—</option>
+                        {TRANSPARENCY_TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        className="w-full bg-ground border border-border px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                        value={(researchResult[key as keyof AIInstitutionResult] as string) ?? ''}
+                        onChange={(e) => setResearchResult((prev) => prev ? { ...prev, [key]: e.target.value } : null)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {researchResult.bio && (
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-1">Bio preview</p>
+                  <p className="text-xs text-text-secondary leading-relaxed line-clamp-4">{researchResult.bio}</p>
+                </div>
+              )}
+
+              {researchResult.bio_sections && researchResult.bio_sections.length > 0 && (
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-1">
+                    {researchResult.bio_sections.length} bio sections generated
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {researchResult.bio_sections.map((s, i) => (
+                      <span key={i} className="font-mono text-[8px] text-text-tertiary border border-border px-1.5 py-0.5 rounded">
+                        {s.section_type}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {researchResult.suggested_relationships && researchResult.suggested_relationships.length > 0 && (
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-1">
+                    {researchResult.suggested_relationships.length} suggested relationships
+                  </p>
+                  <div className="space-y-1">
+                    {researchResult.suggested_relationships.slice(0, 4).map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-text-tertiary">
+                        <span className="border border-border px-1.5 py-0.5 rounded font-mono text-[8px]">{r.relationship_type}</span>
+                        <span>{r.institution_name}</span>
+                        {r.covert && <span className="font-mono text-[7px] border border-amber-400/30 text-amber-400 px-1 py-0.5 rounded">covert</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(researchResult.website_url || researchResult.wikipedia_url) && (
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-1">Links found</p>
+                  <div className="flex flex-wrap gap-2">
+                    {researchResult.website_url && <span className="font-mono text-[8px] border border-border px-1.5 py-0.5 rounded text-text-tertiary">website</span>}
+                    {researchResult.wikipedia_url && <span className="font-mono text-[8px] border border-border px-1.5 py-0.5 rounded text-text-tertiary">wikipedia</span>}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2 border-t border-border">
+                <button
+                  onClick={saveInstitution}
+                  disabled={saving}
+                  className="font-mono text-sm px-5 py-2 border border-gold/30 bg-gold/5 text-gold hover:bg-gold/10 transition-colors rounded disabled:opacity-40"
+                >
+                  {saving ? 'Saving…' : 'Save as Draft →'}
+                </button>
+                <button
+                  onClick={() => setResearchResult(null)}
+                  className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-text-secondary transition-colors px-3 py-2"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* LIST SECTION */}
+      {activeSection === 'list' && (
+        <div>
+          {loading ? (
+            <p className="text-text-tertiary font-mono text-sm">Loading…</p>
+          ) : institutions.length === 0 ? (
+            <p className="text-text-tertiary font-mono text-sm">No institutions yet. Add one above.</p>
+          ) : (
+            <div className="space-y-2">
+              {institutions.map((inst) => (
+                <div key={inst.id} className="border border-border bg-ground-light rounded p-4">
+                  {editingId === inst.id ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { key: 'short_bio', label: 'Short bio', span: true },
+                          { key: 'institution_type', label: 'Type' },
+                          { key: 'transparency_tier', label: 'Tier' },
+                          { key: 'status', label: 'Status' },
+                          { key: 'slug', label: 'Slug' },
+                          { key: 'headquarters_city', label: 'HQ City' },
+                          { key: 'headquarters_country', label: 'HQ Country' },
+                        ].map(({ key, label, span }) => (
+                          <div key={key} className={span ? 'col-span-3' : ''}>
+                            <label className="block font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-0.5">{label}</label>
+                            {key === 'institution_type' ? (
+                              <select
+                                className="w-full bg-ground border border-border px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                                value={editFields[key] ?? ''}
+                                onChange={(e) => setEditFields((f) => ({ ...f, [key]: e.target.value }))}
+                              >
+                                {INSTITUTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                            ) : key === 'transparency_tier' ? (
+                              <select
+                                className="w-full bg-ground border border-border px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                                value={editFields[key] ?? ''}
+                                onChange={(e) => setEditFields((f) => ({ ...f, [key]: e.target.value }))}
+                              >
+                                {TRANSPARENCY_TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                            ) : key === 'status' ? (
+                              <select
+                                className="w-full bg-ground border border-border px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                                value={editFields[key] ?? ''}
+                                onChange={(e) => setEditFields((f) => ({ ...f, [key]: e.target.value }))}
+                              >
+                                {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            ) : (
+                              <input
+                                className="w-full bg-ground border border-border px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                                value={editFields[key] ?? ''}
+                                onChange={(e) => setEditFields((f) => ({ ...f, [key]: e.target.value }))}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            await patchInstitution(inst.id, editFields);
+                            setEditingId(null);
+                          }}
+                          className="font-mono text-[9px] uppercase tracking-widest border border-gold/30 text-gold px-3 py-1.5 rounded hover:bg-gold/5 transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary px-3 py-1.5 rounded hover:text-text-secondary transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="font-serif text-base">{inst.name}</span>
+                          <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 rounded ${inst.status === 'published' ? 'text-emerald-400 border-emerald-400/30' : inst.status === 'archived' ? 'text-text-tertiary border-border' : 'text-amber-400 border-amber-400/30'}`}>
+                            {inst.status ?? 'draft'}
+                          </span>
+                          {inst.institution_type && (
+                            <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 rounded ${INST_TYPE_BADGE[inst.institution_type] ?? 'text-text-tertiary border-border'}`}>
+                              {inst.institution_type.replace(/_/g, ' ')}
+                            </span>
+                          )}
+                          {inst.transparency_tier && inst.transparency_tier !== 'standard' && (
+                            <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 rounded ${INST_TIER_BADGE[inst.transparency_tier] ?? 'text-text-tertiary border-border'}`}>
+                              {inst.transparency_tier.replace(/_/g, ' ')}
+                            </span>
+                          )}
+                        </div>
+                        {inst.short_bio && (
+                          <p className="text-xs text-text-tertiary line-clamp-1">{inst.short_bio}</p>
+                        )}
+                        <div className="flex flex-wrap gap-3 mt-1">
+                          {inst.slug && (
+                            <span className="font-mono text-[8px] text-text-tertiary">/institutions/{inst.slug}</span>
+                          )}
+                          {(inst.headquarters_city || inst.headquarters_country) && (
+                            <span className="font-mono text-[8px] text-text-tertiary">
+                              {[inst.headquarters_city, inst.headquarters_country].filter(Boolean).join(', ')}
+                            </span>
+                          )}
+                          {(inst.people_count ?? 0) > 0 && (
+                            <span className="font-mono text-[8px] text-text-tertiary">{inst.people_count} people</span>
+                          )}
+                          {(inst.relationship_count ?? 0) > 0 && (
+                            <span className="font-mono text-[8px] text-text-tertiary">{inst.relationship_count} connections</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {inst.slug && (
+                          <a
+                            href={`/institutions/${inst.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-gold hover:border-gold/30 transition-colors"
+                          >
+                            View
+                          </a>
+                        )}
+                        <button
+                          onClick={() => {
+                            setEditingId(inst.id);
+                            setEditFields({
+                              short_bio: inst.short_bio ?? '',
+                              institution_type: inst.institution_type ?? '',
+                              transparency_tier: inst.transparency_tier ?? 'standard',
+                              status: inst.status ?? 'draft',
+                              slug: inst.slug ?? '',
+                              headquarters_city: inst.headquarters_city ?? '',
+                              headquarters_country: inst.headquarters_country ?? '',
+                            });
+                          }}
+                          className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-gold hover:border-gold/30 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => patchInstitution(inst.id, { status: inst.status === 'published' ? 'draft' : 'published' })}
+                          className={`font-mono text-[8px] uppercase tracking-widest border px-2 py-1 rounded transition-colors ${inst.status === 'published' ? 'text-amber-400 border-amber-400/30 hover:bg-amber-400/5' : 'text-emerald-400 border-emerald-400/30 hover:bg-emerald-400/5'}`}
+                        >
+                          {inst.status === 'published' ? 'Unpublish' : 'Publish'}
+                        </button>
+                        <button
+                          onClick={() => deleteInstitution(inst.id, inst.name)}
+                          className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-red-400 hover:border-red-400/30 transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Admin Page ────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -1567,6 +2094,7 @@ const TABS = [
   { id: 'content', label: 'Content' },
   { id: 'media', label: 'Media Library' },
   { id: 'people', label: 'People' },
+  { id: 'institutions', label: 'Institutions' },
   { id: 'agents', label: 'Agents' },
   { id: 'sessions', label: 'Sessions' },
 ] as const;
@@ -1621,6 +2149,7 @@ export default function AdminPage() {
         {tab === 'content' && <ContentTab />}
         {tab === 'media' && <MediaTab />}
         {tab === 'people' && <PeopleTab />}
+        {tab === 'institutions' && <InstitutionsTab />}
         {tab === 'agents' && <AgentsTab />}
         {tab === 'sessions' && <SessionsTab />}
       </div>
