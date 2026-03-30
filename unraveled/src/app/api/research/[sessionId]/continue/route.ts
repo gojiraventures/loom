@@ -34,6 +34,11 @@ export async function POST(
   if (session.status === 'complete' || session.status === 'failed') {
     return NextResponse.json({ status: session.status });
   }
+  // Only run if Phase 1 is done (researched) or we're resuming a stuck mid-pipeline session
+  const resumableStatuses = ['researched', 'cross_validating', 'converging', 'debating', 'synthesizing'];
+  if (!resumableStatuses.includes(session.status)) {
+    return NextResponse.json({ error: `Session not ready for continue (status: ${session.status})` }, { status: 400 });
+  }
 
   const topic = session.topic as string;
   const title = session.title as string;

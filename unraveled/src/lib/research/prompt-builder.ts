@@ -122,13 +122,14 @@ MINIMUM: Return at least 5 findings. Aim for 8–15 high-quality findings with s
 CONFIDENCE CALIBRATION: 0.9+ = multiple independent primary sources confirm. 0.7–0.9 = solid secondary sources. 0.5–0.7 = reasonable inference. Below 0.5 = speculative, use sparingly.
 CREDIBILITY TIERS: 1 = primary text/peer-reviewed journal. 2 = university press book/excavation report. 3 = mainstream journalism/respected popular science. 4 = secondary commentary. 5 = fringe/unverified.`;
 
-  const questionsText = researchQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n');
+  const questionsSection = researchQuestions.length > 0
+    ? `## RESEARCH QUESTIONS\n${researchQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+    : `## RESEARCH APPROACH\nNo specific questions have been provided. Conduct comprehensive domain research on this topic. Surface the most significant, surprising, and well-evidenced findings within your area of expertise.`;
   const contextText = additionalContext ? `\n\n## ADDITIONAL CONTEXT\n${additionalContext}` : '';
 
   const userPrompt = `## RESEARCH TOPIC: ${topic}
 
-## RESEARCH QUESTIONS
-${questionsText}
+${questionsSection}
 ${contextText}
 
 Conduct your research within your domain of expertise (${def.domain}). Return your findings as the JSON structure specified in your instructions.`;

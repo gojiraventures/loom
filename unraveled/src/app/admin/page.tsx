@@ -64,6 +64,7 @@ const STATUS_COLORS: Record<string, string> = {
   failed: 'text-red-400',
   pending: 'text-text-tertiary',
   researching: 'text-sky-400',
+  researched: 'text-sky-400',
   cross_validating: 'text-sky-400',
   converging: 'text-amber-400',
   debating: 'text-orange-400',
@@ -88,6 +89,7 @@ function OceanBar({ label, value }: { label: string; value: number }) {
 const SESSION_STATUS_LABELS: Record<string, string> = {
   pending: 'Queued',
   researching: 'Layer 1 — Research agents',
+  researched: 'Layer 1 complete — launching analysis',
   cross_validating: 'Layer 2 — Cross-validation',
   converging: 'Layer 3 — Convergence analysis',
   debating: 'Layer 4 — Adversarial debate',
@@ -103,7 +105,7 @@ const MAX_ENHANCE_QUESTIONS = 3;
 function LaunchTab() {
   const [topic, setTopic] = useState('');
   const [title, setTitle] = useState('');
-  const [questions, setQuestions] = useState(['', '', '']);
+  const [questions, setQuestions] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [sources, setSources] = useState('');
   const [launchStatus, setLaunchStatus] = useState<'idle' | 'queuing' | 'polling' | 'done' | 'error'>('idle');
@@ -123,7 +125,10 @@ function LaunchTab() {
       const data = await res.json();
       const s = data?.session?.status ?? 'pending';
       setPipelineStatus(s);
-      if (s === 'complete' || s === 'failed') {
+      if (s === 'researched') {
+        // Phase 1 done — trigger phases 2-5 automatically
+        fetch(`/api/research/${id}/continue`, { method: 'POST' }).catch(console.error);
+      } else if (s === 'complete' || s === 'failed') {
         stopPolling();
         setLaunchStatus(s === 'complete' ? 'done' : 'error');
         if (s === 'failed') setErrorMsg(data?.session?.error_log?.join('\n') ?? 'Pipeline failed');
@@ -140,7 +145,7 @@ function LaunchTab() {
 
   const launch = async () => {
     const validQuestions = questions.filter((q) => q.trim());
-    if (!topic.trim() || !title.trim() || validQuestions.length === 0) return;
+    if (!topic.trim() || !title.trim()) return;
 
     stopPolling();
     setLaunchStatus('queuing');
@@ -217,7 +222,7 @@ function LaunchTab() {
 
         <div>
           <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
-            Research Questions
+            Research Questions <span className="normal-case tracking-normal opacity-60">(optional — agents research broadly without them)</span>
           </label>
           <p className="text-[10px] text-text-tertiary mb-2 font-mono">
             Max {MAX_FOUNDATION_QUESTIONS} per run. Add more later via Enhance on the Content tab.
@@ -231,14 +236,12 @@ function LaunchTab() {
                   value={q}
                   onChange={(e) => updateQuestion(i, e.target.value)}
                 />
-                {questions.length > 1 && (
-                  <button
-                    onClick={() => removeQuestion(i)}
-                    className="px-2 text-text-tertiary hover:text-red-400 transition-colors"
-                  >
-                    ×
-                  </button>
-                )}
+                <button
+                  onClick={() => removeQuestion(i)}
+                  className="px-2 text-text-tertiary hover:text-red-400 transition-colors"
+                >
+                  ×
+                </button>
               </div>
             ))}
           </div>
@@ -548,7 +551,10 @@ function SessionsTab() {
           if (!pr.ok) return;
           const pd = await pr.json();
           const st = pd?.session?.status ?? 'pending';
-          if (st === 'complete') {
+          if (st === 'researched') {
+            fetch(`/api/research/${newId}/continue`, { method: 'POST' }).catch(console.error);
+            setRerunStatus((r) => ({ ...r, [s.id]: `${SESSION_STATUS_LABELS['researched']}…` }));
+          } else if (st === 'complete') {
             clearInterval(pollRefs.current[s.id]);
             setRerunStatus((r) => ({ ...r, [s.id]: 'complete ✓' }));
             load();
@@ -565,7 +571,7 @@ function SessionsTab() {
     }
   };
 
-  const canRerun = (status: string) => ['failed', 'cross_validating', 'converging', 'debating', 'synthesizing'].includes(status);
+  const canRerun = (status: string) => ['failed', 'researched', 'cross_validating', 'converging', 'debating', 'synthesizing'].includes(status);
 
   const reviewSession = async (s: Session, action: 'approve' | 'reject') => {
     setReviewStatus((r) => ({ ...r, [s.id]: action === 'approve' ? 'approving…' : 'rejecting…' }));

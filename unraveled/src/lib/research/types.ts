@@ -185,6 +185,7 @@ export interface SynthesizedOutput {
 export type SessionStatus =
   | 'pending'
   | 'researching'
+  | 'researched'
   | 'cross_validating'
   | 'converging'
   | 'debating'
