@@ -1,0 +1,1080 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { getAllAgents } from '@/lib/research/agents/definitions';
+import type { AgentDefinition } from '@/lib/research/types';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Dossier {
+  topic: string;
+  title: string;
+  slug: string | null;
+  published: boolean;
+  best_convergence_score: number;
+  key_traditions: string[];
+  summary: string | null;
+  synthesized_output: Record<string, unknown> | null;
+  last_researched_at: string | null;
+}
+
+interface Session {
+  id: string;
+  topic: string;
+  title: string;
+  status: string;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_log: string[];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const LAYER_COLORS: Record<string, string> = {
+  research: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/5',
+  convergence: 'text-sky-400 border-sky-400/30 bg-sky-400/5',
+  adversarial: 'text-orange-400 border-orange-400/30 bg-orange-400/5',
+  governance: 'text-violet-400 border-violet-400/30 bg-violet-400/5',
+  output: 'text-pink-400 border-pink-400/30 bg-pink-400/5',
+  synthesis: 'text-amber-400 border-amber-400/30 bg-amber-400/5',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  complete: 'text-emerald-400',
+  failed: 'text-red-400',
+  pending: 'text-text-tertiary',
+  researching: 'text-sky-400',
+  cross_validating: 'text-sky-400',
+  converging: 'text-amber-400',
+  debating: 'text-orange-400',
+  synthesizing: 'text-violet-400',
+};
+
+function OceanBar({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="font-mono text-[9px] uppercase text-text-tertiary w-12 shrink-0">{label}</span>
+      <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
+        <div className="h-full bg-gold/60 rounded-full" style={{ width: `${value * 100}%` }} />
+      </div>
+      <span className="font-mono text-[9px] text-text-tertiary w-6 text-right">{Math.round(value * 100)}</span>
+    </div>
+  );
+}
+
+// ── Launch Tab ────────────────────────────────────────────────────────────────
+
+function LaunchTab() {
+  const [topic, setTopic] = useState('');
+  const [title, setTitle] = useState('');
+  const [questions, setQuestions] = useState(['', '', '']);
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [result, setResult] = useState<string>('');
+
+  const addQuestion = () => setQuestions((q) => [...q, '']);
+  const removeQuestion = (i: number) => setQuestions((q) => q.filter((_, idx) => idx !== i));
+  const updateQuestion = (i: number, val: string) =>
+    setQuestions((q) => q.map((qv, idx) => (idx === i ? val : qv)));
+
+  const launch = async () => {
+    const validQuestions = questions.filter((q) => q.trim());
+    if (!topic.trim() || !title.trim() || validQuestions.length === 0) return;
+
+    setStatus('running');
+    setResult('');
+
+    try {
+      const res = await fetch('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: topic.trim(), title: title.trim(), research_questions: validQuestions }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Unknown error');
+      setStatus('done');
+      setResult(JSON.stringify(data, null, 2));
+    } catch (err) {
+      setStatus('error');
+      setResult(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="font-serif text-2xl mb-1">Launch Research Session</h2>
+        <p className="text-sm text-text-secondary">
+          Fires the full 65-agent pipeline. Runs for 3–5 minutes. Results are stored in Supabase.
+        </p>
+      </div>
+
+      <div className="space-y-4 max-w-2xl">
+        <div>
+          <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+            Topic (internal key)
+          </label>
+          <input
+            className="w-full bg-ground-light border border-border px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded"
+            placeholder="e.g. the-great-flood"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+            Display Title
+          </label>
+          <input
+            className="w-full bg-ground-light border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-gold/50 rounded"
+            placeholder="e.g. The Great Flood"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-2">
+            Research Questions
+          </label>
+          <div className="space-y-2">
+            {questions.map((q, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  className="flex-1 bg-ground-light border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                  placeholder={`Question ${i + 1}`}
+                  value={q}
+                  onChange={(e) => updateQuestion(i, e.target.value)}
+                />
+                {questions.length > 1 && (
+                  <button
+                    onClick={() => removeQuestion(i)}
+                    className="px-2 text-text-tertiary hover:text-red-400 transition-colors"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={addQuestion}
+            className="mt-2 font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
+          >
+            + Add question
+          </button>
+        </div>
+
+        <button
+          onClick={launch}
+          disabled={status === 'running'}
+          className="font-mono text-sm tracking-wide px-6 py-3 border border-gold/30 bg-gold/5 text-gold hover:bg-gold/10 transition-colors rounded disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {status === 'running' ? 'Running pipeline…' : 'Launch →'}
+        </button>
+      </div>
+
+      {status !== 'idle' && (
+        <div className="max-w-2xl">
+          <div className={`font-mono text-[10px] uppercase tracking-widest mb-2 ${
+            status === 'error' ? 'text-red-400' : status === 'done' ? 'text-emerald-400' : 'text-sky-400'
+          }`}>
+            {status === 'running' ? 'Pipeline running — do not close tab' : status === 'done' ? 'Complete' : 'Error'}
+          </div>
+          {result && (
+            <pre className="bg-ground-light border border-border rounded p-4 text-[11px] font-mono text-text-secondary overflow-auto max-h-96 whitespace-pre-wrap">
+              {result}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Agents Tab ────────────────────────────────────────────────────────────────
+
+function AgentCard({ agent }: { agent: AgentDefinition }) {
+  const [open, setOpen] = useState(false);
+  const layerClass = LAYER_COLORS[agent.layer] ?? 'text-text-tertiary border-border';
+
+  return (
+    <div className="border border-border bg-ground-light/40">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full text-left px-4 py-3 flex items-start justify-between gap-4 hover:bg-ground-light/80 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-text-primary font-medium">{agent.name}</span>
+            <span className={`font-mono text-[9px] uppercase tracking-widest border px-1.5 py-0.5 rounded ${layerClass}`}>
+              {agent.layer}
+            </span>
+            <span className="font-mono text-[9px] text-text-tertiary">{agent.llm.provider} · {agent.llm.model.replace('claude-', '').replace('gemini-', '')}</span>
+          </div>
+          <p className="text-xs text-text-tertiary mt-0.5 truncate">{agent.domain}</p>
+        </div>
+        <span className="text-text-tertiary text-sm mt-0.5 shrink-0">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 border-t border-border space-y-4">
+          <p className="text-sm text-text-secondary mt-3 leading-relaxed">{agent.description}</p>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-2">OCEAN Profile</div>
+              <div className="space-y-1.5">
+                <OceanBar label="Open" value={agent.ocean.openness} />
+                <OceanBar label="Cons" value={agent.ocean.conscientiousness} />
+                <OceanBar label="Extr" value={agent.ocean.extraversion} />
+                <OceanBar label="Agre" value={agent.ocean.agreeableness} />
+                <OceanBar label="Neur" value={agent.ocean.neuroticism} />
+              </div>
+            </div>
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-2">Calibration</div>
+              <div className="space-y-1.5">
+                <OceanBar label="Spec" value={agent.calibration.speculative_vs_conservative} />
+                <OceanBar label="Dept" value={agent.calibration.detail_depth} />
+                <OceanBar label="Cite" value={agent.calibration.citation_strictness} />
+                <OceanBar label="Idsc" value={agent.calibration.interdisciplinary_reach} />
+                <OceanBar label="Conf" value={agent.calibration.confidence_threshold} />
+                <OceanBar label="Cont" value={agent.calibration.contrarian_tendency} />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-2">
+              Primary Expertise ({agent.primaryExpertise.length})
+            </div>
+            <ul className="space-y-0.5">
+              {agent.primaryExpertise.slice(0, 8).map((e, i) => (
+                <li key={i} className="text-xs text-text-secondary flex gap-2">
+                  <span className="text-gold/50 shrink-0">·</span>
+                  <span>{e}</span>
+                </li>
+              ))}
+              {agent.primaryExpertise.length > 8 && (
+                <li className="text-xs text-text-tertiary pl-4">
+                  +{agent.primaryExpertise.length - 8} more
+                </li>
+              )}
+            </ul>
+          </div>
+
+          <div className="flex gap-4 text-xs text-text-tertiary font-mono">
+            <span>RACI default: <span className="text-text-secondary">{agent.defaultRaciRole}</span></span>
+            <span>Temp: <span className="text-text-secondary">{agent.llm.temperature}</span></span>
+            <span>Tokens: <span className="text-text-secondary">{agent.llm.maxTokens.toLocaleString()}</span></span>
+          </div>
+
+          {agent.canEscalateTo.length > 0 && (
+            <div className="text-xs text-text-tertiary">
+              Escalates to: {agent.canEscalateTo.join(', ')}
+            </div>
+          )}
+          {agent.requiresReviewFrom.length > 0 && (
+            <div className="text-xs text-text-tertiary">
+              Review required from: {agent.requiresReviewFrom.join(', ')}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgentsTab() {
+  const agents = getAllAgents();
+  const [layerFilter, setLayerFilter] = useState<string>('all');
+  const [search, setSearch] = useState('');
+
+  const layers = ['all', ...Array.from(new Set(agents.map((a) => a.layer)))];
+
+  const filtered = agents.filter((a) => {
+    if (layerFilter !== 'all' && a.layer !== layerFilter) return false;
+    if (search && !a.name.toLowerCase().includes(search.toLowerCase()) && !a.domain.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-serif text-2xl mb-1">Agent Registry</h2>
+        <p className="text-sm text-text-secondary">{agents.length} agents across {layers.length - 1} layers</p>
+      </div>
+
+      <div className="flex gap-3 flex-wrap">
+        <input
+          className="bg-ground-light border border-border px-3 py-1.5 text-sm font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded w-56"
+          placeholder="Search agents…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div className="flex gap-1 flex-wrap">
+          {layers.map((l) => (
+            <button
+              key={l}
+              onClick={() => setLayerFilter(l)}
+              className={`font-mono text-[9px] uppercase tracking-widest px-2 py-1 border rounded transition-colors ${
+                layerFilter === l
+                  ? 'border-gold/50 text-gold bg-gold/10'
+                  : 'border-border text-text-tertiary hover:border-gold/30 hover:text-text-secondary'
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-px">
+        {filtered.map((agent) => (
+          <AgentCard key={agent.id} agent={agent} />
+        ))}
+        {filtered.length === 0 && (
+          <div className="text-sm text-text-tertiary py-8 text-center">No agents match filter</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Sessions Tab ──────────────────────────────────────────────────────────────
+
+function SessionsTab() {
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/sessions');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSessions(data.sessions);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-serif text-2xl mb-1">Research Sessions</h2>
+          <p className="text-sm text-text-secondary">Last 50 sessions from Supabase</p>
+        </div>
+        <button
+          onClick={load}
+          className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors border border-border px-3 py-1.5 rounded"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {loading && <div className="text-sm text-text-tertiary">Loading…</div>}
+      {error && <div className="text-sm text-red-400">{error}</div>}
+
+      {!loading && !error && sessions.length === 0 && (
+        <div className="text-sm text-text-tertiary border border-border rounded p-8 text-center">
+          No sessions yet. Launch one from the Launch tab.
+        </div>
+      )}
+
+      <div className="space-y-px">
+        {sessions.map((s) => (
+          <div key={s.id} className="border border-border bg-ground-light/40 px-4 py-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-text-primary font-medium">{s.title}</span>
+                  <span className={`font-mono text-[9px] uppercase tracking-widest ${STATUS_COLORS[s.status] ?? 'text-text-tertiary'}`}>
+                    {s.status}
+                  </span>
+                </div>
+                <div className="text-xs text-text-tertiary mt-0.5 font-mono">{s.topic}</div>
+                {s.error_log?.length > 0 && (
+                  <div className="text-xs text-red-400 mt-1">{s.error_log[s.error_log.length - 1]}</div>
+                )}
+              </div>
+              <div className="text-right shrink-0">
+                <div className="font-mono text-[9px] text-text-tertiary">
+                  {new Date(s.created_at).toLocaleDateString()} {new Date(s.created_at).toLocaleTimeString()}
+                </div>
+                {s.completed_at && s.started_at && (
+                  <div className="font-mono text-[9px] text-text-tertiary mt-0.5">
+                    {Math.round((new Date(s.completed_at).getTime() - new Date(s.started_at).getTime()) / 1000)}s
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-1">
+              <span className="font-mono text-[9px] text-text-tertiary">{s.id}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Content Tab ───────────────────────────────────────────────────────────────
+
+function ContentTab() {
+  const [dossiers, setDossiers] = useState<Dossier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const [slugInputs, setSlugInputs] = useState<Record<string, string>>({});
+  const [publishStatus, setPublishStatus] = useState<Record<string, string>>({});
+  const [deepDiveOpen, setDeepDiveOpen] = useState<string | null>(null);
+  const [deepDiveFocus, setDeepDiveFocus] = useState<Record<string, string>>({});
+  const [deepDiveQuestions, setDeepDiveQuestions] = useState<Record<string, string>>({});
+  const [deepDiveStatus, setDeepDiveStatus] = useState<Record<string, string>>({});
+  const [resynthStatus, setResynthStatus] = useState<Record<string, string>>({});
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Fetch all dossiers (published and unpublished)
+      const res = await fetch('/api/admin/sessions');
+      const sessData = await res.json();
+      // Get unique topics from sessions, then fetch their dossiers
+      const topics = [...new Set<string>((sessData.sessions ?? [])
+        .filter((s: { status: string }) => s.status === 'complete')
+        .map((s: { topic: string }) => s.topic))];
+
+      const results = await Promise.all(
+        topics.map((t) =>
+          fetch(`/api/admin/dossier?topic=${encodeURIComponent(t)}`)
+            .then((r) => r.json())
+            .then((d) => d.dossier as Dossier | null)
+            .catch(() => null)
+        )
+      );
+      setDossiers(results.filter(Boolean) as Dossier[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const publish = async (topic: string) => {
+    const slug = slugInputs[topic]?.trim();
+    if (!slug) return;
+    setPublishStatus((s) => ({ ...s, [topic]: 'publishing' }));
+    try {
+      const res = await fetch('/api/admin/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, slug }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPublishStatus((s) => ({ ...s, [topic]: `live: ${data.url}` }));
+      load();
+    } catch (err) {
+      setPublishStatus((s) => ({ ...s, [topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  const resynthesize = async (d: Dossier) => {
+    setResynthStatus((s) => ({ ...s, [d.topic]: 'running…' }));
+    try {
+      const res = await fetch('/api/admin/resynthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: d.topic, title: d.title }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setResynthStatus((s) => ({ ...s, [d.topic]: `done — ${data.findingsUsed} findings, score ${data.convergenceScore}, ${data.jawDropLayers} jaw-drops` }));
+      load();
+    } catch (err) {
+      setResynthStatus((s) => ({ ...s, [d.topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  const launchDeepDive = async (d: Dossier) => {
+    const focus = deepDiveFocus[d.topic]?.trim();
+    const questionsRaw = deepDiveQuestions[d.topic]?.trim();
+    if (!focus) return;
+    const questions = questionsRaw
+      ? questionsRaw.split('\n').map((q) => q.trim()).filter(Boolean)
+      : [`What specific evidence exists related to: ${focus}`];
+
+    setDeepDiveStatus((s) => ({ ...s, [d.topic]: 'running pipeline…' }));
+    try {
+      const res = await fetch('/api/research/deep-dive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: d.topic,
+          title: d.title,
+          research_questions: questions,
+          focus_areas: focus,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setDeepDiveStatus((s) => ({ ...s, [d.topic]: `complete — ${data.stats?.sessionFindings ?? '?'} new findings, ${data.stats?.totalTopicFindings ?? '?'} total` }));
+      setDeepDiveOpen(null);
+      load();
+    } catch (err) {
+      setDeepDiveStatus((s) => ({ ...s, [d.topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  const unpublish = async (topic: string) => {
+    setPublishStatus((s) => ({ ...s, [topic]: 'unpublishing' }));
+    try {
+      const res = await fetch('/api/admin/publish', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setPublishStatus((s) => ({ ...s, [topic]: 'unpublished' }));
+      load();
+    } catch (err) {
+      setPublishStatus((s) => ({ ...s, [topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-serif text-2xl mb-1">Content Management</h2>
+          <p className="text-sm text-text-secondary">Review completed research, assign slugs, and publish to the site.</p>
+        </div>
+        <button onClick={load} className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold border border-border px-3 py-1.5 rounded transition-colors">
+          Refresh
+        </button>
+      </div>
+
+      {loading && <div className="text-sm text-text-tertiary">Loading…</div>}
+      {error && <div className="text-sm text-red-400">{error}</div>}
+      {!loading && dossiers.length === 0 && (
+        <div className="text-sm text-text-tertiary border border-border rounded p-8 text-center">
+          No completed research yet. Run a session from the Launch tab.
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {dossiers.map((d) => {
+          const isPreview = previewing === d.topic;
+          const output = d.synthesized_output;
+          const autoSlug = d.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ?? '';
+          const slugVal = slugInputs[d.topic] ?? d.slug ?? autoSlug;
+          const statusMsg = publishStatus[d.topic];
+
+          return (
+            <div key={d.topic} className="border border-border bg-ground-light/30">
+              {/* Header row */}
+              <div className="px-4 py-3 flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-text-primary">{d.title}</span>
+                    {d.published && (
+                      <span className="font-mono text-[9px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 bg-emerald-400/5 px-1.5 py-0.5 rounded">
+                        Live
+                      </span>
+                    )}
+                    {d.best_convergence_score > 0 && (
+                      <span className="font-mono text-[9px] text-gold">
+                        Score: {d.best_convergence_score}
+                      </span>
+                    )}
+                  </div>
+                  <div className="font-mono text-[9px] text-text-tertiary mt-0.5">{d.topic}</div>
+                  {d.key_traditions?.length > 0 && (
+                    <div className="flex gap-1 flex-wrap mt-1">
+                      {d.key_traditions.slice(0, 6).map((t) => (
+                        <span key={t} className="font-mono text-[8px] uppercase tracking-wider text-text-tertiary border border-border/60 px-1">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => setPreviewing(isPreview ? null : d.topic)}
+                    className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-gold border border-border px-2 py-1 rounded transition-colors"
+                  >
+                    {isPreview ? 'Hide' : 'Preview'}
+                  </button>
+                  {d.published && d.slug && (
+                    <a
+                      href={`/topics/${d.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-[9px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-2 py-1 rounded hover:bg-emerald-400/10 transition-colors"
+                    >
+                      View →
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Publish controls */}
+              <div className="px-4 pb-3 flex items-center gap-3 flex-wrap">
+                <input
+                  className="bg-ground border border-border px-2 py-1 text-xs font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded w-56"
+                  placeholder="url-slug"
+                  value={slugVal}
+                  onChange={(e) => setSlugInputs((s) => ({ ...s, [d.topic]: e.target.value }))}
+                />
+                {!d.published ? (
+                  <button
+                    onClick={() => publish(d.topic)}
+                    disabled={!slugVal}
+                    className="font-mono text-[9px] uppercase tracking-widest text-gold border border-gold/30 bg-gold/5 hover:bg-gold/10 px-3 py-1 rounded transition-colors disabled:opacity-40"
+                  >
+                    Publish →
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => unpublish(d.topic)}
+                    className="font-mono text-[9px] uppercase tracking-widest text-red-400 border border-red-400/30 hover:bg-red-400/10 px-3 py-1 rounded transition-colors"
+                  >
+                    Unpublish
+                  </button>
+                )}
+                {statusMsg && (
+                  <span className={`font-mono text-[9px] ${statusMsg.startsWith('error') ? 'text-red-400' : statusMsg.startsWith('live') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
+                    {statusMsg}
+                  </span>
+                )}
+              </div>
+
+              {/* Research controls */}
+              <div className="px-4 pb-3 flex items-center gap-3 flex-wrap border-t border-border/40 pt-3">
+                <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">Research:</span>
+                <button
+                  onClick={() => setDeepDiveOpen(deepDiveOpen === d.topic ? null : d.topic)}
+                  className="font-mono text-[9px] uppercase tracking-widest text-sky-400 border border-sky-400/30 hover:bg-sky-400/10 px-2 py-1 rounded transition-colors"
+                >
+                  + Deep Dive
+                </button>
+                <button
+                  onClick={() => resynthesize(d)}
+                  disabled={resynthStatus[d.topic] === 'running…'}
+                  className="font-mono text-[9px] uppercase tracking-widest text-violet-400 border border-violet-400/30 hover:bg-violet-400/10 px-2 py-1 rounded transition-colors disabled:opacity-40"
+                >
+                  Re-synthesize All
+                </button>
+                {resynthStatus[d.topic] && (
+                  <span className={`font-mono text-[9px] ${resynthStatus[d.topic].startsWith('error') ? 'text-red-400' : resynthStatus[d.topic] === 'running…' ? 'text-text-tertiary' : 'text-violet-400'}`}>
+                    {resynthStatus[d.topic]}
+                  </span>
+                )}
+                {deepDiveStatus[d.topic] && (
+                  <span className={`font-mono text-[9px] ${deepDiveStatus[d.topic].startsWith('error') ? 'text-red-400' : deepDiveStatus[d.topic].startsWith('running') ? 'text-text-tertiary' : 'text-sky-400'}`}>
+                    {deepDiveStatus[d.topic]}
+                  </span>
+                )}
+              </div>
+
+              {/* Deep Dive form */}
+              {deepDiveOpen === d.topic && (
+                <div className="px-4 pb-4 border-t border-border/40 space-y-3 pt-3 bg-sky-400/5">
+                  <div className="font-mono text-[9px] uppercase tracking-widest text-sky-400">Deep Dive — Targeted Rabbit Holes</div>
+                  <div>
+                    <label className="block font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-1">
+                      Focus Areas (names, books, events, claims to investigate specifically)
+                    </label>
+                    <textarea
+                      rows={4}
+                      className="w-full bg-ground border border-border px-3 py-2 text-sm text-text-primary font-mono focus:outline-none focus:border-sky-400/50 rounded resize-none"
+                      placeholder={`e.g.\n- Aleš Hrdlička and his role in dismissing giant skeleton reports at the Smithsonian\n- Richard Dewhurst's "Ancient Giants Who Ruled America" (2014) — specific claims and evidence cited\n- Major John Wesley Powell and Bureau of American Ethnology policies on anomalous skeletal remains`}
+                      value={deepDiveFocus[d.topic] ?? ''}
+                      onChange={(e) => setDeepDiveFocus((s) => ({ ...s, [d.topic]: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-1">
+                      Research Questions (one per line — leave blank to auto-generate)
+                    </label>
+                    <textarea
+                      rows={3}
+                      className="w-full bg-ground border border-border px-3 py-2 text-sm text-text-primary font-mono focus:outline-none focus:border-sky-400/50 rounded resize-none"
+                      placeholder={`e.g.\nWhat documented evidence exists for Smithsonian collection or suppression of anomalous skeletal remains?\nWhat specific skeletal finds does Dewhurst cite and what is their evidential status?`}
+                      value={deepDiveQuestions[d.topic] ?? ''}
+                      onChange={(e) => setDeepDiveQuestions((s) => ({ ...s, [d.topic]: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex gap-3 items-center">
+                    <button
+                      onClick={() => launchDeepDive(d)}
+                      disabled={!deepDiveFocus[d.topic]?.trim() || deepDiveStatus[d.topic] === 'running pipeline…'}
+                      className="font-mono text-[9px] uppercase tracking-widest text-sky-400 border border-sky-400/30 bg-sky-400/10 hover:bg-sky-400/20 px-3 py-1.5 rounded transition-colors disabled:opacity-40"
+                    >
+                      Launch Deep Dive →
+                    </button>
+                    <span className="font-mono text-[9px] text-text-tertiary">Runs 3–5 min. Synthesis will include all prior sessions.</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Preview panel */}
+              {isPreview && output && (
+                <div className="border-t border-border px-4 py-4 space-y-4">
+                  {output.executive_summary != null && (
+                    <div>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-1">Summary</div>
+                      <p className="text-sm text-text-secondary leading-relaxed">
+                        {String(output.executive_summary).slice(0, 600)}{String(output.executive_summary).length > 600 ? '…' : ''}
+                      </p>
+                    </div>
+                  )}
+                  {Array.isArray(output.jaw_drop_layers) && output.jaw_drop_layers.length > 0 && (
+                    <div>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-2">
+                        Jaw-Drop Layers ({(output.jaw_drop_layers as unknown[]).length})
+                      </div>
+                      <div className="space-y-2">
+                        {(output.jaw_drop_layers as { level: number; title: string; content: string }[]).slice(0, 3).map((l) => (
+                          <div key={l.level} className="flex gap-3 p-2 bg-ground-light/40 border border-border/50">
+                            <span className="font-mono text-[10px] text-gold shrink-0 w-4">{l.level}</span>
+                            <div>
+                              <div className="text-xs font-medium text-text-primary">{l.title}</div>
+                              <div className="text-xs text-text-tertiary mt-0.5 leading-relaxed">
+                                {String(l.content).slice(0, 200)}…
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {(output.jaw_drop_layers as unknown[]).length > 3 && (
+                          <div className="text-xs text-text-tertiary pl-7">
+                            +{(output.jaw_drop_layers as unknown[]).length - 3} more layers
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {Array.isArray(output.open_questions) && (
+                    <div>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-2">
+                        Open Questions ({(output.open_questions as unknown[]).length})
+                      </div>
+                      <ul className="space-y-1">
+                        {(output.open_questions as string[]).slice(0, 4).map((q, i) => (
+                          <li key={i} className="text-xs text-text-secondary flex gap-2">
+                            <span className="text-gold/50 shrink-0">·</span>
+                            <span>{q}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              {isPreview && !output && (
+                <div className="border-t border-border px-4 py-3 text-sm text-text-tertiary">
+                  No synthesized output found for this topic.
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Media Tab ─────────────────────────────────────────────────────────────────
+
+interface MediaRow {
+  id: string;
+  topic: string;
+  type: string;
+  title: string;
+  channel_name: string | null;
+  url: string;
+  embed_url: string | null;
+  thumbnail_url: string | null;
+  duration_seconds: number | null;
+  approved: boolean;
+  featured: boolean;
+  is_anchor: boolean;
+  sort_order: number;
+  quality_score: number;
+  anchor_key: string | null;
+}
+
+function MediaTab() {
+  const [media, setMedia] = useState<MediaRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState('');
+  const [filterTopic, setFilterTopic] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const url = filterTopic.trim()
+      ? `/api/admin/anchor-media?topic=${encodeURIComponent(filterTopic.trim())}`
+      : '/api/admin/anchor-media';
+    const res = await fetch(url);
+    const data = await res.json();
+    setMedia(data.media ?? []);
+    setLoading(false);
+  }, [filterTopic]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const syncAll = async () => {
+    setSyncing(true);
+    setSyncResult('');
+    const res = await fetch('/api/admin/anchor-media', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sync_all: true }),
+    });
+    const data = await res.json();
+    setSyncResult(`Synced ${data.synced} items across ${data.topics?.length ?? 0} topics`);
+    setSyncing(false);
+    load();
+  };
+
+  const toggle = async (id: string, field: 'approved' | 'featured', current: boolean) => {
+    await fetch('/api/admin/anchor-media', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, [field]: !current }),
+    });
+    setMedia((m) => m.map((r) => r.id === id ? { ...r, [field]: !current } : r));
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm('Remove this media item?')) return;
+    await fetch('/api/admin/anchor-media', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    setMedia((m) => m.filter((r) => r.id !== id));
+  };
+
+  const typeColor = (type: string) =>
+    type === 'youtube' ? 'text-red-400 border-red-400/30' : 'text-sky-400 border-sky-400/30';
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-serif text-2xl mb-1">Media Library</h2>
+          <p className="text-sm text-text-secondary">
+            Anchor media (curated) + discovered media (YouTube/podcast API). Approve items to show on topic pages.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={syncAll}
+            disabled={syncing}
+            className="font-mono text-[10px] uppercase tracking-widest border border-gold/40 text-gold px-3 py-2 hover:bg-gold/10 transition-colors disabled:opacity-50"
+          >
+            {syncing ? 'Syncing…' : 'Sync All Anchors'}
+          </button>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="font-mono text-[10px] uppercase tracking-widest border border-border text-text-tertiary px-3 py-2 hover:border-gold/30 transition-colors disabled:opacity-50"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {syncResult && (
+        <div className="border border-emerald-400/30 bg-emerald-400/5 px-4 py-2 font-mono text-[11px] text-emerald-400">
+          {syncResult}
+        </div>
+      )}
+
+      {/* Filter */}
+      <div className="flex gap-2">
+        <input
+          className="bg-ground-light border border-border px-3 py-1.5 text-sm font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded w-72"
+          placeholder="Filter by topic key…"
+          value={filterTopic}
+          onChange={(e) => setFilterTopic(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && load()}
+        />
+        <button
+          onClick={load}
+          className="font-mono text-[10px] uppercase tracking-widest border border-border text-text-tertiary px-3 py-1.5 hover:border-gold/30 transition-colors"
+        >
+          Filter
+        </button>
+      </div>
+
+      {loading && <p className="text-sm text-text-tertiary font-mono">Loading…</p>}
+
+      {!loading && media.length === 0 && (
+        <div className="border border-border p-8 text-center">
+          <p className="text-text-tertiary text-sm mb-3">No media found. Click Sync All Anchors to populate from the seed registry.</p>
+        </div>
+      )}
+
+      <div className="space-y-px">
+        {media.map((item) => (
+          <div key={item.id} className={`border p-4 ${item.is_anchor ? 'border-gold/20 bg-gold/3' : 'border-border'}`}>
+            <div className="flex gap-3">
+              {/* Thumb */}
+              {item.thumbnail_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.thumbnail_url} alt={item.title} className="w-16 h-10 object-cover shrink-0 rounded" />
+              ) : (
+                <div className="w-16 h-10 bg-ground-light border border-border/50 rounded shrink-0 flex items-center justify-center text-text-tertiary text-lg">
+                  {item.type === 'youtube' ? '▶' : '🎧'}
+                </div>
+              )}
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start gap-2 justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                      {item.is_anchor && (
+                        <span className="font-mono text-[8px] uppercase tracking-widest border border-gold/50 text-gold bg-gold/10 px-1">Anchor</span>
+                      )}
+                      {item.featured && (
+                        <span className="font-mono text-[8px] uppercase tracking-widest border border-amber-400/50 text-amber-400 px-1">Featured</span>
+                      )}
+                      <span className={`font-mono text-[8px] uppercase tracking-widest border px-1 ${typeColor(item.type)}`}>
+                        {item.type}
+                      </span>
+                      <span className="font-mono text-[8px] text-text-tertiary border border-border px-1">{item.topic}</span>
+                    </div>
+                    <p className="text-sm text-text-primary leading-snug line-clamp-1">{item.title}</p>
+                    {item.channel_name && (
+                      <p className="font-mono text-[9px] text-text-tertiary mt-0.5">{item.channel_name}</p>
+                    )}
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => toggle(item.id, 'approved', item.approved)}
+                      className={`font-mono text-[8px] uppercase tracking-widest border px-2 py-1 rounded transition-colors ${
+                        item.approved
+                          ? 'border-emerald-400/50 text-emerald-400 bg-emerald-400/10'
+                          : 'border-border text-text-tertiary hover:border-emerald-400/30'
+                      }`}
+                    >
+                      {item.approved ? '✓ Live' : 'Approve'}
+                    </button>
+                    <button
+                      onClick={() => toggle(item.id, 'featured', item.featured)}
+                      className={`font-mono text-[8px] uppercase tracking-widest border px-2 py-1 rounded transition-colors ${
+                        item.featured
+                          ? 'border-gold/50 text-gold bg-gold/10'
+                          : 'border-border text-text-tertiary hover:border-gold/30'
+                      }`}
+                    >
+                      ★
+                    </button>
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-[8px] uppercase tracking-widest border border-border text-text-tertiary hover:text-gold hover:border-gold/30 px-2 py-1 rounded transition-colors"
+                    >
+                      ↗
+                    </a>
+                    <button
+                      onClick={() => remove(item.id)}
+                      className="font-mono text-[8px] uppercase tracking-widest border border-border text-text-tertiary hover:text-red-400 hover:border-red-400/30 px-2 py-1 rounded transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Admin Page ────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: 'launch', label: 'Launch Research' },
+  { id: 'content', label: 'Content' },
+  { id: 'media', label: 'Media Library' },
+  { id: 'agents', label: 'Agents' },
+  { id: 'sessions', label: 'Sessions' },
+] as const;
+
+type TabId = typeof TABS[number]['id'];
+
+export default function AdminPage() {
+  const [tab, setTab] = useState<TabId>('content');
+
+  return (
+    <div className="min-h-screen bg-ground text-text-primary">
+      {/* Header */}
+      <div className="border-b border-border">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="font-serif text-lg">Unraveled</span>
+            <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5 rounded">
+              Admin
+            </span>
+          </div>
+          <a
+            href="/"
+            className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
+          >
+            ← Site
+          </a>
+        </div>
+      </div>
+
+      {/* Tab nav */}
+      <div className="border-b border-border">
+        <div className="max-w-5xl mx-auto px-6 flex gap-1">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`font-mono text-[10px] uppercase tracking-widest px-4 py-3 border-b-2 transition-colors ${
+                tab === t.id
+                  ? 'border-gold text-gold'
+                  : 'border-transparent text-text-tertiary hover:text-text-secondary'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-5xl mx-auto px-6 py-10">
+        {tab === 'launch' && <LaunchTab />}
+        {tab === 'content' && <ContentTab />}
+        {tab === 'media' && <MediaTab />}
+        {tab === 'agents' && <AgentsTab />}
+        {tab === 'sessions' && <SessionsTab />}
+      </div>
+    </div>
+  );
+}
