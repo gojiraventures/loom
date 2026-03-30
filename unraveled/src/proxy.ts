@@ -6,7 +6,7 @@ const ADMIN_EMAIL = 'mikeburnsninnovate@gmail.com';
 // Paths that don't require auth
 const PUBLIC_PATHS = new Set(['/', '/login']);
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Pass through static assets and Next internals
