@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runResearchSession } from '@/lib/research';
 
-// Allow long-running research sessions (up to 5 minutes)
-export const maxDuration = 300;
+export const maxDuration = 300; // 5 minutes — requires Vercel Pro
 
 export async function POST(req: NextRequest) {
   let body: unknown;

@@ -633,7 +633,7 @@ function ContentTab() {
               {/* Publish controls */}
               <div className="px-4 pb-3 flex items-center gap-3 flex-wrap">
                 <input
-                  className="bg-ground border border-border px-2 py-1 text-xs font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded w-56"
+                  className="bg-ground border border-border px-2 py-1 text-xs font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded w-full max-w-sm"
                   placeholder="url-slug"
                   value={slugVal}
                   onChange={(e) => setSlugInputs((s) => ({ ...s, [d.topic]: e.target.value }))}
