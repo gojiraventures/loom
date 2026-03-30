@@ -39,7 +39,9 @@ interface Session {
   topic: string;
   title: string;
   status: string;
+  session_type: string;
   research_questions: string[];
+  synthesized_output: Record<string, unknown> | null;
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
@@ -66,6 +68,7 @@ const STATUS_COLORS: Record<string, string> = {
   converging: 'text-amber-400',
   debating: 'text-orange-400',
   synthesizing: 'text-violet-400',
+  pending_review: 'text-gold',
 };
 
 function OceanBar({ label, value }: { label: string; value: number }) {
@@ -91,7 +94,11 @@ const SESSION_STATUS_LABELS: Record<string, string> = {
   synthesizing: 'Layer 5 — Synthesis',
   complete: 'Complete',
   failed: 'Failed',
+  pending_review: 'Awaiting Review',
 };
+
+const MAX_FOUNDATION_QUESTIONS = 5;
+const MAX_ENHANCE_QUESTIONS = 3;
 
 function LaunchTab() {
   const [topic, setTopic] = useState('');
@@ -124,7 +131,9 @@ function LaunchTab() {
     } catch { /* network blip — keep polling */ }
   }, []);
 
-  const addQuestion = () => setQuestions((q) => [...q, '']);
+  const addQuestion = () => {
+    if (questions.length < MAX_FOUNDATION_QUESTIONS) setQuestions((q) => [...q, '']);
+  };
   const removeQuestion = (i: number) => setQuestions((q) => q.filter((_, idx) => idx !== i));
   const updateQuestion = (i: number, val: string) =>
     setQuestions((q) => q.map((qv, idx) => (idx === i ? val : qv)));
@@ -207,9 +216,12 @@ function LaunchTab() {
         </div>
 
         <div>
-          <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-2">
+          <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
             Research Questions
           </label>
+          <p className="text-[10px] text-text-tertiary mb-2 font-mono">
+            Max {MAX_FOUNDATION_QUESTIONS} per run. Add more later via Enhance on the Content tab.
+          </p>
           <div className="space-y-2">
             {questions.map((q, i) => (
               <div key={i} className="flex gap-2">
@@ -230,12 +242,18 @@ function LaunchTab() {
               </div>
             ))}
           </div>
-          <button
-            onClick={addQuestion}
-            className="mt-2 font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
-          >
-            + Add question
-          </button>
+          {questions.length < MAX_FOUNDATION_QUESTIONS ? (
+            <button
+              onClick={addQuestion}
+              className="mt-2 font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
+            >
+              + Add question
+            </button>
+          ) : (
+            <p className="mt-2 font-mono text-[10px] text-gold/60">
+              Maximum {MAX_FOUNDATION_QUESTIONS} questions reached — use Enhance to add more after publishing.
+            </p>
+          )}
         </div>
 
         <div>
@@ -485,6 +503,8 @@ function SessionsTab() {
   const [error, setError] = useState('');
   const [rerunStatus, setRerunStatus] = useState<Record<string, string>>({});
   const [rerunSessionId, setRerunSessionId] = useState<Record<string, string>>({});
+  const [reviewStatus, setReviewStatus] = useState<Record<string, string>>({});
+  const [expandedPreview, setExpandedPreview] = useState<string | null>(null);
   const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   const load = useCallback(async () => {
@@ -547,6 +567,27 @@ function SessionsTab() {
 
   const canRerun = (status: string) => ['failed', 'cross_validating', 'converging', 'debating', 'synthesizing'].includes(status);
 
+  const reviewSession = async (s: Session, action: 'approve' | 'reject') => {
+    setReviewStatus((r) => ({ ...r, [s.id]: action === 'approve' ? 'approving…' : 'rejecting…' }));
+    try {
+      const res = await fetch('/api/admin/review-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: s.id, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Unknown error');
+      if (action === 'approve') {
+        setReviewStatus((r) => ({ ...r, [s.id]: `approved ✓ — ${data.findingsUsed} findings, score ${data.convergenceScore}` }));
+      } else {
+        setReviewStatus((r) => ({ ...r, [s.id]: 'rejected' }));
+      }
+      load();
+    } catch (err) {
+      setReviewStatus((r) => ({ ...r, [s.id]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -571,8 +612,91 @@ function SessionsTab() {
         </div>
       )}
 
+      {/* Pending Review queue */}
+      {sessions.some((s) => s.status === 'pending_review') && (
+        <div className="space-y-px">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-gold mb-2">
+            Pending Review — Enhancement Rounds
+          </div>
+          {sessions.filter((s) => s.status === 'pending_review').map((s) => (
+            <div key={s.id} className="border border-gold/30 bg-gold/5 px-4 py-3 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-text-primary font-medium">{s.title}</span>
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-gold">Enhancement</span>
+                    <span className="font-mono text-[9px] text-text-tertiary">{s.research_questions?.length ?? 0} questions</span>
+                  </div>
+                  <div className="text-xs text-text-tertiary mt-0.5 font-mono">{s.topic}</div>
+                  <ul className="mt-1 space-y-0.5">
+                    {s.research_questions?.map((q, i) => (
+                      <li key={i} className="text-[10px] text-text-secondary flex gap-2">
+                        <span className="text-gold/40 shrink-0">·</span><span>{q}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {reviewStatus[s.id] && (
+                    <div className={`mt-1.5 font-mono text-[9px] ${reviewStatus[s.id].startsWith('error') ? 'text-red-400' : reviewStatus[s.id].startsWith('approved') ? 'text-emerald-400' : reviewStatus[s.id] === 'rejected' ? 'text-red-400' : 'text-text-tertiary'}`}>
+                      {reviewStatus[s.id]}
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <div className="font-mono text-[9px] text-text-tertiary">
+                    {new Date(s.created_at).toLocaleDateString()} {new Date(s.created_at).toLocaleTimeString()}
+                  </div>
+                  {!reviewStatus[s.id] && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => reviewSession(s, 'approve')}
+                        className="font-mono text-[9px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 bg-emerald-400/5 hover:bg-emerald-400/10 px-2 py-1 rounded transition-colors"
+                      >
+                        Approve →
+                      </button>
+                      <button
+                        onClick={() => reviewSession(s, 'reject')}
+                        className="font-mono text-[9px] uppercase tracking-widest text-red-400 border border-red-400/30 hover:bg-red-400/10 px-2 py-1 rounded transition-colors"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Preview synthesis if available */}
+              {s.synthesized_output && (
+                <div>
+                  <button
+                    onClick={() => setExpandedPreview(expandedPreview === s.id ? null : s.id)}
+                    className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
+                  >
+                    {expandedPreview === s.id ? '▲ Hide preview' : '▼ Preview synthesis'}
+                  </button>
+                  {expandedPreview === s.id && (
+                    <div className="mt-2 space-y-2 border-t border-gold/20 pt-2">
+                      {s.synthesized_output?.executive_summary != null && (
+                        <p className="text-xs text-text-secondary leading-relaxed">
+                          {String(s.synthesized_output.executive_summary).slice(0, 500)}…
+                        </p>
+                      )}
+                      {Array.isArray(s.synthesized_output?.jaw_drop_layers) && (s.synthesized_output.jaw_drop_layers as unknown[]).length > 0 && (
+                        <div className="font-mono text-[9px] text-gold">
+                          {(s.synthesized_output.jaw_drop_layers as unknown[]).length} jaw-drop layers · score {s.synthesized_output.convergence_score as number}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="font-mono text-[9px] text-text-tertiary">{s.id}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* All sessions */}
       <div className="space-y-px">
-        {sessions.map((s) => (
+        {sessions.filter((s) => s.status !== 'pending_review').map((s) => (
           <div key={s.id} className="border border-border bg-ground-light/40 px-4 py-3">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
@@ -581,6 +705,11 @@ function SessionsTab() {
                   <span className={`font-mono text-[9px] uppercase tracking-widest ${STATUS_COLORS[s.status] ?? 'text-text-tertiary'}`}>
                     {s.status}
                   </span>
+                  {s.session_type === 'enhancement' && (
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-gold/60 border border-gold/20 px-1 rounded">
+                      enhancement
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-text-tertiary mt-0.5 font-mono">{s.topic}</div>
                 {s.error_log?.length > 0 && (
@@ -659,6 +788,9 @@ function ContentTab() {
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [slugInputs, setSlugInputs] = useState<Record<string, string>>({});
   const [publishStatus, setPublishStatus] = useState<Record<string, string>>({});
+  const [enhanceOpen, setEnhanceOpen] = useState<string | null>(null);
+  const [enhanceQuestions, setEnhanceQuestions] = useState<Record<string, string[]>>({});
+  const [enhanceStatus, setEnhanceStatus] = useState<Record<string, string>>({});
   const [deepDiveOpen, setDeepDiveOpen] = useState<string | null>(null);
   const [deepDiveFocus, setDeepDiveFocus] = useState<Record<string, string>>({});
   const [deepDiveQuestions, setDeepDiveQuestions] = useState<Record<string, string>>({});
@@ -777,6 +909,49 @@ function ContentTab() {
       }, 8000);
     } catch (err) {
       setDeepDiveStatus((s) => ({ ...s, [d.topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  const launchEnhance = async (d: Dossier) => {
+    const questions = (enhanceQuestions[d.topic] ?? ['']).filter((q) => q.trim());
+    if (questions.length === 0) return;
+
+    setEnhanceStatus((s) => ({ ...s, [d.topic]: 'queuing…' }));
+    setEnhanceOpen(null);
+    try {
+      const res = await fetch('/api/research/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: d.topic,
+          title: d.title,
+          research_questions: questions,
+        }),
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error as string);
+      const sessionId = data.session_id as string;
+      setEnhanceStatus((s) => ({ ...s, [d.topic]: `running — session ${sessionId.slice(0, 8)}…` }));
+
+      const poll = setInterval(async () => {
+        try {
+          const r = await fetch(`/api/research/${sessionId}`);
+          if (!r.ok) return;
+          const rd = await r.json();
+          const status = rd?.session?.status ?? 'pending';
+          if (status === 'pending_review') {
+            clearInterval(poll);
+            setEnhanceStatus((s) => ({ ...s, [d.topic]: 'complete — awaiting your review in Sessions tab' }));
+          } else if (status === 'failed') {
+            clearInterval(poll);
+            setEnhanceStatus((s) => ({ ...s, [d.topic]: `failed — ${(rd?.session?.error_log ?? []).join('; ')}` }));
+          } else {
+            setEnhanceStatus((s) => ({ ...s, [d.topic]: `${SESSION_STATUS_LABELS[status] ?? status}…` }));
+          }
+        } catch { /* network blip */ }
+      }, 8000);
+    } catch (err) {
+      setEnhanceStatus((s) => ({ ...s, [d.topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
     }
   };
 
@@ -918,21 +1093,41 @@ function ContentTab() {
               <div className="px-4 pb-3 flex items-center gap-3 flex-wrap border-t border-border/40 pt-3">
                 <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">Research:</span>
                 <button
-                  onClick={() => setDeepDiveOpen(deepDiveOpen === d.topic ? null : d.topic)}
+                  onClick={() => {
+                    setEnhanceOpen(enhanceOpen === d.topic ? null : d.topic);
+                    setDeepDiveOpen(null);
+                    if (!enhanceQuestions[d.topic]) {
+                      setEnhanceQuestions((q) => ({ ...q, [d.topic]: [''] }));
+                    }
+                  }}
+                  className="font-mono text-[9px] uppercase tracking-widest text-gold border border-gold/30 hover:bg-gold/10 px-2 py-1 rounded transition-colors"
+                >
+                  + Enhance
+                </button>
+                <button
+                  onClick={() => {
+                    setDeepDiveOpen(deepDiveOpen === d.topic ? null : d.topic);
+                    setEnhanceOpen(null);
+                  }}
                   className="font-mono text-[9px] uppercase tracking-widest text-sky-400 border border-sky-400/30 hover:bg-sky-400/10 px-2 py-1 rounded transition-colors"
                 >
-                  + Deep Dive
+                  Deep Dive
                 </button>
                 <button
                   onClick={() => resynthesize(d)}
                   disabled={resynthStatus[d.topic] === 'running…'}
                   className="font-mono text-[9px] uppercase tracking-widest text-violet-400 border border-violet-400/30 hover:bg-violet-400/10 px-2 py-1 rounded transition-colors disabled:opacity-40"
                 >
-                  Re-synthesize All
+                  Re-synthesize
                 </button>
                 {resynthStatus[d.topic] && (
                   <span className={`font-mono text-[9px] ${resynthStatus[d.topic].startsWith('error') ? 'text-red-400' : resynthStatus[d.topic] === 'running…' ? 'text-text-tertiary' : 'text-violet-400'}`}>
                     {resynthStatus[d.topic]}
+                  </span>
+                )}
+                {enhanceStatus[d.topic] && (
+                  <span className={`font-mono text-[9px] ${enhanceStatus[d.topic].startsWith('error') ? 'text-red-400' : enhanceStatus[d.topic].startsWith('complete') ? 'text-gold' : 'text-text-tertiary'}`}>
+                    {enhanceStatus[d.topic]}
                   </span>
                 )}
                 {deepDiveStatus[d.topic] && (
@@ -941,6 +1136,65 @@ function ContentTab() {
                   </span>
                 )}
               </div>
+
+              {/* Enhance form */}
+              {enhanceOpen === d.topic && (
+                <div className="px-4 pb-4 border-t border-gold/20 space-y-3 pt-3 bg-gold/3">
+                  <div className="font-mono text-[9px] uppercase tracking-widest text-gold">
+                    Enhance Article — New Research Round
+                  </div>
+                  <p className="font-mono text-[9px] text-text-tertiary">
+                    Max {MAX_ENHANCE_QUESTIONS} questions per round. Results go to pending review before merging.
+                  </p>
+                  <div className="space-y-2">
+                    {(enhanceQuestions[d.topic] ?? ['']).map((q, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input
+                          className="flex-1 bg-ground border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                          placeholder={`New research question ${i + 1}`}
+                          value={q}
+                          onChange={(e) => {
+                            const updated = [...(enhanceQuestions[d.topic] ?? [''])];
+                            updated[i] = e.target.value;
+                            setEnhanceQuestions((s) => ({ ...s, [d.topic]: updated }));
+                          }}
+                        />
+                        {(enhanceQuestions[d.topic] ?? ['']).length > 1 && (
+                          <button
+                            onClick={() => {
+                              const updated = (enhanceQuestions[d.topic] ?? ['']).filter((_, idx) => idx !== i);
+                              setEnhanceQuestions((s) => ({ ...s, [d.topic]: updated }));
+                            }}
+                            className="px-2 text-text-tertiary hover:text-red-400 transition-colors"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {(enhanceQuestions[d.topic] ?? ['']).length < MAX_ENHANCE_QUESTIONS && (
+                    <button
+                      onClick={() => setEnhanceQuestions((s) => ({ ...s, [d.topic]: [...(s[d.topic] ?? ['']), ''] }))}
+                      className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
+                    >
+                      + Add question
+                    </button>
+                  )}
+                  <div className="flex gap-3 items-center">
+                    <button
+                      onClick={() => launchEnhance(d)}
+                      disabled={!(enhanceQuestions[d.topic] ?? ['']).some((q) => q.trim())}
+                      className="font-mono text-[9px] uppercase tracking-widest text-gold border border-gold/30 bg-gold/10 hover:bg-gold/20 px-3 py-1.5 rounded transition-colors disabled:opacity-40"
+                    >
+                      Launch Enhancement →
+                    </button>
+                    <span className="font-mono text-[9px] text-text-tertiary">
+                      Runs 3–5 min. Awaits your approval before updating the article.
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Deep Dive form */}
               {deepDiveOpen === d.topic && (

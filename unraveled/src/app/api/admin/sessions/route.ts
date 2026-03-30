@@ -14,7 +14,7 @@ export async function GET() {
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from('research_sessions')
-    .select('id, topic, title, status, research_questions, created_at, started_at, completed_at, error_log')
+    .select('id, topic, title, status, session_type, research_questions, synthesized_output, created_at, started_at, completed_at, error_log')
     .order('created_at', { ascending: false })
     .limit(50);
 

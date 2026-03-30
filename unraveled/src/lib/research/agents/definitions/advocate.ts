@@ -27,7 +27,7 @@ export const advocate: AgentDefinition = {
   llm: {
     provider: 'claude',
     model: 'claude-sonnet-4-6',
-    maxTokens: 12288,
+    maxTokens: 4096,
     temperature: 0.55,
   },
 

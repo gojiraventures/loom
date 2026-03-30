@@ -190,7 +190,8 @@ export type SessionStatus =
   | 'debating'
   | 'synthesizing'
   | 'complete'
-  | 'failed';
+  | 'failed'
+  | 'pending_review';
 
 export interface ResearchSession {
   id: string;
