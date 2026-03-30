@@ -630,7 +630,8 @@ function SessionsTab() {
                       ? `Delete this session? The published dossier is safe, but raw findings from this session will be removed.`
                       : `Delete this failed session and its partial data?`;
                     if (!confirm(msg)) return;
-                    await fetch(`/api/admin/sessions?id=${s.id}`, { method: 'DELETE' });
+                    const res = await fetch(`/api/admin/sessions?id=${s.id}`, { method: 'DELETE' });
+                    if (!res.ok) { alert(`Delete failed: ${(await res.json()).error}`); return; }
                     setSessions((prev) => prev.filter((x) => x.id !== s.id));
                   }}
                   className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-red-400 border border-border hover:border-red-400/30 px-2 py-1 rounded transition-colors"
