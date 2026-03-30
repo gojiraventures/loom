@@ -1,6 +1,6 @@
 import { assignRaci, getActiveAgents, getReviewAgents } from './raci';
 import { executeAgent } from './agents/executor';
-import { getAgent, AGENT_REGISTRY } from './agents/definitions';
+import { getAgent, AGENT_REGISTRY, RESEARCH_AGENTS } from './agents/definitions';
 import { updateSessionStatus, setRaciAssignments, logSessionError } from './storage/sessions';
 import { getFindingsBySession } from './storage/findings';
 import type { AgentExecutionResult } from './agents/executor';
@@ -31,7 +31,11 @@ export async function runLayer1(
   const raci = assignRaci(topic, researchQuestions);
   await setRaciAssignments(sessionId, raci);
 
-  const activeAgentIds = getActiveAgents(raci);
+  // With no research questions, run ALL research agents for broad coverage.
+  // With questions, use RACI scoring to focus on the most relevant agents.
+  const activeAgentIds = researchQuestions.length === 0
+    ? RESEARCH_AGENTS.map((a) => a.id)
+    : getActiveAgents(raci);
   console.log(`[pipeline] Layer 1: running ${activeAgentIds.length} agents for "${topic}"`);
   console.log(`[pipeline] Responsible: ${raci.responsible.join(', ')}`);
   console.log(`[pipeline] Accountable: ${raci.accountable.join(', ')}`);

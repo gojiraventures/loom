@@ -126,8 +126,16 @@ export async function runDebate(
     return { debate: null, error: `Skeptic failed: ${skepticResult.reason instanceof Error ? skepticResult.reason.message : String(skepticResult.reason)}` };
   }
 
-  const advRaw = advocateResult.value.parsed ?? JSON.parse(advocateResult.value.text);
-  const skpRaw = skepticResult.value.parsed ?? JSON.parse(skepticResult.value.text);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let advRaw: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let skpRaw: any;
+  try {
+    advRaw = advocateResult.value.parsed ?? JSON.parse(advocateResult.value.text);
+    skpRaw = skepticResult.value.parsed ?? JSON.parse(skepticResult.value.text);
+  } catch (err) {
+    return { debate: null, error: `Failed to parse debate outputs: ${err instanceof Error ? err.message : String(err)}` };
+  }
 
   // Merge: take unresolved_tensions and agreed_facts from whichever side provided more
   const unresolvedTensions: string[] =
