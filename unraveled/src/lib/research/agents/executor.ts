@@ -63,7 +63,9 @@ export async function executeAgent(
   let findings: AgentFinding[] = [];
   try {
     const raw = llmResponse.parsed ?? JSON.parse(llmResponse.text);
-    const validated = AgentFindingsSchema.parse(raw);
+    // Some LLMs return a bare array instead of { findings: [...] } — normalise it
+    const normalized = Array.isArray(raw) ? { findings: raw } : raw;
+    const validated = AgentFindingsSchema.parse(normalized);
     findings = validated.findings.map((f) => ({
       ...f,
       agent_id: def.id, // ensure agent_id is always correct
