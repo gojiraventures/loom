@@ -10,9 +10,10 @@ export const SourceReferenceSchema = z.object({
     'sacred_text', 'journal', 'book', 'excavation_report',
     'oral_tradition', 'newspaper', 'archive', 'museum_db',
     'government_record', 'website', 'other',
-  ]),
+  ]).catch('other'),
   url: z.string().nullable(),
-  credibility_tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+  credibility_tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
+    .catch(3 as 1 | 2 | 3 | 4 | 5),
   page_or_section: z.string().nullable(),
 });
 
@@ -25,14 +26,14 @@ export const AgentFindingSchema = z.object({
   evidence_type: z.enum([
     'textual', 'archaeological', 'geological', 'genetic',
     'oral_tradition', 'iconographic', 'statistical', 'comparative',
-  ]),
-  strength: z.enum(['strong', 'moderate', 'contested']),
+  ]).catch('comparative'),
+  strength: z.enum(['strong', 'moderate', 'contested']).catch('moderate'),
   confidence: z.number().min(0).max(1),
   sources: z.array(SourceReferenceSchema).min(1),
   traditions: z.array(z.string()),
   time_period: z.object({
-    start_year: z.number().optional(),
-    end_year: z.number().optional(),
+    start_year: z.number().nullish(),
+    end_year: z.number().nullish(),
     era: z.string(),
   }).nullable(),
   geographic_scope: z.array(z.string()),

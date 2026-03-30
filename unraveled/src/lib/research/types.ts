@@ -70,8 +70,8 @@ export interface AgentFinding {
   sources: SourceReference[];
   traditions: string[];
   time_period: {
-    start_year?: number;
-    end_year?: number;
+    start_year?: number | null;
+    end_year?: number | null;
     era: string;
   } | null;
   geographic_scope: string[];

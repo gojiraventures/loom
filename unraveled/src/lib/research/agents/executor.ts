@@ -62,7 +62,9 @@ export async function executeAgent(
   // Parse and validate via Zod
   let findings: AgentFinding[] = [];
   try {
-    const raw = llmResponse.parsed ?? JSON.parse(llmResponse.text);
+    // Strip markdown code fences if the LLM wrapped the JSON (```json ... ```)
+    const text = llmResponse.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    const raw = llmResponse.parsed ?? JSON.parse(text);
     // Some LLMs return a bare array instead of { findings: [...] } — normalise it
     const normalized = Array.isArray(raw) ? { findings: raw } : raw;
     const validated = AgentFindingsSchema.parse(normalized);
