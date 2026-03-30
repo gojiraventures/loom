@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
 
       await updateSessionStatus(sessionId, 'cross_validating');
 
-      // Fire Phase 2+ in a fresh request — new 300s timeout window
-      fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
+      // Await the chain call so it is actually sent before this after() exits
+      await fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
         .catch((e) => console.error(`[research:${sessionId}] chain fire failed:`, e));
 
     } catch (err) {

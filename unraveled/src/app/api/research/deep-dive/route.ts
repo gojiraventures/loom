@@ -68,7 +68,7 @@ Do not give these topics a surface-level mention. Go deep. If you know of specif
 
       await updateSessionStatus(sessionId, 'cross_validating');
 
-      fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
+      await fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
         .catch((e) => console.error(`[deep-dive:${sessionId}] chain fire failed:`, e));
 
     } catch (err) {

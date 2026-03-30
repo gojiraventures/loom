@@ -116,8 +116,8 @@ export async function POST(
         return;
       }
 
-      // Fire next phase in a fresh request (new 300s timeout window)
-      fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
+      // Await the chain call so it is actually sent before this after() exits
+      await fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
         .catch((e) => console.error(`[continue:${sessionId}] chain fire failed:`, e));
 
     } catch (err) {
