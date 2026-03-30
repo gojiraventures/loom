@@ -1,21 +1,18 @@
 /**
  * POST /api/research/[sessionId]/continue
  *
- * Self-chaining phase runner. Each call:
- *   1. Reads current session status from DB
- *   2. Runs ONE phase (cross-validation, convergence, debate, synthesis, or dossier)
- *   3. After completion fires itself again for the next phase
+ * Runs ALL remaining pipeline phases in a single call (phases 2-5):
+ *   cross-validation (~15s) → convergence (~10s) → debate (~25s) → synthesis+dossier (~20s)
+ * Total ~70s — well within the 300s Vercel limit.
  *
- * This gives each phase its own fresh 300s Vercel timeout window.
- * Called internally by the research launch route after Layer 1 completes.
+ * Called once by the main research route after Layer 1 completes.
+ * No self-chaining — simpler and more reliable.
  */
-import { after } from 'next/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, updateSessionStatus, logSessionError } from '@/lib/research/storage/sessions';
 import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { getValidationsBySession } from '@/lib/research/storage/validations';
 import { getConvergenceBySession } from '@/lib/research/storage/convergence';
-import { getDebateBySession } from '@/lib/research/storage/debates';
 import { buildCrossValidationPlan } from '@/lib/research/pipeline';
 import { runAllCrossValidation } from '@/lib/research/agents/cross-validator';
 import { runConvergenceLayer } from '@/lib/research/agents/convergence-runner';
@@ -26,24 +23,14 @@ import type { AgentFinding } from '@/lib/research/types';
 
 export const maxDuration = 300;
 
-function getSiteUrl(req: NextRequest): string {
-  // Use env var if set, otherwise derive from incoming request
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
-  const { protocol, host } = new URL(req.url);
-  return `${protocol}//${host}`;
-}
-
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
   const { sessionId } = await params;
-  const siteUrl = getSiteUrl(req);
 
   const session = await getSession(sessionId);
   if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-
-  // Already terminal — nothing to do
   if (session.status === 'complete' || session.status === 'failed') {
     return NextResponse.json({ status: session.status });
   }
@@ -52,81 +39,66 @@ export async function POST(
   const title = session.title as string;
   const researchQuestions = (session.research_questions as string[]) ?? [];
 
-  after(async () => {
-    try {
-      const status = session.status as string;
+  // Run all remaining phases synchronously — total ~70s, well within 300s
+  try {
+    const findings = await getFindingsBySession(sessionId) as (AgentFinding & { id: string })[];
 
-      if (status === 'cross_validating') {
-        const findings = await getFindingsBySession(sessionId) as (AgentFinding & { id: string })[];
-        const crossValPlan = buildCrossValidationPlan(sessionId, topic, researchQuestions, findings);
-        const reviewerIds = [...new Set(crossValPlan.map((p) => p.reviewerAgentId))];
-        await runAllCrossValidation(sessionId, topic, findings, reviewerIds);
-        await updateSessionStatus(sessionId, 'converging');
-        console.log(`[continue:${sessionId}] cross_validating → converging`);
-      }
-
-      else if (status === 'converging') {
-        const findings = await getFindingsBySession(sessionId) as (AgentFinding & { id: string })[];
-        await runConvergenceLayer(sessionId, topic, findings);
-        await updateSessionStatus(sessionId, 'debating');
-        console.log(`[continue:${sessionId}] converging → debating`);
-      }
-
-      else if (status === 'debating') {
-        const findings = await getFindingsBySession(sessionId) as (AgentFinding & { id: string })[];
-        const convergenceAnalyses = await getConvergenceBySession(sessionId);
-        const debateResult = await runDebate(sessionId, topic, findings, convergenceAnalyses);
-        if (debateResult.error || !debateResult.debate) {
-          const errMsg = debateResult.error ?? 'Debate produced no output';
-          await logSessionError(sessionId, errMsg);
-          await updateSessionStatus(sessionId, 'failed');
-          console.error(`[continue:${sessionId}] debate failed:`, errMsg);
-          return;
-        }
-        await updateSessionStatus(sessionId, 'synthesizing');
-        console.log(`[continue:${sessionId}] debating → synthesizing`);
-      }
-
-      else if (status === 'synthesizing') {
-        const findings = await getFindingsBySession(sessionId) as (AgentFinding & { id: string })[];
-        const allValidations = await getValidationsBySession(sessionId);
-        const convergenceAnalyses = await getConvergenceBySession(sessionId);
-        const debate = await getDebateBySession(sessionId);
-        if (!debate) {
-          await logSessionError(sessionId, 'No debate record found for synthesis');
-          await updateSessionStatus(sessionId, 'failed');
-          return;
-        }
-        const synthesisResult = await runSynthesis(sessionId, topic, findings, allValidations, convergenceAnalyses, debate);
-        if (synthesisResult.error || !synthesisResult.output) {
-          const errMsg = synthesisResult.error ?? 'Synthesis produced no output';
-          await logSessionError(sessionId, errMsg);
-          await updateSessionStatus(sessionId, 'failed');
-          console.error(`[continue:${sessionId}] synthesis failed:`, errMsg);
-          return;
-        }
-        await accumulateDossier({ topic, title, findings, convergenceAnalyses, debate, output: synthesisResult.output });
-        await updateSessionStatus(sessionId, 'complete');
-        console.log(`[continue:${sessionId}] complete ✓`);
-        return; // done — no more chaining
-      }
-
-      else {
-        console.warn(`[continue:${sessionId}] unexpected status: ${status}`);
-        return;
-      }
-
-      // Await the chain call so it is actually sent before this after() exits
-      await fetch(`${siteUrl}/api/research/${sessionId}/continue`, { method: 'POST' })
-        .catch((e) => console.error(`[continue:${sessionId}] chain fire failed:`, e));
-
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[continue:${sessionId}] unhandled error:`, message);
-      await updateSessionStatus(sessionId, 'failed').catch(() => null);
-      await logSessionError(sessionId, message).catch(() => null);
+    if (findings.length === 0) {
+      await updateSessionStatus(sessionId, 'failed');
+      await logSessionError(sessionId, 'No findings available for phases 2-5');
+      return NextResponse.json({ error: 'No findings' }, { status: 500 });
     }
-  });
 
-  return NextResponse.json({ ok: true, status: session.status });
+    // Phase 2: Cross-validation
+    console.log(`[continue:${sessionId}] Phase 2: cross-validation`);
+    const crossValPlan = buildCrossValidationPlan(sessionId, topic, researchQuestions, findings);
+    const reviewerIds = [...new Set(crossValPlan.map((p) => p.reviewerAgentId))];
+    await runAllCrossValidation(sessionId, topic, findings, reviewerIds);
+    await updateSessionStatus(sessionId, 'converging');
+
+    // Phase 3: Convergence
+    console.log(`[continue:${sessionId}] Phase 3: convergence`);
+    await runConvergenceLayer(sessionId, topic, findings);
+    const convergenceAnalyses = await getConvergenceBySession(sessionId);
+    await updateSessionStatus(sessionId, 'debating');
+
+    // Phase 4: Debate
+    console.log(`[continue:${sessionId}] Phase 4: debate`);
+    const debateResult = await runDebate(sessionId, topic, findings, convergenceAnalyses);
+    if (debateResult.error || !debateResult.debate) {
+      const errMsg = debateResult.error ?? 'Debate produced no output';
+      await logSessionError(sessionId, errMsg);
+      await updateSessionStatus(sessionId, 'failed');
+      return NextResponse.json({ error: errMsg }, { status: 500 });
+    }
+    await updateSessionStatus(sessionId, 'synthesizing');
+
+    // Phase 5: Synthesis + dossier
+    console.log(`[continue:${sessionId}] Phase 5: synthesis`);
+    const allValidations = await getValidationsBySession(sessionId);
+    const synthesisResult = await runSynthesis(
+      sessionId, topic, findings, allValidations, convergenceAnalyses, debateResult.debate,
+    );
+    if (synthesisResult.error || !synthesisResult.output) {
+      const errMsg = synthesisResult.error ?? 'Synthesis produced no output';
+      await logSessionError(sessionId, errMsg);
+      await updateSessionStatus(sessionId, 'failed');
+      return NextResponse.json({ error: errMsg }, { status: 500 });
+    }
+
+    await accumulateDossier({
+      topic, title, findings, convergenceAnalyses,
+      debate: debateResult.debate, output: synthesisResult.output,
+    });
+    await updateSessionStatus(sessionId, 'complete');
+    console.log(`[continue:${sessionId}] Complete ✓`);
+
+    return NextResponse.json({ ok: true, status: 'complete' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[continue:${sessionId}] error:`, message);
+    await updateSessionStatus(sessionId, 'failed').catch(() => null);
+    await logSessionError(sessionId, message).catch(() => null);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
