@@ -13,7 +13,7 @@ async function safeJson(res: Response): Promise<Record<string, unknown>> {
   } catch {
     if (res.status === 504 || res.status === 502 || res.status === 503 || res.status === 408) {
       throw new Error(
-        `Timed out (${res.status}). Deep Dive and Re-synthesize require Vercel Pro (300s limit) — run locally via \`npm run dev\` instead.`
+        `Request timed out (${res.status}). The pipeline runs for 3–5 minutes — try again or check Vercel logs.`
       );
     }
     throw new Error(`Server error (${res.status}): ${text.slice(0, 120)}`);
@@ -752,7 +752,7 @@ function ContentTab() {
                     >
                       Launch Deep Dive →
                     </button>
-                    <span className="font-mono text-[9px] text-text-tertiary">Runs 3–5 min. Requires Vercel Pro or run locally.</span>
+                    <span className="font-mono text-[9px] text-text-tertiary">Runs 3–5 min. Synthesis includes all prior sessions.</span>
                   </div>
                 </div>
               )}
@@ -1144,10 +1144,11 @@ function PeopleTab() {
           person: { ...researchResult, status: 'draft' },
           bio_sections: researchResult.bio_sections ?? [],
           suggested_relationships: researchResult.suggested_relationships ?? [],
+          suggested_books: researchResult.suggested_books ?? [],
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Save failed');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.error as string) ?? 'Save failed');
       setResearchResult(null);
       setSearchName('');
       setActiveSection('list');
@@ -1292,6 +1293,37 @@ function PeopleTab() {
                         <span className="border border-border px-1.5 py-0.5 rounded font-mono text-[8px]">{r.relationship_type}</span>
                         <span>{r.person_name}</span>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {researchResult.suggested_books && (researchResult.suggested_books as unknown[]).length > 0 && (
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-1">
+                    {(researchResult.suggested_books as unknown[]).length} books
+                  </p>
+                  <div className="space-y-1">
+                    {(researchResult.suggested_books as Record<string, unknown>[]).slice(0, 4).map((b, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-text-tertiary">
+                        <span className="border border-border px-1.5 py-0.5 rounded font-mono text-[8px]">{b.relationship as string}</span>
+                        <span className="font-serif">{b.title as string}</span>
+                        <span className="text-text-tertiary">by {b.author_name as string}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(researchResult.website_url || researchResult.twitter_handle || researchResult.wikipedia_url || (researchResult.socials as unknown[] | undefined)?.length) && (
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-1">Socials / links found</p>
+                  <div className="flex flex-wrap gap-2">
+                    {researchResult.website_url && <span className="font-mono text-[8px] border border-border px-1.5 py-0.5 rounded text-text-tertiary">website</span>}
+                    {researchResult.twitter_handle && <span className="font-mono text-[8px] border border-border px-1.5 py-0.5 rounded text-text-tertiary">X {researchResult.twitter_handle}</span>}
+                    {researchResult.wikipedia_url && <span className="font-mono text-[8px] border border-border px-1.5 py-0.5 rounded text-text-tertiary">wikipedia</span>}
+                    {(researchResult.socials as { platform: string }[] | undefined)?.map((s, i) => (
+                      <span key={i} className="font-mono text-[8px] border border-border px-1.5 py-0.5 rounded text-text-tertiary">{s.platform}</span>
                     ))}
                   </div>
                 </div>

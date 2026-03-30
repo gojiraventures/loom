@@ -4,7 +4,64 @@ import { upsertPerson, upsertBioSection, upsertRelationship, deletePerson, listP
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/admin/people — list all people (admin, bypass RLS)
+// Valid platform values from the CHECK constraint
+const VALID_PLATFORMS = new Set([
+  'x', 'instagram', 'facebook', 'youtube', 'tiktok', 'linkedin', 'reddit',
+  'threads', 'bluesky', 'truth_social', 'substack', 'patreon', 'spotify',
+  'apple_podcasts', 'rumble', 'odysee', 'bitchute', 'locals', 'gumroad',
+  'website', 'blog', 'amazon_author', 'google_scholar', 'researchgate',
+  'academia_edu', 'imdb', 'wikipedia', 'discord', 'telegram', 'newsletter',
+  'merch_store', 'other',
+]);
+
+const PLATFORM_ALIASES: Record<string, string> = {
+  twitter: 'x',
+  'x.com': 'x',
+  'twitter.com': 'x',
+  web: 'website',
+  site: 'website',
+  personal_website: 'website',
+  substack_newsletter: 'substack',
+  podcast: 'spotify',
+  apple_podcast: 'apple_podcasts',
+  'google scholar': 'google_scholar',
+  researchgate_net: 'researchgate',
+  academia: 'academia_edu',
+};
+
+function normalizePlatform(raw: string): string {
+  const lower = raw.toLowerCase().trim().replace(/\s+/g, '_');
+  if (VALID_PLATFORMS.has(lower)) return lower;
+  if (PLATFORM_ALIASES[lower]) return PLATFORM_ALIASES[lower];
+  // Try partial match
+  for (const valid of VALID_PLATFORMS) {
+    if (lower.includes(valid) || valid.includes(lower)) return valid;
+  }
+  return 'other';
+}
+
+async function upsertSocial(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  personId: string,
+  platform: string,
+  url: string,
+  handle?: string | null,
+  sortOrder = 99,
+) {
+  const normalizedPlatform = normalizePlatform(platform);
+  if (!url?.trim()) return;
+  await supabase.from('people_socials').upsert({
+    person_id: personId,
+    platform: normalizedPlatform,
+    url: url.trim(),
+    handle: handle ?? null,
+    verified: false,
+    active: true,
+    sort_order: sortOrder,
+  }, { onConflict: 'person_id,platform,url' }).then(() => null, () => null);
+}
+
+// GET /api/admin/people — list all people
 export async function GET() {
   try {
     const people = await listPeople();
@@ -21,7 +78,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { person, bio_sections, suggested_relationships } = body as Record<string, unknown>;
+  const { person, bio_sections, suggested_relationships, suggested_books } = body as Record<string, unknown>;
 
   if (!person || typeof person !== 'object') {
     return NextResponse.json({ error: 'person object required' }, { status: 400 });
@@ -33,7 +90,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Upsert the person
+    const supabase = createServerSupabaseClient();
+
+    // 1. Upsert the person
     const saved = await upsertPerson({
       slug: p.slug as string,
       full_name: p.full_name as string,
@@ -58,7 +117,7 @@ export async function POST(req: NextRequest) {
       last_researched_at: new Date().toISOString(),
     });
 
-    // Upsert bio sections
+    // 2. Upsert bio sections
     if (Array.isArray(bio_sections)) {
       for (let i = 0; i < bio_sections.length; i++) {
         const s = bio_sections[i] as Record<string, unknown>;
@@ -75,26 +134,75 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Add socials
+    // 3. Seed socials from top-level fields (website, twitter, wikipedia)
+    let sortIdx = 0;
+    if (p.website_url) {
+      await upsertSocial(supabase, saved.id, 'website', p.website_url as string, null, sortIdx++);
+    }
+    if (p.twitter_handle) {
+      const handle = p.twitter_handle as string;
+      const url = handle.startsWith('http') ? handle : `https://x.com/${handle.replace('@', '')}`;
+      await upsertSocial(supabase, saved.id, 'x', url, handle.startsWith('@') ? handle : `@${handle}`, sortIdx++);
+    }
+    if (p.wikipedia_url) {
+      await upsertSocial(supabase, saved.id, 'wikipedia', p.wikipedia_url as string, null, sortIdx++);
+    }
+
+    // 4. Add socials from AI socials array (normalized)
     if (Array.isArray(p.socials)) {
-      const supabase = createServerSupabaseClient();
       for (const social of p.socials as Record<string, unknown>[]) {
-        await supabase.from('people_socials').upsert({
-          person_id: saved.id,
-          platform: social.platform,
-          url: social.url,
-          handle: social.handle ?? null,
-          verified: false,
-          active: true,
-        }, { onConflict: 'person_id,platform,url' }).then(() => null, () => null);
+        await upsertSocial(
+          supabase, saved.id,
+          social.platform as string,
+          social.url as string,
+          social.handle as string | null,
+          sortIdx++,
+        );
       }
     }
 
-    // Queue relationship suggestions (store as research queue items to resolve later)
+    // 5. Save suggested books + link to person
+    const booksToProcess = Array.isArray(suggested_books)
+      ? suggested_books
+      : Array.isArray(p.suggested_books) ? p.suggested_books : [];
+
+    for (const bookRaw of booksToProcess as Record<string, unknown>[]) {
+      if (!bookRaw.title || !bookRaw.author_name) continue;
+
+      // Upsert book
+      const bookSlug = (bookRaw.title as string)
+        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      const { data: book } = await supabase
+        .from('books')
+        .upsert({
+          slug: bookSlug,
+          title: bookRaw.title,
+          author_name: bookRaw.author_name,
+          published_year: bookRaw.published_year ?? null,
+          amazon_url: bookRaw.amazon_url ?? null,
+          description: bookRaw.description ?? null,
+          author_person_id: bookRaw.relationship === 'author' || bookRaw.relationship === 'co_author'
+            ? saved.id : null,
+          status: 'published',
+        }, { onConflict: 'slug' })
+        .select('id')
+        .single();
+
+      if (book) {
+        await supabase.from('people_books_link').upsert({
+          person_id: saved.id,
+          book_id: book.id,
+          relationship: (bookRaw.relationship as string) ?? 'mentioned',
+          context: bookRaw.context as string ?? null,
+        }, { onConflict: 'person_id,book_id,relationship' }).then(() => null, () => null);
+      }
+    }
+
+    // 6. Auto-resolve relationship suggestions
     if (Array.isArray(suggested_relationships)) {
-      const supabase = createServerSupabaseClient();
       for (const rel of suggested_relationships as Record<string, unknown>[]) {
-        // Try to find the other person by name
+        if (!rel.person_name) continue;
         const { data: match } = await supabase
           .from('people')
           .select('id')
