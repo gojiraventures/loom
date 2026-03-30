@@ -24,9 +24,7 @@ export async function queryGemini(request: LLMRequest): Promise<LLMResponse> {
   const ai = getClient();
 
   const model = ai.getGenerativeModel({
-    model: request.provider === 'gemini-flash'
-      ? 'gemini-2.5-flash'
-      : 'gemini-2.5-pro',
+    model: request.model ?? (request.provider === 'gemini-flash' ? 'gemini-2.5-flash' : 'gemini-2.5-pro'),
     safetySettings: SAFETY_SETTINGS,
     generationConfig: {
       maxOutputTokens: request.maxTokens ?? 8192,
@@ -58,7 +56,7 @@ export async function queryGemini(request: LLMRequest): Promise<LLMResponse> {
   return {
     text,
     parsed,
-    model: request.provider === 'gemini-flash' ? 'gemini-2.5-flash' : 'gemini-2.5-pro',
+    model: request.model ?? (request.provider === 'gemini-flash' ? 'gemini-2.5-flash' : 'gemini-2.5-pro'),
     inputTokens: usage?.promptTokenCount ?? 0,
     outputTokens: usage?.candidatesTokenCount ?? 0,
     provider: request.provider,

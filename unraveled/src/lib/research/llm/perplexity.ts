@@ -12,7 +12,7 @@ export async function queryPerplexityLLM(request: LLMRequest): Promise<LLMRespon
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'sonar-pro',
+      model: request.model ?? 'sonar-pro',
       temperature: request.temperature ?? 0.2,
       max_tokens: request.maxTokens ?? 4096,
       messages: [

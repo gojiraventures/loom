@@ -1,4 +1,6 @@
+import { after } from 'next/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { createSession } from '@/lib/research/storage/sessions';
 import { runResearchSession } from '@/lib/research';
 
 export const maxDuration = 300; // 5 minutes — requires Vercel Pro
@@ -33,17 +35,38 @@ export async function POST(req: NextRequest) {
   }
   const additionalContext = contextParts.length > 0 ? contextParts.join('\n\n') : undefined;
 
+  // Create session immediately so we can return the ID right away
+  let session: { id: string };
   try {
-    const result = await runResearchSession(
-      topic.trim(),
-      title.trim(),
-      research_questions.map(String),
-      additionalContext,
-    );
-    return NextResponse.json(result, { status: 200 });
+    session = await createSession({
+      topic: topic.trim(),
+      title: title.trim(),
+      research_questions: research_questions.map(String),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[POST /api/research]', message);
+    console.error('[POST /api/research] createSession failed:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  const sessionId = session.id;
+
+  // Fire-and-forget: run pipeline after response is sent.
+  // The browser gets the session ID immediately and polls for status.
+  // This prevents "Load failed" errors when the pipeline takes 2-4 minutes.
+  after(async () => {
+    try {
+      await runResearchSession(
+        topic.trim(),
+        title.trim(),
+        research_questions.map(String),
+        additionalContext,
+        sessionId,
+      );
+    } catch (err) {
+      console.error(`[POST /api/research] Pipeline error for ${sessionId}:`, err instanceof Error ? err.message : err);
+    }
+  });
+
+  return NextResponse.json({ session_id: sessionId, status: 'queued' }, { status: 202 });
 }

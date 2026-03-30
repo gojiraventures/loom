@@ -25,8 +25,8 @@ export const scienceCommunicator: AgentDefinition = {
   },
 
   llm: {
-    provider: 'claude',
-    model: 'claude-opus-4-6',
+    provider: 'gemini-flash',
+    model: 'gemini-2.5-flash',
     maxTokens: 8192,
     temperature: 0.65,
   },

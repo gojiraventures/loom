@@ -21,7 +21,7 @@ export async function queryClaude(request: LLMRequest): Promise<LLMResponse> {
     : request.systemPrompt;
 
   const message = await ai.messages.create({
-    model: request.provider === 'claude' ? 'claude-opus-4-6' : 'claude-sonnet-4-6',
+    model: request.model ?? 'claude-sonnet-4-6',
     max_tokens: request.maxTokens ?? 8192,
     temperature: request.temperature ?? 0.4,
     system: systemPrompt,

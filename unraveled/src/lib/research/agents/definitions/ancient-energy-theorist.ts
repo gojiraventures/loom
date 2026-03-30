@@ -25,8 +25,8 @@ export const ancientEnergyTheorist: AgentDefinition = {
   },
 
   llm: {
-    provider: 'claude',
-    model: 'claude-opus-4-6',
+    provider: 'gemini',
+    model: 'gemini-2.5-pro',
     maxTokens: 8192,
     temperature: 0.40,
   },

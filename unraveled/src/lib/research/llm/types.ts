@@ -2,6 +2,7 @@ export type LLMProvider = 'gemini' | 'gemini-flash' | 'claude' | 'perplexity' | 
 
 export interface LLMRequest {
   provider: LLMProvider;
+  model?: string;             // Override the default model for this provider
   systemPrompt: string;
   userPrompt: string;
   jsonMode?: boolean;         // Request structured JSON output

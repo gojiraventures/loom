@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAllAgents } from '@/lib/research/agents/definitions';
 import type { AgentDefinition } from '@/lib/research/types';
 
@@ -81,14 +81,47 @@ function OceanBar({ label, value }: { label: string; value: number }) {
 
 // ── Launch Tab ────────────────────────────────────────────────────────────────
 
+const SESSION_STATUS_LABELS: Record<string, string> = {
+  pending: 'Queued',
+  researching: 'Layer 1 — Research agents',
+  cross_validating: 'Layer 2 — Cross-validation',
+  converging: 'Layer 3 — Convergence analysis',
+  debating: 'Layer 4 — Adversarial debate',
+  synthesizing: 'Layer 5 — Synthesis',
+  complete: 'Complete',
+  failed: 'Failed',
+};
+
 function LaunchTab() {
   const [topic, setTopic] = useState('');
   const [title, setTitle] = useState('');
   const [questions, setQuestions] = useState(['', '', '']);
   const [description, setDescription] = useState('');
   const [sources, setSources] = useState('');
-  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
-  const [result, setResult] = useState<string>('');
+  const [launchStatus, setLaunchStatus] = useState<'idle' | 'queuing' | 'polling' | 'done' | 'error'>('idle');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [pipelineStatus, setPipelineStatus] = useState<string>('pending');
+  const [errorMsg, setErrorMsg] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = () => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  };
+
+  const pollStatus = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/research/${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const s = data?.session?.status ?? 'pending';
+      setPipelineStatus(s);
+      if (s === 'complete' || s === 'failed') {
+        stopPolling();
+        setLaunchStatus(s === 'complete' ? 'done' : 'error');
+        if (s === 'failed') setErrorMsg(data?.session?.error_log?.join('\n') ?? 'Pipeline failed');
+      }
+    } catch { /* network blip — keep polling */ }
+  }, []);
 
   const addQuestion = () => setQuestions((q) => [...q, '']);
   const removeQuestion = (i: number) => setQuestions((q) => q.filter((_, idx) => idx !== i));
@@ -99,8 +132,11 @@ function LaunchTab() {
     const validQuestions = questions.filter((q) => q.trim());
     if (!topic.trim() || !title.trim() || validQuestions.length === 0) return;
 
-    setStatus('running');
-    setResult('');
+    stopPolling();
+    setLaunchStatus('queuing');
+    setSessionId(null);
+    setPipelineStatus('pending');
+    setErrorMsg('');
 
     try {
       const res = await fetch('/api/research', {
@@ -116,20 +152,31 @@ function LaunchTab() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Unknown error');
-      setStatus('done');
-      setResult(JSON.stringify(data, null, 2));
+
+      const id = data.session_id as string;
+      setSessionId(id);
+      setLaunchStatus('polling');
+
+      // Poll every 8 seconds — safe to close/navigate, server continues running
+      pollRef.current = setInterval(() => pollStatus(id), 8000);
+      pollStatus(id);
     } catch (err) {
-      setStatus('error');
-      setResult(err instanceof Error ? err.message : String(err));
+      setLaunchStatus('error');
+      setErrorMsg(err instanceof Error ? err.message : String(err));
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => () => stopPolling(), []);
+
+  const isRunning = launchStatus === 'queuing' || launchStatus === 'polling';
 
   return (
     <div className="space-y-8">
       <div>
         <h2 className="font-serif text-2xl mb-1">Launch Research Session</h2>
         <p className="text-sm text-text-secondary">
-          Fires the full 65-agent pipeline. Runs for 3–5 minutes. Results are stored in Supabase.
+          Fires the full 65-agent pipeline. You can close this tab — the pipeline runs on the server.
         </p>
       </div>
 
@@ -219,23 +266,58 @@ function LaunchTab() {
 
         <button
           onClick={launch}
-          disabled={status === 'running'}
+          disabled={isRunning}
           className="font-mono text-sm tracking-wide px-6 py-3 border border-gold/30 bg-gold/5 text-gold hover:bg-gold/10 transition-colors rounded disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {status === 'running' ? 'Running pipeline…' : 'Launch →'}
+          {launchStatus === 'queuing' ? 'Starting…' : 'Launch →'}
         </button>
       </div>
 
-      {status !== 'idle' && (
-        <div className="max-w-2xl">
-          <div className={`font-mono text-[10px] uppercase tracking-widest mb-2 ${
-            status === 'error' ? 'text-red-400' : status === 'done' ? 'text-emerald-400' : 'text-sky-400'
+      {launchStatus !== 'idle' && (
+        <div className="max-w-2xl space-y-3">
+          {/* Status header */}
+          <div className={`font-mono text-[10px] uppercase tracking-widest ${
+            launchStatus === 'error' ? 'text-red-400' : launchStatus === 'done' ? 'text-emerald-400' : 'text-sky-400'
           }`}>
-            {status === 'running' ? 'Pipeline running — do not close tab' : status === 'done' ? 'Complete' : 'Error'}
+            {launchStatus === 'queuing' ? 'Starting pipeline…'
+              : launchStatus === 'polling' ? `${SESSION_STATUS_LABELS[pipelineStatus] ?? pipelineStatus}…`
+              : launchStatus === 'done' ? 'Complete — check Sessions tab'
+              : 'Failed'}
           </div>
-          {result && (
-            <pre className="bg-ground-light border border-border rounded p-4 text-[11px] font-mono text-text-secondary overflow-auto max-h-96 whitespace-pre-wrap">
-              {result}
+
+          {/* Live phase progress bar */}
+          {(launchStatus === 'polling' || launchStatus === 'done') && (
+            <div className="flex gap-1">
+              {['researching','cross_validating','converging','debating','synthesizing','complete'].map((phase) => {
+                const phases = ['researching','cross_validating','converging','debating','synthesizing','complete'];
+                const currentIdx = phases.indexOf(pipelineStatus);
+                const phaseIdx = phases.indexOf(phase);
+                const done = currentIdx > phaseIdx || pipelineStatus === 'complete';
+                const active = currentIdx === phaseIdx;
+                return (
+                  <div
+                    key={phase}
+                    className={`flex-1 h-1 rounded-full transition-colors duration-500 ${
+                      done ? 'bg-emerald-500' : active ? 'bg-sky-400 animate-pulse' : 'bg-border'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          )}
+
+          {/* Session ID for manual tracking */}
+          {sessionId && (
+            <div className="font-mono text-[10px] text-text-tertiary">
+              Session: <span className="text-text-secondary">{sessionId}</span>
+              <span className="ml-3 opacity-60">— safe to close this tab</span>
+            </div>
+          )}
+
+          {/* Error details */}
+          {launchStatus === 'error' && errorMsg && (
+            <pre className="bg-ground-light border border-red-400/20 rounded p-3 text-[11px] font-mono text-red-400 overflow-auto max-h-40 whitespace-pre-wrap">
+              {errorMsg}
             </pre>
           )}
         </div>
@@ -1135,7 +1217,10 @@ function PeopleTab() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<Record<string, string>>({});
-  const [activeSection, setActiveSection] = useState<'list' | 'add'>('list');
+  const [activeSection, setActiveSection] = useState<'list' | 'add' | 'wishlist'>('list');
+  const [wishlist, setWishlist] = useState<{ id: string; person_name: string; relationship_type: string | null; source_person_name: string | null; description: string | null; created_at: string }[]>([]);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlisted, setWishlisted] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1147,6 +1232,31 @@ function PeopleTab() {
       setLoading(false);
     }
   }, []);
+
+  const loadWishlist = useCallback(async () => {
+    setWishlistLoading(true);
+    try {
+      const res = await fetch('/api/admin/people/wishlist');
+      const data = await res.json();
+      setWishlist(data.wishlist ?? []);
+    } finally {
+      setWishlistLoading(false);
+    }
+  }, []);
+
+  const addToWishlist = async (personName: string, relationshipType: string, sourceName: string) => {
+    setWishlisted((prev) => new Set(prev).add(personName));
+    await fetch('/api/admin/people/wishlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ person_name: personName, relationship_type: relationshipType, source_person_name: sourceName }),
+    });
+  };
+
+  const removeFromWishlist = async (id: string) => {
+    await fetch(`/api/admin/people/wishlist?id=${id}`, { method: 'DELETE' });
+    setWishlist((prev) => prev.filter((w) => w.id !== id));
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -1232,6 +1342,15 @@ function PeopleTab() {
             className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border rounded transition-colors ${activeSection === 'list' ? 'border-gold text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
           >
             List
+          </button>
+          <button
+            onClick={() => { setActiveSection('wishlist'); loadWishlist(); }}
+            className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border rounded transition-colors flex items-center gap-1.5 ${activeSection === 'wishlist' ? 'border-gold text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+          >
+            Wishlist
+            {wishlist.length > 0 && (
+              <span className="bg-gold/20 text-gold text-[7px] px-1 py-0.5 rounded-full leading-none">{wishlist.length}</span>
+            )}
           </button>
           <button
             onClick={() => setActiveSection('add')}
@@ -1358,7 +1477,18 @@ function PeopleTab() {
                     {researchResult.suggested_relationships.slice(0, 4).map((r, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs text-text-tertiary">
                         <span className="border border-border px-1.5 py-0.5 rounded font-mono text-[8px]">{r.relationship_type}</span>
-                        <span>{r.person_name}</span>
+                        <span className="flex-1">{r.person_name}</span>
+                        {wishlisted.has(r.person_name) ? (
+                          <span className="font-mono text-[7px] text-gold">✓ queued</span>
+                        ) : (
+                          <button
+                            onClick={() => addToWishlist(r.person_name, r.relationship_type, researchResult.full_name)}
+                            title="Add to wishlist"
+                            className="font-mono text-[8px] text-text-tertiary border border-border px-1.5 py-0.5 rounded hover:text-gold hover:border-gold/30 transition-colors leading-none"
+                          >
+                            + wishlist
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1416,6 +1546,63 @@ function PeopleTab() {
         </div>
       )}
 
+      {/* WISHLIST SECTION */}
+      {activeSection === 'wishlist' && (
+        <div>
+          {wishlistLoading ? (
+            <p className="text-text-tertiary font-mono text-sm">Loading…</p>
+          ) : wishlist.length === 0 ? (
+            <div className="text-center py-12 border border-border rounded">
+              <p className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-1">Wishlist empty</p>
+              <p className="text-xs text-text-tertiary">Click <span className="text-gold">+ wishlist</span> next to suggested relationships when researching a person.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {wishlist.map((item) => (
+                <div key={item.id} className="border border-border bg-ground-light rounded p-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-serif text-base">{item.person_name}</span>
+                      {item.relationship_type && (
+                        <span className="font-mono text-[7px] uppercase tracking-widest border border-border text-text-tertiary px-1.5 py-0.5 rounded">
+                          {item.relationship_type}
+                        </span>
+                      )}
+                    </div>
+                    {item.source_person_name && (
+                      <p className="text-xs text-text-tertiary">
+                        Suggested from <span className="text-text-secondary">{item.source_person_name}</span>
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => {
+                        setSearchName(item.person_name);
+                        setPersonDescription(item.source_person_name
+                          ? `Suggested as ${item.relationship_type ?? 'connection'} of ${item.source_person_name}`
+                          : '');
+                        removeFromWishlist(item.id);
+                        setActiveSection('add');
+                      }}
+                      className="font-mono text-[8px] uppercase tracking-widest text-gold border border-gold/30 px-3 py-1.5 rounded hover:bg-gold/5 transition-colors"
+                    >
+                      Research Now →
+                    </button>
+                    <button
+                      onClick={() => removeFromWishlist(item.id)}
+                      className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1.5 rounded hover:text-red-400 hover:border-red-400/30 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* LIST SECTION */}
       {activeSection === 'list' && (
         <div>
@@ -1436,6 +1623,10 @@ function PeopleTab() {
                           { key: 'current_role', label: 'Role' },
                           { key: 'status', label: 'Status' },
                           { key: 'slug', label: 'Slug' },
+                          { key: 'faith', label: 'Faith' },
+                          { key: 'faith_status', label: 'Faith status' },
+                          { key: 'political_party', label: 'Political party' },
+                          { key: 'political_party_status', label: 'Party status' },
                         ].map(({ key, label, span }) => (
                           <div key={key} className={span ? 'col-span-3' : ''}>
                             <label className="block font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-0.5">{label}</label>
@@ -1454,6 +1645,22 @@ function PeopleTab() {
                                 onChange={(e) => setEditFields((f) => ({ ...f, [key]: e.target.value }))}
                               >
                                 {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            ) : key === 'faith_status' ? (
+                              <select
+                                className="w-full bg-ground border border-border px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                                value={editFields[key] ?? 'unknown'}
+                                onChange={(e) => setEditFields((f) => ({ ...f, [key]: e.target.value }))}
+                              >
+                                {['unknown', 'professed', 'assumed'].map((s) => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            ) : key === 'political_party_status' ? (
+                              <select
+                                className="w-full bg-ground border border-border px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                                value={editFields[key] ?? 'unknown'}
+                                onChange={(e) => setEditFields((f) => ({ ...f, [key]: e.target.value }))}
+                              >
+                                {['unknown', 'registered', 'assumed'].map((s) => <option key={s} value={s}>{s}</option>)}
                               </select>
                             ) : (
                               <input
@@ -1529,6 +1736,10 @@ function PeopleTab() {
                               current_role: person.current_role ?? '',
                               status: person.status ?? 'draft',
                               slug: person.slug ?? '',
+                              faith: (person as unknown as Record<string, string>).faith ?? '',
+                              faith_status: (person as unknown as Record<string, string>).faith_status ?? 'unknown',
+                              political_party: (person as unknown as Record<string, string>).political_party ?? '',
+                              political_party_status: (person as unknown as Record<string, string>).political_party_status ?? 'unknown',
                             });
                           }}
                           className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-gold hover:border-gold/30 transition-colors"

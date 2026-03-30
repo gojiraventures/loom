@@ -25,8 +25,8 @@ export const publicDiscourseAnalyst: AgentDefinition = {
   },
 
   llm: {
-    provider: 'claude',
-    model: 'claude-opus-4-6',
+    provider: 'perplexity',
+    model: 'sonar-pro',
     maxTokens: 8192,
     temperature: 0.40,
   },

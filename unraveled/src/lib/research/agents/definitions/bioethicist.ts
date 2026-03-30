@@ -25,8 +25,8 @@ export const bioethicist: AgentDefinition = {
   },
 
   llm: {
-    provider: 'claude',
-    model: 'claude-opus-4-6',
+    provider: 'gemini',
+    model: 'gemini-2.5-pro',
     maxTokens: 6144,
     temperature: 0.30,
   },

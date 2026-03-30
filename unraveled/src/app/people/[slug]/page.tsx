@@ -8,6 +8,7 @@ import {
   getPersonMedia,
   getPersonSocials,
   getPersonBooks,
+  getPersonInstitutions,
 } from '@/lib/people';
 import RelationshipGraph from '@/components/people/RelationshipGraph';
 
@@ -48,13 +49,14 @@ interface Props {
 export default async function PersonPage({ params }: Props) {
   const { slug } = await params;
 
-  const [person, bioSections, connections, media, socials, books] = await Promise.all([
+  const [person, bioSections, connections, media, socials, books, affiliations] = await Promise.all([
     getPersonBySlug(slug),
     getPersonBySlug(slug).then((p) => p ? getBioSections(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonConnections(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonMedia(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonSocials(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonBooks(p.id) : []),
+    getPersonBySlug(slug).then((p) => p ? getPersonInstitutions(p.id) : []),
   ]);
 
   if (!person || person.status !== 'published') notFound();
@@ -293,6 +295,32 @@ export default async function PersonPage({ params }: Props) {
                   <p className="text-sm">{person.current_role}</p>
                 </div>
               )}
+              {person.faith && (
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-0.5">Faith</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm">{person.faith}</p>
+                    {person.faith_status && person.faith_status !== 'unknown' && (
+                      <span className={`font-mono text-[7px] uppercase tracking-widest border px-1 py-0.5 rounded ${person.faith_status === 'professed' ? 'text-emerald-400 border-emerald-400/30' : 'text-amber-400 border-amber-400/30'}`}>
+                        {person.faith_status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {person.political_party && (
+                <div>
+                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-0.5">Political Party</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm">{person.political_party}</p>
+                    {person.political_party_status && person.political_party_status !== 'unknown' && (
+                      <span className={`font-mono text-[7px] uppercase tracking-widest border px-1 py-0.5 rounded ${person.political_party_status === 'registered' ? 'text-emerald-400 border-emerald-400/30' : 'text-amber-400 border-amber-400/30'}`}>
+                        {person.political_party_status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
               {person.wikipedia_url && (
                 <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer"
                   className="block font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors mt-2">
@@ -356,6 +384,50 @@ export default async function PersonPage({ params }: Props) {
             </div>
           </section>
         )}
+        {/* Institutional affiliations */}
+        {affiliations.length > 0 && (
+          <section className="mt-16 border-t border-border pt-12">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-gold mb-2">Affiliations</p>
+            <h2 className="font-serif text-2xl mb-6">Institutional Connections</h2>
+            <div className="space-y-2">
+              {affiliations.map((aff) => (
+                <div key={aff.id} className="flex items-start gap-4 py-3 border-b border-border/50">
+                  <div className="flex flex-col gap-1 flex-shrink-0 min-w-[120px]">
+                    <span className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5 rounded">
+                      {aff.relationship.replace(/_/g, ' ')}
+                    </span>
+                    {aff.institution_type === 'secret_society' || aff.covert ? (
+                      <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 rounded ${aff.membership_status === 'confirmed' ? 'text-emerald-400 border-emerald-400/30' : aff.membership_status === 'assumed' ? 'text-amber-400 border-amber-400/30' : 'text-text-tertiary border-border'}`}>
+                        {aff.membership_status}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {aff.institution_slug ? (
+                      <a href={`/institutions/${aff.institution_slug}`} className="font-serif text-sm hover:text-gold transition-colors">
+                        {aff.institution_name}
+                      </a>
+                    ) : (
+                      <p className="font-serif text-sm">{aff.institution_name}</p>
+                    )}
+                    {aff.role_title && (
+                      <p className="font-mono text-[9px] text-text-tertiary mt-0.5">{aff.role_title}</p>
+                    )}
+                    {aff.description && (
+                      <p className="text-xs text-text-tertiary mt-0.5 leading-relaxed">{aff.description}</p>
+                    )}
+                  </div>
+                  {(aff.start_year || aff.end_year) && (
+                    <span className="font-mono text-[8px] text-text-tertiary flex-shrink-0">
+                      {aff.start_year ?? '?'}{aff.end_year ? `–${aff.end_year}` : '–'}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
       </div>
     </div>
   );

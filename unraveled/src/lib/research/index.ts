@@ -24,18 +24,26 @@ export interface ResearchSessionResult {
 /**
  * Master orchestrator — runs the full research pipeline:
  * Layer 1 (parallel research) → Cross-validation → Convergence → Adversarial debate → Synthesis → Dossier
+ *
+ * @param existingSessionId — if provided, skips session creation (fire-and-forget pattern)
  */
 export async function runResearchSession(
   topic: string,
   title: string,
   researchQuestions: string[],
   additionalContext?: string,
+  existingSessionId?: string,
 ): Promise<ResearchSessionResult> {
   const errors: string[] = [];
 
-  // ── Phase 1: Create session ───────────────────────────────────────────────
-  const session = await createSession({ topic, title, research_questions: researchQuestions });
-  const sessionId = session.id;
+  // ── Phase 1: Create session (or reuse existing) ───────────────────────────
+  let sessionId: string;
+  if (existingSessionId) {
+    sessionId = existingSessionId;
+  } else {
+    const session = await createSession({ topic, title, research_questions: researchQuestions });
+    sessionId = session.id;
+  }
   console.log(`[research] Session created: ${sessionId} — "${title}"`);
 
   try {

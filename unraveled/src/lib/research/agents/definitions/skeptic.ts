@@ -26,7 +26,7 @@ export const skeptic: AgentDefinition = {
 
   llm: {
     provider: 'claude',
-    model: 'claude-opus-4-6',
+    model: 'claude-sonnet-4-6',
     maxTokens: 12288,
     temperature: 0.45,
   },

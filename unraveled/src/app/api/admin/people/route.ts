@@ -114,6 +114,10 @@ export async function POST(req: NextRequest) {
       wikipedia_url: p.wikipedia_url as string | undefined,
       status: (p.status as string) ?? 'draft',
       featured: (p.featured as boolean) ?? false,
+      faith: p.faith as string | undefined,
+      faith_status: (p.faith_status as string) ?? 'unknown',
+      political_party: p.political_party as string | undefined,
+      political_party_status: (p.political_party_status as string) ?? 'unknown',
       last_researched_at: new Date().toISOString(),
     });
 
@@ -199,7 +203,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6. Auto-resolve relationship suggestions
+    // 6. Auto-link institutional affiliations
+    const affiliations = Array.isArray(p.suggested_institutional_affiliations)
+      ? p.suggested_institutional_affiliations
+      : [];
+    for (const aff of affiliations as Record<string, unknown>[]) {
+      if (!aff.institution_name) continue;
+      const { data: inst } = await supabase
+        .from('institutions')
+        .select('id')
+        .ilike('name', `%${aff.institution_name}%`)
+        .limit(1)
+        .maybeSingle();
+      if (inst) {
+        await supabase.from('people_institutions').upsert({
+          person_id: saved.id,
+          institution_id: inst.id,
+          relationship: (aff.relationship as string) ?? 'member',
+          role_title: aff.role_title as string | null ?? null,
+          description: aff.description as string | null ?? null,
+          start_year: aff.start_year as string | null ?? null,
+          end_year: aff.end_year as string | null ?? null,
+          covert: (aff.covert as boolean) ?? false,
+          declassified: false,
+          membership_status: (aff.membership_status as string) ?? 'unknown',
+        }, { onConflict: 'person_id,institution_id,relationship' }).then(() => null, () => null);
+      }
+    }
+
+    // 7. Auto-resolve relationship suggestions
     if (Array.isArray(suggested_relationships)) {
       for (const rel of suggested_relationships as Record<string, unknown>[]) {
         if (!rel.person_name) continue;

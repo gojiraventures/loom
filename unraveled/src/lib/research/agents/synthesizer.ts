@@ -199,6 +199,7 @@ export async function runSynthesis(
     response = await route(
       {
         provider: 'claude',
+        model: 'claude-sonnet-4-6',
         systemPrompt: SYNTHESIZER_SYSTEM_PROMPT,
         userPrompt: buildSynthesizerPrompt(topic, findings, validations, convergenceAnalyses, debate),
         jsonMode: true,

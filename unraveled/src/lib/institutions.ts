@@ -97,6 +97,7 @@ export interface PersonInstitution {
   end_year: string | null;
   covert: boolean;
   declassified: boolean;
+  membership_status: string;
   full_name: string;
   person_slug: string | null;
   short_bio: string | null;
@@ -204,6 +205,7 @@ export async function getPeopleAtInstitution(institutionId: string): Promise<Per
       end_year: r.end_year as string | null,
       covert: r.covert as boolean,
       declassified: r.declassified as boolean,
+      membership_status: (r.membership_status as string) ?? 'unknown',
       full_name: person?.full_name as string,
       person_slug: person?.slug as string | null,
       short_bio: person?.short_bio as string | null,

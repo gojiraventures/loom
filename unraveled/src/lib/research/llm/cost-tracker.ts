@@ -38,6 +38,7 @@ export async function trackCost(
       agent_id: agentId,
       provider: response.provider,
       model: response.model,
+      query: queryPreview.slice(0, 500),
       query_preview: queryPreview.slice(0, 500),
       input_tokens: response.inputTokens,
       output_tokens: response.outputTokens,

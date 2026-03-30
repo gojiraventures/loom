@@ -26,7 +26,7 @@ export const principalInvestigator: AgentDefinition = {
 
   llm: {
     provider: 'claude',
-    model: 'claude-opus-4-6',
+    model: 'claude-sonnet-4-6',
     maxTokens: 16384,
     temperature: 0.42,
   },

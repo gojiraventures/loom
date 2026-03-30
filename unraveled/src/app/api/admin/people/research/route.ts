@@ -62,6 +62,23 @@ Return this JSON schema (all fields optional except full_name):
       "context": "string — why this book is relevant"
     }
   ],
+  "faith": "string — religious tradition, denomination, or belief (e.g. Catholic, Evangelical Christian, Jewish, Sunni Muslim, Buddhism, Atheist, Agnostic, Spiritual but not religious) or null if unknown",
+  "faith_status": "one of: professed (self-declared in interviews/writings) | assumed (inferred from upbringing, community, behaviour) | unknown",
+  "political_party": "string — registered or publicly known political party (e.g. Republican, Democrat, Libertarian, Independent, Labour, Conservative, Green) or null if unknown",
+  "political_party_status": "one of: registered (confirmed voter registration or party membership) | assumed (inferred from stated positions, donations, endorsements) | unknown",
+  "suggested_institutional_affiliations": [
+    {
+      "institution_name": "string — full name of the institution, organisation, or secret society",
+      "institution_type": "one of: museum|university|intelligence|secret_society|government_agency|military|religious|think_tank|research_institute|other",
+      "relationship": "one of: member|employee|director|founder|contractor|advisor|operative|affiliated|other",
+      "role_title": "string or null — specific title or rank within the organisation",
+      "membership_status": "one of: confirmed (self-admitted, documented, or declassified) | assumed (credibly alleged, circumstantial evidence) | unknown",
+      "covert": true or false,
+      "start_year": "string or null",
+      "end_year": "string or null",
+      "description": "string — brief note on the nature of the affiliation"
+    }
+  ],
   "slug": "string — kebab-case URL slug derived from full name"
 }
 

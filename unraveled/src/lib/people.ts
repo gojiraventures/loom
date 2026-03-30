@@ -25,6 +25,10 @@ export interface PersonRow {
   photo_status: string | null;
   status: string | null;
   featured: boolean;
+  faith: string | null;
+  faith_status: string | null;
+  political_party: string | null;
+  political_party_status: string | null;
   created_at: string;
   updated_at: string;
   last_researched_at: string | null;
@@ -242,6 +246,55 @@ export async function upsertRelationship(data: {
     .from('people_relationships')
     .upsert(data, { onConflict: 'person_a_id,person_b_id,relationship_type' });
   if (error) throw error;
+}
+
+export interface PersonInstitutionAffiliation {
+  id: string;
+  institution_id: string;
+  institution_name: string;
+  institution_slug: string | null;
+  institution_type: string | null;
+  relationship: string;
+  role_title: string | null;
+  description: string | null;
+  start_year: string | null;
+  end_year: string | null;
+  covert: boolean;
+  declassified: boolean;
+  membership_status: string;
+}
+
+export async function getPersonInstitutions(personId: string): Promise<PersonInstitutionAffiliation[]> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from('people_institutions')
+    .select(`
+      id, institution_id, relationship, role_title, description,
+      start_year, end_year, covert, declassified, membership_status,
+      institutions (name, slug, institution_type)
+    `)
+    .eq('person_id', personId)
+    .order('start_year', { ascending: false });
+  if (error) return [];
+  return ((data ?? []) as unknown[]).map((row: unknown) => {
+    const r = row as Record<string, unknown>;
+    const inst = r.institutions as Record<string, unknown>;
+    return {
+      id: r.id as string,
+      institution_id: r.institution_id as string,
+      institution_name: inst?.name as string,
+      institution_slug: inst?.slug as string | null,
+      institution_type: inst?.institution_type as string | null,
+      relationship: r.relationship as string,
+      role_title: r.role_title as string | null,
+      description: r.description as string | null,
+      start_year: r.start_year as string | null,
+      end_year: r.end_year as string | null,
+      covert: r.covert as boolean,
+      declassified: r.declassified as boolean,
+      membership_status: (r.membership_status as string) ?? 'unknown',
+    };
+  });
 }
 
 export async function deletePerson(id: string): Promise<void> {

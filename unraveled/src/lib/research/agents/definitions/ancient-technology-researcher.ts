@@ -25,8 +25,8 @@ export const ancientTechnologyResearcher: AgentDefinition = {
   },
 
   llm: {
-    provider: 'claude',
-    model: 'claude-opus-4-6',
+    provider: 'gemini',
+    model: 'gemini-2.5-pro',
     maxTokens: 10240,
     temperature: 0.30,
   },
