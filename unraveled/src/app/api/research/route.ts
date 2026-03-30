@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { topic, title, research_questions } = body as Record<string, unknown>;
+  const { topic, title, research_questions, description, source_urls } = body as Record<string, unknown>;
 
   if (typeof topic !== 'string' || !topic.trim()) {
     return NextResponse.json({ error: 'topic is required' }, { status: 400 });
@@ -23,11 +23,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'research_questions must be a non-empty array' }, { status: 400 });
   }
 
+  // Build optional additional context block from description + source URLs
+  const contextParts: string[] = [];
+  if (typeof description === 'string' && description.trim()) {
+    contextParts.push(`TOPIC DESCRIPTION:\n${description.trim()}`);
+  }
+  if (typeof source_urls === 'string' && source_urls.trim()) {
+    contextParts.push(`SUPPLEMENTARY SOURCES (use as hints, not as authoritative — find better if available):\n${source_urls.trim()}`);
+  }
+  const additionalContext = contextParts.length > 0 ? contextParts.join('\n\n') : undefined;
+
   try {
     const result = await runResearchSession(
       topic.trim(),
       title.trim(),
       research_questions.map(String),
+      additionalContext,
     );
     return NextResponse.json(result, { status: 200 });
   } catch (err) {

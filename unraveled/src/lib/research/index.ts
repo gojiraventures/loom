@@ -29,6 +29,7 @@ export async function runResearchSession(
   topic: string,
   title: string,
   researchQuestions: string[],
+  additionalContext?: string,
 ): Promise<ResearchSessionResult> {
   const errors: string[] = [];
 
@@ -40,7 +41,7 @@ export async function runResearchSession(
   try {
     // ── Phase 2: Layer 1 — parallel research agents ───────────────────────
     console.log('[research] Phase 2: Layer 1 research agents');
-    const layer1 = await runLayer1(sessionId, topic, researchQuestions);
+    const layer1 = await runLayer1(sessionId, topic, researchQuestions, additionalContext);
     errors.push(...layer1.errors.map((e) => `[${e.agentId}] ${e.error}`));
     console.log(`[research] Layer 1 complete: ${layer1.allFindings.length} findings`);
 

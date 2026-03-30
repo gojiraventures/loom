@@ -85,6 +85,8 @@ function LaunchTab() {
   const [topic, setTopic] = useState('');
   const [title, setTitle] = useState('');
   const [questions, setQuestions] = useState(['', '', '']);
+  const [description, setDescription] = useState('');
+  const [sources, setSources] = useState('');
   const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<string>('');
 
@@ -104,7 +106,13 @@ function LaunchTab() {
       const res = await fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: topic.trim(), title: title.trim(), research_questions: validQuestions }),
+        body: JSON.stringify({
+          topic: topic.trim(),
+          title: title.trim(),
+          research_questions: validQuestions,
+          description: description.trim() || undefined,
+          source_urls: sources.trim() || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Unknown error');
@@ -180,6 +188,33 @@ function LaunchTab() {
           >
             + Add question
           </button>
+        </div>
+
+        <div>
+          <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+            Topic Description <span className="normal-case tracking-normal opacity-60">(optional — helps agents understand scope)</span>
+          </label>
+          <textarea
+            className="w-full bg-ground-light border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-gold/50 rounded resize-none"
+            rows={3}
+            placeholder="e.g. This covers ancient flood myths across world religions and their possible geological origins. Focus on pre-Holocene evidence..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+            Key Sources / URLs <span className="normal-case tracking-normal opacity-60">(optional — one per line, supplementary hints for agents)</span>
+          </label>
+          <textarea
+            className="w-full bg-ground-light border border-border px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded resize-none"
+            rows={3}
+            placeholder={"https://example.com/paper\nGraham Hancock – Fingerprints of the Gods\nhttps://ncbi.nlm.nih.gov/..."}
+            value={sources}
+            onChange={(e) => setSources(e.target.value)}
+          />
+          <p className="mt-1 font-mono text-[9px] text-text-tertiary">Agents will use these as starting hints but will independently verify and find better sources.</p>
         </div>
 
         <button
@@ -1093,6 +1128,8 @@ function PeopleTab() {
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchName, setSearchName] = useState('');
+  const [personDescription, setPersonDescription] = useState('');
+  const [personSources, setPersonSources] = useState('');
   const [researching, setResearching] = useState(false);
   const [researchResult, setResearchResult] = useState<AIResearchResult | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1121,7 +1158,11 @@ function PeopleTab() {
       const res = await fetch('/api/admin/people/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: searchName.trim() }),
+        body: JSON.stringify({
+          name: searchName.trim(),
+          description: personDescription.trim() || undefined,
+          sources: personSources.trim() || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Research failed');
@@ -1227,6 +1268,32 @@ function PeopleTab() {
             <p className="mt-1 font-mono text-[9px] text-text-tertiary">
               Claude + Perplexity will auto-fill bio, credentials, relationships, and more.
             </p>
+          </div>
+
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+              Description <span className="normal-case tracking-normal opacity-60">(optional — disambiguate or focus the AI)</span>
+            </label>
+            <textarea
+              className="w-full bg-ground border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-gold/50 rounded resize-none"
+              rows={2}
+              placeholder="e.g. British author known for alternative archaeology and lost civilisations — not the jazz musician of the same name"
+              value={personDescription}
+              onChange={(e) => setPersonDescription(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1">
+              Source Hints <span className="normal-case tracking-normal opacity-60">(optional — URLs or book titles, one per line)</span>
+            </label>
+            <textarea
+              className="w-full bg-ground border border-border px-3 py-2 text-sm font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded resize-none"
+              rows={2}
+              placeholder={"https://grahamhancock.com\nhttps://en.wikipedia.org/wiki/Graham_Hancock"}
+              value={personSources}
+              onChange={(e) => setPersonSources(e.target.value)}
+            />
           </div>
 
           {/* Research result preview */}

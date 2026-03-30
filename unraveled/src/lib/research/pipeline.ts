@@ -23,6 +23,7 @@ export async function runLayer1(
   sessionId: string,
   topic: string,
   researchQuestions: string[],
+  additionalContext?: string,
 ): Promise<Layer1Result> {
   await updateSessionStatus(sessionId, 'researching');
 
@@ -49,7 +50,7 @@ export async function runLayer1(
         error: `Agent definition not found: ${agentId}`,
       } as AgentExecutionResult);
     }
-    return executeAgent(def, topic, researchQuestions, { sessionId });
+    return executeAgent(def, topic, researchQuestions, { sessionId, additionalContext });
   });
 
   const settled = await Promise.allSettled(execPromises);

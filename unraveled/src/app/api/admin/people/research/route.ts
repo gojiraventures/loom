@@ -7,10 +7,10 @@ const SYSTEM = `You are a researcher building dossiers on public figures for an 
 Given a person's name and any research notes, return a structured JSON object with everything you know.
 Be accurate, balanced, and note what is verified vs. claimed. Return ONLY valid JSON — no prose.`;
 
-const SCHEMA_PROMPT = (name: string, perplexityNotes: string) => `
+const SCHEMA_PROMPT = (name: string, perplexityNotes: string, extraContext?: string) => `
 Research the following person and return a JSON object matching this exact schema.
 Person: "${name}"
-
+${extraContext ? `\nAdditional context provided by researcher:\n${extraContext}\n` : ''}
 Additional research notes (from web search):
 ${perplexityNotes}
 
@@ -73,16 +73,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { name } = body as Record<string, unknown>;
+  const { name, description, sources } = body as Record<string, unknown>;
   if (typeof name !== 'string' || !name.trim()) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 });
   }
+
+  // Build optional extra context from description + sources
+  const contextParts: string[] = [];
+  if (typeof description === 'string' && description.trim()) {
+    contextParts.push(`Researcher note: ${description.trim()}`);
+  }
+  if (typeof sources === 'string' && sources.trim()) {
+    contextParts.push(`Suggested sources (supplementary, use better sources if available):\n${sources.trim()}`);
+  }
+  const extraContext = contextParts.length > 0 ? contextParts.join('\n') : undefined;
+
+  // Build Perplexity query — include description for disambiguation
+  const disambig = typeof description === 'string' && description.trim()
+    ? ` (context: ${description.trim()})`
+    : '';
 
   // 1. Web research via Perplexity
   let perplexityNotes = '';
   try {
     const perp = await queryPerplexity(
-      `Who is ${name}? Provide biographical details: full name, birth date and place, nationality, education (institutions and degrees), career history, notable claims or discoveries, public controversies, current occupation, and any significant publications or media appearances. Be specific and cite sources where possible.`
+      `Who is ${name}${disambig}? Provide biographical details: full name, birth date and place, nationality, education (institutions and degrees), career history, notable claims or discoveries, public controversies, current occupation, and any significant publications or media appearances. Be specific and cite sources where possible.`
     );
     perplexityNotes = perp.content;
   } catch {
@@ -91,7 +106,7 @@ export async function POST(req: NextRequest) {
 
   // 2. Structure with Claude
   const { content } = await queryAnthropic(
-    SCHEMA_PROMPT(name.trim(), perplexityNotes),
+    SCHEMA_PROMPT(name.trim(), perplexityNotes, extraContext),
     SYSTEM
   );
 
