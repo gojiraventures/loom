@@ -113,6 +113,8 @@ function LaunchTab() {
   const [pipelineStatus, setPipelineStatus] = useState<string>('pending');
   const [errorMsg, setErrorMsg] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Prevent duplicate /continue calls when the poller fires multiple times on 'researched'
+  const continueTriggeredRef = useRef(false);
 
   const stopPolling = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -125,8 +127,9 @@ function LaunchTab() {
       const data = await res.json();
       const s = data?.session?.status ?? 'pending';
       setPipelineStatus(s);
-      if (s === 'researched') {
-        // Phase 1 done — trigger phases 2-5 automatically
+      if (s === 'researched' && !continueTriggeredRef.current) {
+        // Phase 1 done — trigger phases 2-5 automatically (only once per session)
+        continueTriggeredRef.current = true;
         fetch(`/api/research/${id}/continue`, { method: 'POST' }).catch(console.error);
       } else if (s === 'complete' || s === 'failed') {
         stopPolling();
@@ -152,6 +155,7 @@ function LaunchTab() {
     setSessionId(null);
     setPipelineStatus('pending');
     setErrorMsg('');
+    continueTriggeredRef.current = false;
 
     try {
       const res = await fetch('/api/research', {
@@ -509,6 +513,8 @@ function SessionsTab() {
   const [reviewStatus, setReviewStatus] = useState<Record<string, string>>({});
   const [expandedPreview, setExpandedPreview] = useState<string | null>(null);
   const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  // Prevent duplicate /continue calls for rerun sessions
+  const continueTriggeredRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -551,7 +557,8 @@ function SessionsTab() {
           if (!pr.ok) return;
           const pd = await pr.json();
           const st = pd?.session?.status ?? 'pending';
-          if (st === 'researched') {
+          if (st === 'researched' && !continueTriggeredRef.current.has(newId)) {
+            continueTriggeredRef.current.add(newId);
             fetch(`/api/research/${newId}/continue`, { method: 'POST' }).catch(console.error);
             setRerunStatus((r) => ({ ...r, [s.id]: `${SESSION_STATUS_LABELS['researched']}…` }));
           } else if (st === 'complete') {

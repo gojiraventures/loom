@@ -9,7 +9,7 @@
  * No self-chaining — simpler and more reliable.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, updateSessionStatus, logSessionError } from '@/lib/research/storage/sessions';
+import { getSession, updateSessionStatus, logSessionError, claimSessionForContinue } from '@/lib/research/storage/sessions';
 import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { getValidationsBySession } from '@/lib/research/storage/validations';
 import { getConvergenceBySession } from '@/lib/research/storage/convergence';
@@ -38,6 +38,19 @@ export async function POST(
   const resumableStatuses = ['researched', 'cross_validating', 'converging', 'debating', 'synthesizing'];
   if (!resumableStatuses.includes(session.status)) {
     return NextResponse.json({ error: `Session not ready for continue (status: ${session.status})` }, { status: 400 });
+  }
+
+  // Atomic lock: if session is still 'researched', claim it by flipping to 'cross_validating'.
+  // If another /continue call already claimed it (status already moved on), bail out silently.
+  if (session.status === 'researched') {
+    const claimed = await claimSessionForContinue(sessionId);
+    if (!claimed) {
+      // Another concurrent call won — this one is a duplicate; return 200 so the browser doesn't retry
+      console.log(`[continue:${sessionId}] duplicate call — already claimed by another instance`);
+      return NextResponse.json({ status: 'already_running' });
+    }
+    // Successfully claimed — skip the first updateSessionStatus('cross_validating') call below
+    // since claimSessionForContinue already set it
   }
 
   const topic = session.topic as string;

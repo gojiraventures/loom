@@ -57,6 +57,22 @@ export async function logSessionError(sessionId: string, message: string): Promi
   ).catch(() => null); // Best-effort
 }
 
+/**
+ * Atomically transitions a session from 'researched' → 'cross_validating'.
+ * Returns true if this caller won the lock; false if another call already claimed it.
+ * Use this at the start of /continue to prevent concurrent pipeline runs.
+ */
+export async function claimSessionForContinue(sessionId: string): Promise<boolean> {
+  const supabase = createServerSupabaseClient();
+  const { data } = await supabase
+    .from('research_sessions')
+    .update({ status: 'cross_validating', updated_at: new Date().toISOString() })
+    .eq('id', sessionId)
+    .eq('status', 'researched')
+    .select('id');
+  return Array.isArray(data) && data.length > 0;
+}
+
 export async function getSession(sessionId: string): Promise<ResearchSession | null> {
   const supabase = createServerSupabaseClient();
   const { data } = await supabase
