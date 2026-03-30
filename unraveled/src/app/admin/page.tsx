@@ -4,6 +4,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { getAllAgents } from '@/lib/research/agents/definitions';
 import type { AgentDefinition } from '@/lib/research/types';
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function safeJson(res: Response): Promise<Record<string, unknown>> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (res.status === 504 || res.status === 502 || res.status === 503 || res.status === 408) {
+      throw new Error(
+        `Timed out (${res.status}). Deep Dive and Re-synthesize require Vercel Pro (300s limit) — run locally via \`npm run dev\` instead.`
+      );
+    }
+    throw new Error(`Server error (${res.status}): ${text.slice(0, 120)}`);
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Dossier {
@@ -471,19 +487,19 @@ function ContentTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const publish = async (topic: string) => {
+  const publishOrUpdate = async (topic: string, isUpdate: boolean) => {
     const slug = slugInputs[topic]?.trim();
     if (!slug) return;
-    setPublishStatus((s) => ({ ...s, [topic]: 'publishing' }));
+    setPublishStatus((s) => ({ ...s, [topic]: isUpdate ? 'updating…' : 'publishing…' }));
     try {
       const res = await fetch('/api/admin/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic, slug }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setPublishStatus((s) => ({ ...s, [topic]: `live: ${data.url}` }));
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error as string);
+      setPublishStatus((s) => ({ ...s, [topic]: isUpdate ? `updated → ${data.url}` : `live → ${data.url}` }));
       load();
     } catch (err) {
       setPublishStatus((s) => ({ ...s, [topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
@@ -498,8 +514,8 @@ function ContentTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic: d.topic, title: d.title }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error as string);
       setResynthStatus((s) => ({ ...s, [d.topic]: `done — ${data.findingsUsed} findings, score ${data.convergenceScore}, ${data.jawDropLayers} jaw-drops` }));
       load();
     } catch (err) {
@@ -527,9 +543,10 @@ function ContentTab() {
           focus_areas: focus,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setDeepDiveStatus((s) => ({ ...s, [d.topic]: `complete — ${data.stats?.sessionFindings ?? '?'} new findings, ${data.stats?.totalTopicFindings ?? '?'} total` }));
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error as string);
+      const stats = data.stats as { sessionFindings?: number; totalTopicFindings?: number } | undefined;
+      setDeepDiveStatus((s) => ({ ...s, [d.topic]: `complete — ${stats?.sessionFindings ?? '?'} new findings, ${stats?.totalTopicFindings ?? '?'} total` }));
       setDeepDiveOpen(null);
       load();
     } catch (err) {
@@ -538,14 +555,17 @@ function ContentTab() {
   };
 
   const unpublish = async (topic: string) => {
-    setPublishStatus((s) => ({ ...s, [topic]: 'unpublishing' }));
+    setPublishStatus((s) => ({ ...s, [topic]: 'unpublishing…' }));
     try {
       const res = await fetch('/api/admin/publish', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic }),
       });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) {
+        const data = await safeJson(res);
+        throw new Error(data.error as string ?? 'Failed');
+      }
       setPublishStatus((s) => ({ ...s, [topic]: 'unpublished' }));
       load();
     } catch (err) {
@@ -638,18 +658,25 @@ function ContentTab() {
                   value={slugVal}
                   onChange={(e) => setSlugInputs((s) => ({ ...s, [d.topic]: e.target.value }))}
                 />
-                {!d.published ? (
-                  <button
-                    onClick={() => publish(d.topic)}
-                    disabled={!slugVal}
-                    className="font-mono text-[9px] uppercase tracking-widest text-gold border border-gold/30 bg-gold/5 hover:bg-gold/10 px-3 py-1 rounded transition-colors disabled:opacity-40"
-                  >
-                    Publish →
-                  </button>
-                ) : (
+                <button
+                  onClick={() => publishOrUpdate(d.topic, d.published)}
+                  disabled={!slugVal || publishStatus[d.topic] === 'publishing…' || publishStatus[d.topic] === 'updating…'}
+                  className={`font-mono text-[9px] uppercase tracking-widest border px-3 py-1 rounded transition-colors disabled:opacity-40 ${
+                    d.published
+                      ? 'text-sky-400 border-sky-400/30 bg-sky-400/5 hover:bg-sky-400/10'
+                      : 'text-gold border-gold/30 bg-gold/5 hover:bg-gold/10'
+                  }`}
+                >
+                  {d.published
+                    ? (publishStatus[d.topic] === 'updating…' ? 'Updating…' : 'Update →')
+                    : (publishStatus[d.topic] === 'publishing…' ? 'Publishing…' : 'Publish →')
+                  }
+                </button>
+                {d.published && (
                   <button
                     onClick={() => unpublish(d.topic)}
-                    className="font-mono text-[9px] uppercase tracking-widest text-red-400 border border-red-400/30 hover:bg-red-400/10 px-3 py-1 rounded transition-colors"
+                    disabled={publishStatus[d.topic] === 'unpublishing…'}
+                    className="font-mono text-[9px] uppercase tracking-widest text-red-400 border border-red-400/30 hover:bg-red-400/10 px-3 py-1 rounded transition-colors disabled:opacity-40"
                   >
                     Unpublish
                   </button>
@@ -725,7 +752,7 @@ function ContentTab() {
                     >
                       Launch Deep Dive →
                     </button>
-                    <span className="font-mono text-[9px] text-text-tertiary">Runs 3–5 min. Synthesis will include all prior sessions.</span>
+                    <span className="font-mono text-[9px] text-text-tertiary">Runs 3–5 min. Requires Vercel Pro or run locally.</span>
                   </div>
                 </div>
               )}
