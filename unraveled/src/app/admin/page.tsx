@@ -39,6 +39,7 @@ interface Session {
   topic: string;
   title: string;
   status: string;
+  research_questions: string[];
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
@@ -482,6 +483,9 @@ function SessionsTab() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [rerunStatus, setRerunStatus] = useState<Record<string, string>>({});
+  const [rerunSessionId, setRerunSessionId] = useState<Record<string, string>>({});
+  const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -498,6 +502,50 @@ function SessionsTab() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => () => { Object.values(pollRefs.current).forEach(clearInterval); }, []);
+
+  const rerun = async (s: Session) => {
+    setRerunStatus((r) => ({ ...r, [s.id]: 'queuing…' }));
+    try {
+      const res = await fetch('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: s.topic,
+          title: s.title,
+          research_questions: s.research_questions ?? [],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Unknown error');
+      const newId = data.session_id as string;
+      setRerunSessionId((r) => ({ ...r, [s.id]: newId }));
+      setRerunStatus((r) => ({ ...r, [s.id]: 'researching…' }));
+
+      pollRefs.current[s.id] = setInterval(async () => {
+        try {
+          const pr = await fetch(`/api/research/${newId}`);
+          if (!pr.ok) return;
+          const pd = await pr.json();
+          const st = pd?.session?.status ?? 'pending';
+          if (st === 'complete') {
+            clearInterval(pollRefs.current[s.id]);
+            setRerunStatus((r) => ({ ...r, [s.id]: 'complete ✓' }));
+            load();
+          } else if (st === 'failed') {
+            clearInterval(pollRefs.current[s.id]);
+            setRerunStatus((r) => ({ ...r, [s.id]: 'failed' }));
+          } else {
+            setRerunStatus((r) => ({ ...r, [s.id]: `${SESSION_STATUS_LABELS[st] ?? st}…` }));
+          }
+        } catch { /* blip */ }
+      }, 8000);
+    } catch (err) {
+      setRerunStatus((r) => ({ ...r, [s.id]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  const canRerun = (status: string) => status === 'failed' || status === 'debating' || status === 'synthesizing';
 
   return (
     <div className="space-y-6">
@@ -538,15 +586,43 @@ function SessionsTab() {
                 {s.error_log?.length > 0 && (
                   <div className="text-xs text-red-400 mt-1">{s.error_log[s.error_log.length - 1]}</div>
                 )}
-              </div>
-              <div className="text-right shrink-0">
-                <div className="font-mono text-[9px] text-text-tertiary">
-                  {new Date(s.created_at).toLocaleDateString()} {new Date(s.created_at).toLocaleTimeString()}
-                </div>
-                {s.completed_at && s.started_at && (
-                  <div className="font-mono text-[9px] text-text-tertiary mt-0.5">
-                    {Math.round((new Date(s.completed_at).getTime() - new Date(s.started_at).getTime()) / 1000)}s
+                {rerunStatus[s.id] && (
+                  <div className="mt-1.5 flex items-center gap-3">
+                    <span className={`font-mono text-[9px] ${rerunStatus[s.id].startsWith('error') || rerunStatus[s.id] === 'failed' ? 'text-red-400' : rerunStatus[s.id] === 'complete ✓' ? 'text-emerald-400' : 'text-sky-400'}`}>
+                      {rerunStatus[s.id]}
+                    </span>
+                    {rerunSessionId[s.id] && rerunStatus[s.id] !== 'complete ✓' && rerunStatus[s.id] !== 'failed' && (
+                      <div className="flex gap-0.5">
+                        {['researching','cross_validating','converging','debating','synthesizing','complete'].map((phase) => {
+                          const phases = ['researching','cross_validating','converging','debating','synthesizing','complete'];
+                          const currentPhase = Object.entries(SESSION_STATUS_LABELS).find(([,v]) => rerunStatus[s.id].startsWith(v.split(' ')[0]))?.[0] ?? '';
+                          const done = phases.indexOf(currentPhase) > phases.indexOf(phase);
+                          const active = currentPhase === phase;
+                          return <div key={phase} className={`w-6 h-0.5 rounded-full transition-colors ${done ? 'bg-emerald-500' : active ? 'bg-sky-400 animate-pulse' : 'bg-border'}`} />;
+                        })}
+                      </div>
+                    )}
                   </div>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                <div className="text-right">
+                  <div className="font-mono text-[9px] text-text-tertiary">
+                    {new Date(s.created_at).toLocaleDateString()} {new Date(s.created_at).toLocaleTimeString()}
+                  </div>
+                  {s.completed_at && s.started_at && (
+                    <div className="font-mono text-[9px] text-text-tertiary mt-0.5">
+                      {Math.round((new Date(s.completed_at).getTime() - new Date(s.started_at).getTime()) / 1000)}s
+                    </div>
+                  )}
+                </div>
+                {canRerun(s.status) && !rerunStatus[s.id] && (
+                  <button
+                    onClick={() => rerun(s)}
+                    className="font-mono text-[9px] uppercase tracking-widest text-gold border border-gold/30 bg-gold/5 hover:bg-gold/10 px-2 py-1 rounded transition-colors"
+                  >
+                    Re-run →
+                  </button>
                 )}
               </div>
             </div>
