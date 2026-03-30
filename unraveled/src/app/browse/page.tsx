@@ -1,8 +1,9 @@
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { ConvergenceCard } from '@/components/ConvergenceCard';
 import { ArrowDown, BookOpen, Scale, HelpCircle } from 'lucide-react';
 import { getPublishedTopics } from '@/lib/topics';
+import { createServerSupabaseClient } from '@/lib/supabase';
+import { TopicsGrid } from './TopicsGrid';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,8 +30,42 @@ const METHODOLOGY_STEPS = [
   },
 ];
 
+async function getDbStats() {
+  const supabase = createServerSupabaseClient();
+
+  const [topicsResult, findingsResult] = await Promise.all([
+    supabase
+      .from('topic_dossiers')
+      .select('key_traditions', { count: 'exact' })
+      .eq('published', true),
+    supabase
+      .from('agent_findings')
+      .select('*', { count: 'exact', head: true }),
+  ]);
+
+  const topicCount = topicsResult.count ?? 0;
+  const findingCount = findingsResult.count ?? 0;
+
+  // Count distinct traditions across all published topics
+  const traditions = new Set<string>();
+  for (const row of topicsResult.data ?? []) {
+    for (const t of row.key_traditions ?? []) {
+      traditions.add(t);
+    }
+  }
+
+  return {
+    topicCount,
+    findingCount,
+    traditionCount: traditions.size,
+  };
+}
+
 export default async function BrowsePage() {
-  const publishedTopics = await getPublishedTopics();
+  const [publishedTopics, stats] = await Promise.all([
+    getPublishedTopics(),
+    getDbStats(),
+  ]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -75,24 +110,29 @@ export default async function BrowsePage() {
 
       {/* Stats bar */}
       <section className="border-y border-border">
-        <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-8 grid grid-cols-2 sm:grid-cols-4 gap-6">
-          {[
-            { value: '268+', label: 'Flood Narratives' },
-            { value: '142', label: 'Cultures Documented' },
-            { value: '6', label: 'Continents' },
-            { value: '47', label: 'Independent Sources' },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <div className="font-serif text-3xl text-gold">{stat.value}</div>
-              <div className="font-mono text-[9px] tracking-[0.15em] uppercase text-text-tertiary mt-1">
-                {stat.label}
-              </div>
+        <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-8 grid grid-cols-3 gap-6">
+          <div>
+            <div className="font-serif text-3xl text-gold">{stats.topicCount}</div>
+            <div className="font-mono text-[9px] tracking-[0.15em] uppercase text-text-tertiary mt-1">
+              Topics
             </div>
-          ))}
+          </div>
+          <div>
+            <div className="font-serif text-3xl text-gold">{stats.findingCount}</div>
+            <div className="font-mono text-[9px] tracking-[0.15em] uppercase text-text-tertiary mt-1">
+              Findings
+            </div>
+          </div>
+          <div>
+            <div className="font-serif text-3xl text-gold">{stats.traditionCount}</div>
+            <div className="font-mono text-[9px] tracking-[0.15em] uppercase text-text-tertiary mt-1">
+              Traditions
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Convergence Cards */}
+      {/* Topics Grid */}
       <section className="px-6 py-20">
         <div className="max-w-[var(--spacing-content)] mx-auto">
           <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
@@ -106,24 +146,7 @@ export default async function BrowsePage() {
             Scored by source independence, structural specificity, physical
             corroboration, and chronological consistency.
           </p>
-          <div className="space-y-px">
-            {publishedTopics.map((topic, i) => (
-              <ConvergenceCard
-                key={topic.slug}
-                index={i}
-                title={topic.title}
-                score={topic.convergence_score}
-                traditions={topic.key_traditions}
-                jawDrop={topic.summary ?? ''}
-                href={`/topics/${topic.slug}`}
-              />
-            ))}
-            {publishedTopics.length === 0 && (
-              <div className="py-16 text-center text-text-tertiary text-sm">
-                No published topics yet.
-              </div>
-            )}
-          </div>
+          <TopicsGrid topics={publishedTopics} />
         </div>
       </section>
 

@@ -1,66 +1,76 @@
-import Link from "next/link";
+import Link from 'next/link';
+import { getPublishedTopics } from '@/lib/topics';
 
-export function Footer() {
+export async function Footer() {
+  const topics = await getPublishedTopics();
+  const researchLinks = topics.slice(0, 5);
+
   return (
     <footer className="border-t border-border">
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-12">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-12">
+          {/* Research — dynamic published topics */}
           <div>
             <h4 className="font-mono text-[9px] tracking-[0.2em] uppercase text-text-tertiary mb-4">
               Research
             </h4>
             <ul className="space-y-2">
-              <li>
-                <Link href="/topics/the-great-flood" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                  The Great Flood
-                </Link>
-              </li>
-              <li>
-                <Link href="/topics/biblically-accurate-angels" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                  Angels
-                </Link>
-              </li>
-              <li>
-                <Link href="/topics/watchers-nephilim" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                  Watchers / Nephilim
-                </Link>
-              </li>
+              {researchLinks.length > 0 ? (
+                researchLinks.map((topic) => (
+                  <li key={topic.slug}>
+                    <Link
+                      href={`/topics/${topic.slug}`}
+                      className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                    >
+                      {topic.title}
+                    </Link>
+                  </li>
+                ))
+              ) : (
+                <li>
+                  <span className="text-sm text-text-tertiary">Coming soon.</span>
+                </li>
+              )}
             </ul>
           </div>
+
+          {/* About */}
           <div>
             <h4 className="font-mono text-[9px] tracking-[0.2em] uppercase text-text-tertiary mb-4">
               About
             </h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/methodology" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                  Methodology
+                <Link
+                  href="/about"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  About
                 </Link>
               </li>
               <li>
-                <Link href="/sources" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                  Sources
+                <Link
+                  href="/people"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  People
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/explore"
+                  className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Explore the Graph
                 </Link>
               </li>
             </ul>
           </div>
-          <div>
-            <h4 className="font-mono text-[9px] tracking-[0.2em] uppercase text-text-tertiary mb-4">
-              Community
-            </h4>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/support" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                  Support the Research
-                </Link>
-              </li>
-              <li>
-                <Link href="/signal" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                  The Signal
-                </Link>
-              </li>
-            </ul>
-          </div>
+
+          {/* Placeholder third column */}
+          <div />
+
+          {/* Stay Updated */}
           <div>
             <h4 className="font-mono text-[9px] tracking-[0.2em] uppercase text-text-tertiary mb-4">
               Stay Updated
@@ -83,6 +93,7 @@ export function Footer() {
             </form>
           </div>
         </div>
+
         <div className="pt-8 border-t border-border text-center">
           <p className="font-mono text-[9px] tracking-[0.2em] uppercase text-text-tertiary">
             No ads. No sponsors. Just evidence.

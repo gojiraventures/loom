@@ -36,11 +36,12 @@ export async function getPublishedTopics(): Promise<{
   convergence_score: number;
   key_traditions: string[];
   summary: string | null;
+  published_at: string | null;
 }[]> {
   const supabase = createServerSupabaseClient();
   const { data } = await supabase
     .from('topic_dossiers')
-    .select('slug, topic, title, best_convergence_score, key_traditions, summary')
+    .select('slug, topic, title, best_convergence_score, key_traditions, summary, published_at')
     .eq('published', true)
     .not('slug', 'is', null)
     .order('best_convergence_score', { ascending: false });
@@ -52,5 +53,6 @@ export async function getPublishedTopics(): Promise<{
     convergence_score: d.best_convergence_score ?? 0,
     key_traditions: d.key_traditions ?? [],
     summary: d.summary,
+    published_at: d.published_at ?? null,
   }));
 }
