@@ -2,6 +2,13 @@ export const dynamic = 'force-dynamic';
 
 import { listPeople } from '@/lib/people';
 import Link from 'next/link';
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
+
+export const metadata = {
+  title: 'People — UnraveledTruth',
+  description: 'Researchers, whistleblowers, journalists, and figures at the center of the most contested questions.',
+};
 
 const TIER_LABELS: Record<string, string> = {
   academic: 'Academic',
@@ -31,8 +38,9 @@ export default async function PeoplePage() {
   const people = await listPeople({ status: 'published' });
 
   return (
-    <div className="min-h-screen bg-ground text-text-primary">
-      <div className="max-w-5xl mx-auto px-6 py-16">
+    <div className="min-h-screen flex flex-col bg-ground text-text-primary">
+      <Header />
+      <div className="flex-1 max-w-5xl mx-auto w-full px-6 py-16">
         <div className="mb-12">
           <p className="font-mono text-[10px] uppercase tracking-widest text-gold mb-3">People Index</p>
           <h1 className="font-serif text-4xl mb-4">Who&apos;s involved</h1>
@@ -114,6 +122,7 @@ export default async function PeoplePage() {
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

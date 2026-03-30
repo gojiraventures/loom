@@ -53,13 +53,23 @@ export default async function BrowsePage() {
             phenomena with structural specificity — that&apos;s not coincidence.
             That&apos;s a pattern worth investigating.
           </p>
-          <a
-            href="/topics/the-great-flood"
-            className="inline-flex items-center gap-2 font-mono text-sm tracking-wide text-gold border border-gold/30 bg-gold/5 px-6 py-3 rounded hover:bg-gold/10 transition-colors"
-          >
-            Begin with the Flood
-            <ArrowDown size={16} />
-          </a>
+          {publishedTopics.length > 0 ? (
+            <a
+              href={`/topics/${publishedTopics[0].slug}`}
+              className="inline-flex items-center gap-2 font-mono text-sm tracking-wide text-gold border border-gold/30 bg-gold/5 px-6 py-3 rounded hover:bg-gold/10 transition-colors"
+            >
+              {publishedTopics[0].title}
+              <ArrowDown size={16} />
+            </a>
+          ) : (
+            <a
+              href="/explore"
+              className="inline-flex items-center gap-2 font-mono text-sm tracking-wide text-gold border border-gold/30 bg-gold/5 px-6 py-3 rounded hover:bg-gold/10 transition-colors"
+            >
+              Explore the Graph
+              <ArrowDown size={16} />
+            </a>
+          )}
         </div>
       </section>
 
