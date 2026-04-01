@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     const [convergenceJob] = await createJobs([{
       session_id: sessionId,
       topic: topicStr,
-      job_type: 'convergence',
+      job_type: 'convergence_analysis',
       params: { topic: topicStr },
       priority: 50,
       run_after_job_ids: [crossValJob.id],
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
     const [debateJob] = await createJobs([{
       session_id: sessionId,
       topic: topicStr,
-      job_type: 'debate',
+      job_type: 'adversarial_debate',
       params: { topic: topicStr },
       priority: 60,
       run_after_job_ids: [convergenceJob.id],

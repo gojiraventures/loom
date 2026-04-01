@@ -3104,8 +3104,8 @@ const JOB_STATUS_COLORS: Record<string, string> = {
 const JOB_TYPE_LABELS: Record<string, string> = {
   agent_signal: 'Agent',
   cross_validation: 'Cross-Val',
-  convergence: 'Convergence',
-  debate: 'Debate',
+  convergence_analysis: 'Convergence',
+  adversarial_debate: 'Debate',
   synthesis_outline: 'Outline',
   synthesis_section: 'Section',
   synthesis_assembly: 'Assembly',

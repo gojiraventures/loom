@@ -12,8 +12,8 @@ type Handler = (job: ResearchJob) => Promise<Record<string, unknown>>;
 const HANDLERS: Record<JobType, Handler> = {
   agent_signal: handleAgentSignal,
   cross_validation: handleCrossValidation,
-  convergence: handleConvergence,
-  debate: handleDebate,
+  convergence_analysis: handleConvergence,
+  adversarial_debate: handleDebate,
   synthesis_outline: handleSynthesisOutline,
   synthesis_section: handleSynthesisSection,
   synthesis_assembly: handleSynthesisAssembly,

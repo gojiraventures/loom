@@ -5,8 +5,8 @@ export type JobStatus = 'pending' | 'running' | 'complete' | 'failed' | 'awaitin
 export type JobType =
   | 'agent_signal'
   | 'cross_validation'
-  | 'convergence'
-  | 'debate'
+  | 'convergence_analysis'
+  | 'adversarial_debate'
   | 'synthesis_outline'
   | 'synthesis_section'
   | 'synthesis_assembly';
