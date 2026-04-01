@@ -1,4 +1,5 @@
 import { handleAgentSignal } from './handlers/agent-signal';
+import { handleAgentEvaluation } from './handlers/agent-evaluation';
 import { handleCrossValidation } from './handlers/cross-validation';
 import { handleConvergence } from './handlers/convergence';
 import { handleDebate } from './handlers/debate';
@@ -11,6 +12,7 @@ type Handler = (job: ResearchJob) => Promise<Record<string, unknown>>;
 
 const HANDLERS: Record<JobType, Handler> = {
   agent_signal: handleAgentSignal,
+  agent_evaluation: handleAgentEvaluation,
   cross_validation: handleCrossValidation,
   convergence_analysis: handleConvergence,
   adversarial_debate: handleDebate,

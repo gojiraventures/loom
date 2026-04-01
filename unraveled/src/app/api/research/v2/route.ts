@@ -77,14 +77,23 @@ export async function POST(req: NextRequest) {
 
   // RACI assignment — determines which agents run
   const raci = assignRaci(topicStr, questionsArr, undefined, additionalContext);
-  const activeAgentIds = getActiveAgents(raci);
 
-  // Find active agent definitions
-  const activeAgents = RESEARCH_AGENTS.filter((a) => activeAgentIds.includes(a.id));
-  // Always run at least 5 agents
-  const agentsToRun = activeAgents.length >= 5
-    ? activeAgents
-    : RESEARCH_AGENTS.slice(0, Math.max(5, activeAgents.length));
+  // Option B tiered cap: responsible (unlimited up to 15), accountable (up to 5), hard cap 20 total
+  const responsibleAgents = RESEARCH_AGENTS
+    .filter((a) => raci.responsible.includes(a.id))
+    .slice(0, 15);
+  const responsibleIds = new Set(responsibleAgents.map((a) => a.id));
+
+  const accountableAgents = RESEARCH_AGENTS
+    .filter((a) => raci.accountable.includes(a.id) && !responsibleIds.has(a.id))
+    .slice(0, 5);
+
+  const combined = [...responsibleAgents, ...accountableAgents].slice(0, 20);
+
+  // Always run at least 5 agents (fallback if RACI is very sparse)
+  const agentsToRun = combined.length >= 5
+    ? combined
+    : RESEARCH_AGENTS.slice(0, Math.max(5, combined.length));
 
   // Priority: responsible=10, accountable=20
   function agentPriority(agentId: string): number {
@@ -112,14 +121,28 @@ export async function POST(req: NextRequest) {
 
     const agentJobIds = agentJobs.map((j) => j.id);
 
-    // ── Phase 2: Cross-validation ──────────────────────────────────────────────
+    // ── Phase 1b: Agent evaluation (runs after initial wave, may queue more agents) ──
+    const [agentEvalJob] = await createJobs([{
+      session_id: sessionId,
+      topic: topicStr,
+      job_type: 'agent_evaluation',
+      params: {
+        topic: topicStr,
+        research_questions: questionsArr,
+        initial_agent_ids: agentsToRun.map((a) => a.id),
+      },
+      priority: 38,
+      run_after_job_ids: agentJobIds,
+    }]);
+
+    // ── Phase 2: Cross-validation (depends on agent_eval so expansion agents are included) ──
     const [crossValJob] = await createJobs([{
       session_id: sessionId,
       topic: topicStr,
       job_type: 'cross_validation',
       params: { topic: topicStr, research_questions: questionsArr },
       priority: 40,
-      run_after_job_ids: agentJobIds,
+      run_after_job_ids: [agentEvalJob.id],
     }]);
 
     // ── Phase 3: Convergence ───────────────────────────────────────────────────
@@ -178,7 +201,8 @@ export async function POST(req: NextRequest) {
       requires_approval: true,
     }]);
 
-    const totalJobs = 1 + agentJobs.length + 1 + 1 + 1 + 1 + sectionJobs.length + 1;
+    const totalJobs = agentJobs.length + 1 + 1 + 1 + 1 + 1 + sectionJobs.length + 1;
+    // agent_signals + agent_eval + cross_val + convergence + debate + outline + sections + assembly
 
     return NextResponse.json({
       session_id: sessionId,

@@ -4,6 +4,7 @@ export type JobStatus = 'pending' | 'running' | 'complete' | 'failed' | 'awaitin
 
 export type JobType =
   | 'agent_signal'
+  | 'agent_evaluation'
   | 'cross_validation'
   | 'convergence_analysis'
   | 'adversarial_debate'
@@ -203,6 +204,35 @@ export async function rejectJob(jobId: string, notes: string): Promise<void> {
     .eq('id', jobId)
     .eq('status', 'awaiting_approval');
   if (error) throw new Error(`rejectJob: ${error.message}`);
+}
+
+/**
+ * Appends additional dependency job IDs to a job's run_after_job_ids.
+ * Used by agent_evaluation to make cross_validation wait for expansion agents.
+ */
+export async function appendJobDeps(jobId: string, newDepIds: string[]): Promise<void> {
+  if (newDepIds.length === 0) return;
+  const supabase = createServerSupabaseClient();
+  // Use array_cat to atomically append without overwriting concurrent updates
+  const { error } = await supabase.rpc('append_job_deps', {
+    p_job_id: jobId,
+    p_new_dep_ids: newDepIds,
+  });
+  if (error) {
+    // Fallback: read-modify-write if RPC not available
+    const { data: job } = await supabase
+      .from('research_jobs')
+      .select('run_after_job_ids')
+      .eq('id', jobId)
+      .single();
+    const existing = (job?.run_after_job_ids as string[]) ?? [];
+    const merged = [...new Set([...existing, ...newDepIds])];
+    const { error: e2 } = await supabase
+      .from('research_jobs')
+      .update({ run_after_job_ids: merged, updated_at: new Date().toISOString() })
+      .eq('id', jobId);
+    if (e2) throw new Error(`appendJobDeps: ${e2.message}`);
+  }
 }
 
 /** Resets jobs whose locks have expired back to pending. */

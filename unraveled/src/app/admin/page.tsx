@@ -3104,6 +3104,7 @@ const JOB_STATUS_COLORS: Record<string, string> = {
 
 const JOB_TYPE_LABELS: Record<string, string> = {
   agent_signal: 'Agent',
+  agent_evaluation: 'Agent Eval',
   cross_validation: 'Cross-Val',
   convergence_analysis: 'Convergence',
   adversarial_debate: 'Debate',
