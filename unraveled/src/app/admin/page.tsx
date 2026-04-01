@@ -123,36 +123,10 @@ function LaunchTab() {
   const [questions, setQuestions] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [sources, setSources] = useState('');
-  const [launchStatus, setLaunchStatus] = useState<'idle' | 'queuing' | 'polling' | 'done' | 'error'>('idle');
+  const [launchStatus, setLaunchStatus] = useState<'idle' | 'queuing' | 'done' | 'error'>('idle');
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [pipelineStatus, setPipelineStatus] = useState<string>('pending');
+  const [pipelineStatus, setPipelineStatus] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState('');
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Prevent duplicate /continue calls when the poller fires multiple times on 'researched'
-  const continueTriggeredRef = useRef(false);
-
-  const stopPolling = () => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-  };
-
-  const pollStatus = useCallback(async (id: string) => {
-    try {
-      const res = await fetch(`/api/research/${id}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const s = data?.session?.status ?? 'pending';
-      setPipelineStatus(s);
-      if (s === 'researched' && !continueTriggeredRef.current) {
-        // Phase 1 done — trigger phases 2-5 automatically (only once per session)
-        continueTriggeredRef.current = true;
-        fetch(`/api/research/${id}/continue`, { method: 'POST' }).catch(console.error);
-      } else if (s === 'complete' || s === 'failed') {
-        stopPolling();
-        setLaunchStatus(s === 'complete' ? 'done' : 'error');
-        if (s === 'failed') setErrorMsg(data?.session?.error_log?.join('\n') ?? 'Pipeline failed');
-      }
-    } catch { /* network blip — keep polling */ }
-  }, []);
 
   const addQuestion = () => {
     if (questions.length < MAX_FOUNDATION_QUESTIONS) setQuestions((q) => [...q, '']);
@@ -165,15 +139,13 @@ function LaunchTab() {
     const validQuestions = questions.filter((q) => q.trim());
     if (!topic.trim() || !title.trim()) return;
 
-    stopPolling();
     setLaunchStatus('queuing');
     setSessionId(null);
     setPipelineStatus('pending');
     setErrorMsg('');
-    continueTriggeredRef.current = false;
 
     try {
-      const res = await fetch('/api/research', {
+      const res = await fetch('/api/research/v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -189,21 +161,15 @@ function LaunchTab() {
 
       const id = data.session_id as string;
       setSessionId(id);
-      setLaunchStatus('polling');
-
-      // Poll every 8 seconds — safe to close/navigate, server continues running
-      pollRef.current = setInterval(() => pollStatus(id), 8000);
-      pollStatus(id);
+      setLaunchStatus('done');
+      setPipelineStatus(`${data.total_jobs ?? '?'} jobs queued — monitor in the Jobs tab`);
     } catch (err) {
       setLaunchStatus('error');
       setErrorMsg(err instanceof Error ? err.message : String(err));
     }
   };
 
-  // Cleanup on unmount
-  useEffect(() => () => stopPolling(), []);
-
-  const isRunning = launchStatus === 'queuing' || launchStatus === 'polling';
+  const isRunning = launchStatus === 'queuing';
 
   return (
     <div className="space-y-8">
@@ -320,31 +286,14 @@ function LaunchTab() {
           <div className={`font-mono text-[10px] uppercase tracking-widest ${
             launchStatus === 'error' ? 'text-red-400' : launchStatus === 'done' ? 'text-emerald-400' : 'text-sky-400'
           }`}>
-            {launchStatus === 'queuing' ? 'Starting pipeline…'
-              : launchStatus === 'polling' ? `${SESSION_STATUS_LABELS[pipelineStatus] ?? pipelineStatus}…`
-              : launchStatus === 'done' ? 'Complete — check Sessions tab'
+            {launchStatus === 'queuing' ? 'Queuing jobs…'
+              : launchStatus === 'done' ? 'Jobs queued — switch to the Jobs tab to monitor'
               : 'Failed'}
           </div>
 
-          {/* Live phase progress bar */}
-          {(launchStatus === 'polling' || launchStatus === 'done') && (
-            <div className="flex gap-1">
-              {['researching','cross_validating','converging','debating','synthesizing','complete'].map((phase) => {
-                const phases = ['researching','cross_validating','converging','debating','synthesizing','complete'];
-                const currentIdx = phases.indexOf(pipelineStatus);
-                const phaseIdx = phases.indexOf(phase);
-                const done = currentIdx > phaseIdx || pipelineStatus === 'complete';
-                const active = currentIdx === phaseIdx;
-                return (
-                  <div
-                    key={phase}
-                    className={`flex-1 h-1 rounded-full transition-colors duration-500 ${
-                      done ? 'bg-emerald-500' : active ? 'bg-sky-400 animate-pulse' : 'bg-border'
-                    }`}
-                  />
-                );
-              })}
-            </div>
+          {/* Job count summary */}
+          {launchStatus === 'done' && pipelineStatus && (
+            <p className="font-mono text-[10px] text-text-tertiary">{pipelineStatus}</p>
           )}
 
           {/* Session ID for manual tracking */}
@@ -530,7 +479,6 @@ function SessionsTab() {
   const [expandedPreview, setExpandedPreview] = useState<string | null>(null);
   const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
   // Prevent duplicate /continue calls for rerun sessions
-  const continueTriggeredRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -552,7 +500,7 @@ function SessionsTab() {
   const rerun = async (s: Session) => {
     setRerunStatus((r) => ({ ...r, [s.id]: 'queuing…' }));
     try {
-      const res = await fetch('/api/research', {
+      const res = await fetch('/api/research/v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -565,30 +513,7 @@ function SessionsTab() {
       if (!res.ok) throw new Error(data.error ?? 'Unknown error');
       const newId = data.session_id as string;
       setRerunSessionId((r) => ({ ...r, [s.id]: newId }));
-      setRerunStatus((r) => ({ ...r, [s.id]: 'researching…' }));
-
-      pollRefs.current[s.id] = setInterval(async () => {
-        try {
-          const pr = await fetch(`/api/research/${newId}`);
-          if (!pr.ok) return;
-          const pd = await pr.json();
-          const st = pd?.session?.status ?? 'pending';
-          if (st === 'researched' && !continueTriggeredRef.current.has(newId)) {
-            continueTriggeredRef.current.add(newId);
-            fetch(`/api/research/${newId}/continue`, { method: 'POST' }).catch(console.error);
-            setRerunStatus((r) => ({ ...r, [s.id]: `${SESSION_STATUS_LABELS['researched']}…` }));
-          } else if (st === 'complete') {
-            clearInterval(pollRefs.current[s.id]);
-            setRerunStatus((r) => ({ ...r, [s.id]: 'complete ✓' }));
-            load();
-          } else if (st === 'failed') {
-            clearInterval(pollRefs.current[s.id]);
-            setRerunStatus((r) => ({ ...r, [s.id]: 'failed' }));
-          } else {
-            setRerunStatus((r) => ({ ...r, [s.id]: `${SESSION_STATUS_LABELS[st] ?? st}…` }));
-          }
-        } catch { /* blip */ }
-      }, 8000);
+      setRerunStatus((r) => ({ ...r, [s.id]: `${data.total_jobs ?? '?'} jobs queued — see Jobs tab` }));
     } catch (err) {
       setRerunStatus((r) => ({ ...r, [s.id]: `error: ${err instanceof Error ? err.message : String(err)}` }));
     }
@@ -3037,7 +2962,7 @@ function BacklogTab() {
   const launch = async (item: BacklogItem) => {
     setLaunching(item.id);
     try {
-      const res = await fetch('/api/research', {
+      const res = await fetch('/api/research/v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
