@@ -3081,6 +3081,7 @@ function BacklogTab() {
 interface ResearchJob {
   id: string;
   session_id: string;
+  topic: string;
   job_type: string;
   status: string;
   priority: number;
@@ -3174,18 +3175,33 @@ function JobsTab() {
     }
   };
 
-  const filtered = filterStatus === 'all' ? jobs : jobs.filter((j) => j.status === filterStatus);
+  // Group jobs by session_id, ordered by most-recently-updated session first
   const counts = jobs.reduce<Record<string, number>>((acc, j) => {
     acc[j.status] = (acc[j.status] ?? 0) + 1;
     return acc;
   }, {});
 
+  // Build session groups from the full jobs list (so summary counts are always accurate)
+  const sessionGroups = jobs.reduce<Record<string, ResearchJob[]>>((acc, j) => {
+    (acc[j.session_id] ??= []).push(j);
+    return acc;
+  }, {});
+  const sessionIds = Object.keys(sessionGroups).sort((a, b) => {
+    const aLatest = Math.max(...sessionGroups[a].map((j) => new Date(j.updated_at).getTime()));
+    const bLatest = Math.max(...sessionGroups[b].map((j) => new Date(j.updated_at).getTime()));
+    return bLatest - aLatest;
+  });
+  // Filter: only show sessions that have at least one job matching the status filter
+  const visibleSessionIds = filterStatus === 'all'
+    ? sessionIds
+    : sessionIds.filter((sid) => sessionGroups[sid].some((j) => j.status === filterStatus));
+
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          {['all', 'pending', 'running', 'awaiting_approval', 'complete', 'failed'].map((s) => (
+          {(['all', 'pending', 'running', 'awaiting_approval', 'complete', 'failed'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
@@ -3195,14 +3211,12 @@ function JobsTab() {
                   : 'border-border text-text-tertiary hover:text-text-secondary'
               }`}
             >
-              {s === 'all' ? `All (${jobs.length})` : `${s.replace('_', ' ')} (${counts[s] ?? 0})`}
+              {s === 'all' ? `All (${jobs.length})` : `${s.replace(/_/g, ' ')} (${counts[s] ?? 0})`}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-3">
-          {tickResult && (
-            <span className="font-mono text-[10px] text-emerald-400">{tickResult}</span>
-          )}
+          {tickResult && <span className="font-mono text-[10px] text-emerald-400">{tickResult}</span>}
           <button
             onClick={() => void runTick()}
             disabled={tickLoading}
@@ -3221,81 +3235,137 @@ function JobsTab() {
 
       {loading ? (
         <p className="font-mono text-[11px] text-text-tertiary">Loading jobs…</p>
-      ) : filtered.length === 0 ? (
+      ) : visibleSessionIds.length === 0 ? (
         <p className="font-mono text-[11px] text-text-tertiary">No jobs found.</p>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((job) => (
-            <div key={job.id} className="border border-border rounded p-4 space-y-2">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3 flex-wrap min-w-0">
-                  <span className={`font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded ${JOB_STATUS_COLORS[job.status] ?? 'text-text-tertiary'}`}>
-                    {job.status.replace('_', ' ')}
-                  </span>
-                  <span className="font-mono text-[10px] text-text-secondary font-medium">
-                    {JOB_TYPE_LABELS[job.job_type] ?? job.job_type}
-                    {job.params.agent_id ? ` — ${String(job.params.agent_id)}` : ''}
-                    {job.params.section_key ? ` — ${String(job.params.section_key)}` : ''}
-                  </span>
-                  <span className="font-mono text-[9px] text-text-tertiary">p{job.priority}</span>
+        <div className="space-y-3">
+          {visibleSessionIds.map((sid) => {
+            const allSessionJobs = sessionGroups[sid];
+            const visibleJobs = filterStatus === 'all'
+              ? allSessionJobs
+              : allSessionJobs.filter((j) => j.status === filterStatus);
+            const topic = allSessionJobs[0]?.topic || sid.slice(0, 8);
+            const sc = allSessionJobs.reduce<Record<string, number>>((acc, j) => {
+              acc[j.status] = (acc[j.status] ?? 0) + 1;
+              return acc;
+            }, {});
+            const hasApproval = allSessionJobs.some((j) => j.status === 'awaiting_approval');
+            const hasFailed = allSessionJobs.some((j) => j.status === 'failed');
+            const hasRunning = allSessionJobs.some((j) => j.status === 'running');
+            const allComplete = allSessionJobs.every((j) => j.status === 'complete');
+
+            const borderColor = hasApproval
+              ? 'border-gold/40'
+              : hasFailed
+              ? 'border-red-400/30'
+              : hasRunning
+              ? 'border-sky-400/30'
+              : allComplete
+              ? 'border-emerald-400/20'
+              : 'border-border';
+
+            return (
+              <details key={sid} className={`group border ${borderColor} rounded overflow-hidden`}>
+                <summary className="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer hover:bg-white/[0.02] list-none select-none">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Expand chevron */}
+                    <span className="font-mono text-[10px] text-text-tertiary group-open:rotate-90 transition-transform shrink-0">▶</span>
+                    {/* Topic */}
+                    <span className="font-mono text-[11px] text-text-primary truncate">{topic}</span>
+                    {/* Status badge */}
+                    {hasApproval && (
+                      <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded bg-gold/10 text-gold shrink-0">
+                        Needs Review
+                      </span>
+                    )}
+                    {hasRunning && !hasApproval && (
+                      <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded bg-sky-400/10 text-sky-400 shrink-0">
+                        Running
+                      </span>
+                    )}
+                    {hasFailed && (
+                      <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded bg-red-400/10 text-red-400 shrink-0">
+                        Failed
+                      </span>
+                    )}
+                    {allComplete && (
+                      <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-400/10 text-emerald-400 shrink-0">
+                        Complete
+                      </span>
+                    )}
+                  </div>
+                  {/* Counts mini-bar */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    {sc.complete ? <span className="font-mono text-[9px] text-emerald-400">{sc.complete} done</span> : null}
+                    {sc.running ? <span className="font-mono text-[9px] text-sky-400">{sc.running} running</span> : null}
+                    {sc.awaiting_approval ? <span className="font-mono text-[9px] text-gold">{sc.awaiting_approval} review</span> : null}
+                    {sc.pending ? <span className="font-mono text-[9px] text-text-tertiary">{sc.pending} pending</span> : null}
+                    {sc.failed ? <span className="font-mono text-[9px] text-red-400">{sc.failed} failed</span> : null}
+                    <span className="font-mono text-[9px] text-text-tertiary">/ {allSessionJobs.length}</span>
+                  </div>
+                </summary>
+
+                {/* Expanded job list */}
+                <div className="border-t border-border divide-y divide-border/50">
+                  {visibleJobs.map((job) => (
+                    <div key={job.id} className="px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 flex-wrap min-w-0">
+                          <span className={`font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded shrink-0 ${JOB_STATUS_COLORS[job.status] ?? 'text-text-tertiary'}`}>
+                            {job.status.replace(/_/g, ' ')}
+                          </span>
+                          <span className="font-mono text-[10px] text-text-secondary">
+                            {JOB_TYPE_LABELS[job.job_type] ?? job.job_type}
+                            {job.params.agent_id ? ` — ${String(job.params.agent_id)}` : ''}
+                            {job.params.section_key ? ` — ${String(job.params.section_key)}` : ''}
+                          </span>
+                          <span className="font-mono text-[9px] text-text-tertiary">p{job.priority}</span>
+                          {job.run_after_job_ids.length > 0 && (
+                            <span className="font-mono text-[9px] text-text-tertiary">{job.run_after_job_ids.length} deps</span>
+                          )}
+                        </div>
+                        {job.status === 'awaiting_approval' && (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => void approve(job.id)}
+                              disabled={actionLoading === job.id}
+                              className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/5 rounded transition-colors disabled:opacity-50"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => void reject(job.id)}
+                              disabled={actionLoading === job.id}
+                              className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 border border-red-400/30 text-red-400 hover:bg-red-400/5 rounded transition-colors disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {job.last_error && (
+                        <p className="font-mono text-[10px] text-red-400 bg-red-400/5 border border-red-400/10 rounded px-3 py-2">
+                          {job.last_error}
+                        </p>
+                      )}
+
+                      {job.status === 'awaiting_approval' && job.output_data && (
+                        <details>
+                          <summary className="font-mono text-[10px] text-gold cursor-pointer hover:text-gold/70">
+                            View output for review
+                          </summary>
+                          <pre className="mt-2 font-mono text-[9px] text-text-tertiary bg-surface border border-border rounded p-3 overflow-auto max-h-64 whitespace-pre-wrap">
+                            {JSON.stringify(job.output_data, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {job.status === 'awaiting_approval' && (
-                    <>
-                      <button
-                        onClick={() => void approve(job.id)}
-                        disabled={actionLoading === job.id}
-                        className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/5 rounded transition-colors disabled:opacity-50"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => void reject(job.id)}
-                        disabled={actionLoading === job.id}
-                        className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 border border-red-400/30 text-red-400 hover:bg-red-400/5 rounded transition-colors disabled:opacity-50"
-                      >
-                        Reject
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 flex-wrap">
-                <span className="font-mono text-[9px] text-text-tertiary">
-                  Session: {job.session_id.slice(0, 8)}…
-                </span>
-                <span className="font-mono text-[9px] text-text-tertiary">
-                  Job: {job.id.slice(0, 8)}…
-                </span>
-                {job.run_after_job_ids.length > 0 && (
-                  <span className="font-mono text-[9px] text-text-tertiary">
-                    Deps: {job.run_after_job_ids.length}
-                  </span>
-                )}
-                <span className="font-mono text-[9px] text-text-tertiary">
-                  {new Date(job.updated_at).toLocaleString()}
-                </span>
-              </div>
-
-              {job.last_error && (
-                <p className="font-mono text-[10px] text-red-400 bg-red-400/5 border border-red-400/10 rounded px-3 py-2">
-                  {job.last_error}
-                </p>
-              )}
-
-              {job.status === 'awaiting_approval' && job.output_data && (
-                <details className="group">
-                  <summary className="font-mono text-[10px] text-gold cursor-pointer hover:text-gold/70">
-                    View output for review
-                  </summary>
-                  <pre className="mt-2 font-mono text-[9px] text-text-tertiary bg-surface border border-border rounded p-3 overflow-auto max-h-64 whitespace-pre-wrap">
-                    {JSON.stringify(job.output_data, null, 2)}
-                  </pre>
-                </details>
-              )}
-            </div>
-          ))}
+              </details>
+            );
+          })}
         </div>
       )}
     </div>
