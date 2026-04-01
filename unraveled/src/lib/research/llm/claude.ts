@@ -20,13 +20,17 @@ export async function queryClaude(request: LLMRequest): Promise<LLMResponse> {
     ? `${request.systemPrompt}\n\nYou MUST respond with valid JSON only. No markdown, no explanations outside the JSON structure.`
     : request.systemPrompt;
 
-  const message = await ai.messages.create({
+  // Use streaming so long responses don't hit SDK or platform timeouts.
+  // stream.finalMessage() collects all chunks and returns the same Message type.
+  const stream = ai.messages.stream({
     model: request.model ?? 'claude-sonnet-4-6',
     max_tokens: request.maxTokens ?? 8192,
     temperature: request.temperature ?? 0.4,
     system: systemPrompt,
     messages: [{ role: 'user', content: request.userPrompt }],
   });
+
+  const message = await stream.finalMessage();
 
   const text = message.content
     .filter((b) => b.type === 'text')

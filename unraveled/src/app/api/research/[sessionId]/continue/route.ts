@@ -1,30 +1,24 @@
 /**
  * POST /api/research/[sessionId]/continue
  *
- * Runs ALL remaining pipeline phases in a single call (phases 2-5):
- *   cross-validation (~15s) → convergence (~10s) → debate (~25s) → synthesis+dossier (~20s)
- * Total ~70s — well within the 300s Vercel limit.
- *
- * Called once by the main research route after Layer 1 completes.
- * No self-chaining — simpler and more reliable.
+ * Runs phases 2-4 (cross-validation, convergence, debate) in a single call.
+ * After phase 4 completes, fires /synthesize as a separate request so that
+ * phase 5 gets its own 300s Vercel budget (synthesis of 8k+ tokens takes time).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, updateSessionStatus, logSessionError, claimSessionForContinue, releaseSessionLock } from '@/lib/research/storage/sessions';
 import { getFindingsBySession } from '@/lib/research/storage/findings';
-import { getValidationsBySession } from '@/lib/research/storage/validations';
 import { getConvergenceBySession } from '@/lib/research/storage/convergence';
 import { buildCrossValidationPlan } from '@/lib/research/pipeline';
 import { runAllCrossValidation } from '@/lib/research/agents/cross-validator';
 import { runConvergenceLayer } from '@/lib/research/agents/convergence-runner';
 import { runDebate } from '@/lib/research/agents/debate-runner';
-import { runSynthesis } from '@/lib/research/agents/synthesizer';
-import { accumulateDossier } from '@/lib/research/dossier';
 import type { AgentFinding } from '@/lib/research/types';
 
 export const maxDuration = 300;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
   const { sessionId } = await params;
@@ -49,11 +43,10 @@ export async function POST(
   }
 
   const topic = session.topic as string;
-  const title = session.title as string;
   const researchQuestions = (session.research_questions as string[]) ?? [];
 
-  // Run all remaining phases synchronously — total ~70s, well within 300s
-  // Lock is released in finally regardless of outcome.
+  // Run phases 2-4 synchronously (~100-150s total), then hand off to /synthesize
+  // which gets its own fresh 300s Vercel budget for the large synthesis call.
   try {
     const findings = await getFindingsBySession(sessionId) as (AgentFinding & { id: string })[];
 
@@ -87,27 +80,17 @@ export async function POST(
     }
     await updateSessionStatus(sessionId, 'synthesizing');
 
-    // Phase 5: Synthesis + dossier
-    console.log(`[continue:${sessionId}] Phase 5: synthesis`);
-    const allValidations = await getValidationsBySession(sessionId);
-    const synthesisResult = await runSynthesis(
-      sessionId, topic, findings, allValidations, convergenceAnalyses, debateResult.debate,
-    );
-    if (synthesisResult.error || !synthesisResult.output) {
-      const errMsg = synthesisResult.error ?? 'Synthesis produced no output';
-      await logSessionError(sessionId, errMsg);
-      await updateSessionStatus(sessionId, 'failed');
-      return NextResponse.json({ error: errMsg }, { status: 500 });
-    }
+    // Hand off phase 5 to /synthesize — fire-and-forget so it gets its own function budget.
+    // Release the lock first so /synthesize can claim it.
+    await releaseSessionLock(sessionId).catch(() => null);
 
-    await accumulateDossier({
-      topic, title, findings, convergenceAnalyses,
-      debate: debateResult.debate, output: synthesisResult.output,
+    const origin = new URL(req.url).origin;
+    fetch(`${origin}/api/research/${sessionId}/synthesize`, { method: 'POST' }).catch((err) => {
+      console.error(`[continue:${sessionId}] failed to fire /synthesize:`, err);
     });
-    await updateSessionStatus(sessionId, 'complete');
-    console.log(`[continue:${sessionId}] Complete ✓`);
 
-    return NextResponse.json({ ok: true, status: 'complete' });
+    console.log(`[continue:${sessionId}] Phases 2-4 complete — /synthesize fired`);
+    return NextResponse.json({ ok: true, status: 'synthesizing' });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[continue:${sessionId}] error:`, message);
