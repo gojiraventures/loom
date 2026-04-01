@@ -27,7 +27,7 @@ export const cognitiveScientist: AgentDefinition = {
   llm: {
     provider: 'gemini',
     model: 'gemini-2.5-pro',
-    maxTokens: 8192,
+    maxTokens: 12288,
     temperature: 0.45,
   },
 

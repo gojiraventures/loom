@@ -27,7 +27,7 @@ export const factChecker: AgentDefinition = {
   llm: {
     provider: 'perplexity',
     model: 'sonar-pro',
-    maxTokens: 6144,
+    maxTokens: 12288,
     temperature: 0.15,
   },
 

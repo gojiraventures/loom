@@ -1,4 +1,5 @@
 import { route } from '../llm/router';
+import { IS_OLLAMA_MODE } from '../llm/concurrency';
 import { DebateRecordSchema } from '../schemas';
 import { insertDebateRecord } from '../storage/debates';
 import type { AgentFinding, ConvergenceAnalysis, DebateRecord } from '../types';
@@ -89,34 +90,36 @@ export async function runDebate(
 ): Promise<DebateRunResult> {
   const sharedContext = buildSharedContext(topic, findings, convergenceAnalyses);
 
-  // Run advocate and skeptic in parallel on Gemini 2.5 Pro.
-  // Neither sees the other's output — they build independent cases from the same evidence.
-  // The synthesis layer (Claude, Phase 5) reconciles both into the final article.
+  // In Ollama mode, use Claude for debate — the 8192-token advocate/skeptic prompts cause
+  // qwen2.5:32b to OOM and drop the connection. Debate is argumentative reasoning that Claude
+  // handles well, and synthesis (Phase 5) already uses Claude anyway.
+  const debateProvider = IS_OLLAMA_MODE ? 'claude' as const : 'gemini' as const;
+
+  const advocateRequest = {
+    provider: debateProvider,
+    skipOllamaOverride: true, // Phases 2-5 always use cloud; Ollama is Layer 1 only
+    systemPrompt: `You are The Advocate for Unraveled.ai. Your mandate: construct the strongest possible evidence-based case FOR the significance of convergence patterns across traditions. Not credulous — rigorously honest. Every major claim must cite a source. Make the skeptic's job hard.`,
+    userPrompt: buildAdvocatePrompt(sharedContext, topic),
+    jsonMode: true,
+    maxTokens: 8192,
+    temperature: 0.55,
+    sessionId,
+  };
+  const skepticRequest = {
+    provider: debateProvider,
+    skipOllamaOverride: true, // Phases 2-5 always use cloud; Ollama is Layer 1 only
+    systemPrompt: `You are The Skeptic for Unraveled.ai. Your mandate: construct the strongest possible conventional explanation AGAINST convergence significance. Not dismissive — rigorously rigorous. "It's just a myth" is not an argument. Provide specific alternative explanations. Diffusion theory requires a documented route.`,
+    userPrompt: buildSkepticPrompt(sharedContext, topic),
+    jsonMode: true,
+    maxTokens: 8192,
+    temperature: 0.45,
+    sessionId,
+  };
+
+  // Run in parallel — Claude handles concurrent requests fine; Gemini does too in cloud mode.
   const [advocateResult, skepticResult] = await Promise.allSettled([
-    route(
-      {
-        provider: 'gemini',
-        systemPrompt: `You are The Advocate for Unraveled.ai. Your mandate: construct the strongest possible evidence-based case FOR the significance of convergence patterns across traditions. Not credulous — rigorously honest. Every major claim must cite a source. Make the skeptic's job hard.`,
-        userPrompt: buildAdvocatePrompt(sharedContext, topic),
-        jsonMode: true,
-        maxTokens: 8192,
-        temperature: 0.55,
-        sessionId,
-      },
-      'advocate',
-    ),
-    route(
-      {
-        provider: 'gemini',
-        systemPrompt: `You are The Skeptic for Unraveled.ai. Your mandate: construct the strongest possible conventional explanation AGAINST convergence significance. Not dismissive — rigorously rigorous. "It's just a myth" is not an argument. Provide specific alternative explanations. Diffusion theory requires a documented route.`,
-        userPrompt: buildSkepticPrompt(sharedContext, topic),
-        jsonMode: true,
-        maxTokens: 8192,
-        temperature: 0.45,
-        sessionId,
-      },
-      'skeptic',
-    ),
+    route(advocateRequest, 'advocate'),
+    route(skepticRequest, 'skeptic'),
   ]);
 
   if (advocateResult.status === 'rejected') {

@@ -2,6 +2,7 @@ import { route } from '../llm/router';
 import { ConvergenceAnalysisSchema } from '../schemas';
 import { insertConvergenceAnalysis } from '../storage/convergence';
 import { patternMatcher, timelineAnalyst, geographicAnalyst } from './definitions';
+import { IS_OLLAMA_MODE, OLLAMA_CONCURRENCY, runWithConcurrency } from '../llm/concurrency';
 import type { AgentFinding, ConvergenceAnalysis } from '../types';
 import type { AgentDefinition } from '../types';
 
@@ -83,6 +84,7 @@ async function runConvergenceAgent(
     response = await route(
       {
         provider: def.llm.provider,
+        skipOllamaOverride: true, // Phases 2-5 always use cloud; Ollama is Layer 1 only
         systemPrompt,
         userPrompt,
         jsonMode: true,
@@ -121,8 +123,9 @@ export async function runConvergenceLayer(
   topic: string,
   findings: (AgentFinding & { id: string })[],
 ): Promise<ConvergenceRunResult[]> {
-  const settled = await Promise.allSettled(
-    CONVERGENCE_AGENTS.map((def) => runConvergenceAgent(def, sessionId, topic, findings)),
+  const concurrency = IS_OLLAMA_MODE ? OLLAMA_CONCURRENCY : CONVERGENCE_AGENTS.length;
+  const settled = await runWithConcurrency(CONVERGENCE_AGENTS, concurrency, (def) =>
+    runConvergenceAgent(def, sessionId, topic, findings),
   );
 
   return settled.map((r) =>

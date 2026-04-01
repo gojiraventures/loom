@@ -27,7 +27,7 @@ export const worldviewBalanceOfficer: AgentDefinition = {
   llm: {
     provider: 'claude',
     model: 'claude-sonnet-4-6',
-    maxTokens: 6144,
+    maxTokens: 12288,
     temperature: 0.45,
   },
 

@@ -9,7 +9,7 @@
  * No self-chaining — simpler and more reliable.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, updateSessionStatus, logSessionError, claimSessionForContinue } from '@/lib/research/storage/sessions';
+import { getSession, updateSessionStatus, logSessionError, claimSessionForContinue, releaseSessionLock } from '@/lib/research/storage/sessions';
 import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { getValidationsBySession } from '@/lib/research/storage/validations';
 import { getConvergenceBySession } from '@/lib/research/storage/convergence';
@@ -31,26 +31,21 @@ export async function POST(
 
   const session = await getSession(sessionId);
   if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-  if (session.status === 'complete' || session.status === 'failed') {
+  if (session.status === 'complete') {
     return NextResponse.json({ status: session.status });
   }
   // Only run if Phase 1 is done (researched) or we're resuming a stuck mid-pipeline session
-  const resumableStatuses = ['researched', 'cross_validating', 'converging', 'debating', 'synthesizing'];
+  const resumableStatuses = ['researched', 'failed', 'cross_validating', 'converging', 'debating', 'synthesizing'];
   if (!resumableStatuses.includes(session.status)) {
     return NextResponse.json({ error: `Session not ready for continue (status: ${session.status})` }, { status: 400 });
   }
 
-  // Atomic lock: if session is still 'researched', claim it by flipping to 'cross_validating'.
-  // If another /continue call already claimed it (status already moved on), bail out silently.
-  if (session.status === 'researched') {
-    const claimed = await claimSessionForContinue(sessionId);
-    if (!claimed) {
-      // Another concurrent call won — this one is a duplicate; return 200 so the browser doesn't retry
-      console.log(`[continue:${sessionId}] duplicate call — already claimed by another instance`);
-      return NextResponse.json({ status: 'already_running' });
-    }
-    // Successfully claimed — skip the first updateSessionStatus('cross_validating') call below
-    // since claimSessionForContinue already set it
+  // Atomic lock: claim pipeline_locked for ALL resumable states to prevent concurrent runs.
+  // For 'researched', also flips status → 'cross_validating' in the same update.
+  const claimed = await claimSessionForContinue(sessionId, session.status);
+  if (!claimed) {
+    console.log(`[continue:${sessionId}] duplicate call — pipeline already locked`);
+    return NextResponse.json({ status: 'already_running' });
   }
 
   const topic = session.topic as string;
@@ -58,6 +53,7 @@ export async function POST(
   const researchQuestions = (session.research_questions as string[]) ?? [];
 
   // Run all remaining phases synchronously — total ~70s, well within 300s
+  // Lock is released in finally regardless of outcome.
   try {
     const findings = await getFindingsBySession(sessionId) as (AgentFinding & { id: string })[];
 
@@ -118,5 +114,7 @@ export async function POST(
     await updateSessionStatus(sessionId, 'failed').catch(() => null);
     await logSessionError(sessionId, message).catch(() => null);
     return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    await releaseSessionLock(sessionId).catch(() => null);
   }
 }

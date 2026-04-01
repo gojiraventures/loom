@@ -27,7 +27,7 @@ export const antiquarianBooksExpert: AgentDefinition = {
   llm: {
     provider: 'claude',
     model: 'claude-sonnet-4-6',
-    maxTokens: 8192,
+    maxTokens: 12288,
     temperature: 0.30,
   },
 

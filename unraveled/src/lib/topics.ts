@@ -27,6 +27,37 @@ export async function slugToTopic(slug: string): Promise<string | null> {
 }
 
 /**
+ * Returns featured published topics for the home page.
+ */
+export async function getFeaturedTopics(): Promise<{
+  slug: string;
+  topic: string;
+  title: string;
+  convergence_score: number;
+  key_traditions: string[];
+  summary: string | null;
+}[]> {
+  const supabase = createServerSupabaseClient();
+  const { data } = await supabase
+    .from('topic_dossiers')
+    .select('slug, topic, title, best_convergence_score, key_traditions, summary')
+    .eq('published', true)
+    .eq('featured', true)
+    .not('slug', 'is', null)
+    .order('best_convergence_score', { ascending: false })
+    .limit(6);
+
+  return (data ?? []).map((d) => ({
+    slug: d.slug,
+    topic: d.topic,
+    title: d.title ?? d.topic,
+    convergence_score: d.best_convergence_score ?? 0,
+    key_traditions: d.key_traditions ?? [],
+    summary: d.summary,
+  }));
+}
+
+/**
  * Returns all published topics for the homepage and sitemap.
  */
 export async function getPublishedTopics(): Promise<{

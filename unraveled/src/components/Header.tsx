@@ -26,6 +26,12 @@ export function Header() {
         </Link>
         <nav className="flex items-center gap-6">
           <Link
+            href="/browse"
+            className="font-mono text-[10px] tracking-[0.12em] uppercase text-text-tertiary hover:text-text-primary transition-colors"
+          >
+            Research
+          </Link>
+          <Link
             href="/people"
             className="font-mono text-[10px] tracking-[0.12em] uppercase text-text-tertiary hover:text-text-primary transition-colors"
           >

@@ -27,7 +27,7 @@ export const scienceCommunicator: AgentDefinition = {
   llm: {
     provider: 'gemini-flash',
     model: 'gemini-2.5-flash',
-    maxTokens: 8192,
+    maxTokens: 12288,
     temperature: 0.65,
   },
 

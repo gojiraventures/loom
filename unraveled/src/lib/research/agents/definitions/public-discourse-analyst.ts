@@ -27,7 +27,7 @@ export const publicDiscourseAnalyst: AgentDefinition = {
   llm: {
     provider: 'perplexity',
     model: 'sonar-pro',
-    maxTokens: 8192,
+    maxTokens: 12288,
     temperature: 0.40,
   },
 

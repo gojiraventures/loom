@@ -9,10 +9,27 @@ export async function GET(req: NextRequest) {
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from('topic_dossiers')
-    .select('topic, title, slug, published, best_convergence_score, key_traditions, summary, synthesized_output, last_researched_at')
+    .select('topic, title, slug, published, featured, best_convergence_score, key_traditions, summary, synthesized_output, last_researched_at')
     .eq('topic', topic)
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 404 });
   return NextResponse.json({ dossier: data });
+}
+
+// PATCH /api/admin/dossier — toggle featured
+export async function PATCH(req: NextRequest) {
+  const { topic, featured } = await req.json();
+  if (!topic || typeof featured !== 'boolean') {
+    return NextResponse.json({ error: 'topic and featured (boolean) required' }, { status: 400 });
+  }
+
+  const supabase = createServerSupabaseClient();
+  const { error } = await supabase
+    .from('topic_dossiers')
+    .update({ featured })
+    .eq('topic', topic);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, featured });
 }

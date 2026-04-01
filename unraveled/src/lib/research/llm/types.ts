@@ -10,6 +10,7 @@ export interface LLMRequest {
   temperature?: number;
   sessionId?: string;         // For cost tracking
   agentId?: string;           // For cost tracking
+  skipOllamaOverride?: boolean; // When true, use the specified provider even when OLLAMA_OVERRIDE_PROVIDERS is set
 }
 
 export interface LLMResponse {

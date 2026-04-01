@@ -33,7 +33,9 @@ export async function generateMetadata({
 // Pick the right viz data per topic
 function getVizNarratives(slug: string) {
   switch (slug) {
-    case 'the-great-flood': return FLOOD_NARRATIVES;
+    case 'the-great-flood':
+    case 'the-great-flood-cross-civilizational-evidence':
+      return FLOOD_NARRATIVES;
     default: return [];
   }
 }

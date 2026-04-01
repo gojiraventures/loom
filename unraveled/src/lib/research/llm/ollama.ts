@@ -18,6 +18,8 @@ import type { LLMRequest, LLMResponse } from './types';
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.1:8b';
+// 32b models can take 3-5 min per request; allow 10 min so queued requests don't abort while waiting
+const OLLAMA_TIMEOUT_MS = parseInt(process.env.OLLAMA_TIMEOUT_MS ?? '600000', 10);
 
 interface OllamaChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -34,14 +36,7 @@ interface OllamaChatResponse {
 }
 
 export async function queryOllama(request: LLMRequest): Promise<LLMResponse> {
-  const model = request.provider === 'ollama' && request.maxTokens
-    ? DEFAULT_MODEL // agent definition supplies model name separately in llm.model
-    : DEFAULT_MODEL;
-
-  // The agent definition's llm.model is passed through via the executor; use it if available
-  // via a convention: we check if the request has a model override embedded in the provider string
-  // e.g. provider: 'ollama' and the caller passes model name via a side channel.
-  // For now, use the DEFAULT_MODEL from env or agent-specified model when we extend LLMRequest.
+  const model = request.model ?? DEFAULT_MODEL;
 
   const start = Date.now();
 
@@ -61,17 +56,26 @@ export async function queryOllama(request: LLMRequest): Promise<LLMResponse> {
     ...(request.jsonMode ? { format: 'json' } : {}),
   };
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
+
   let res: Response;
   try {
     res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Ollama timeout after ${OLLAMA_TIMEOUT_MS / 1000}s at ${OLLAMA_BASE_URL}`);
+    }
     throw new Error(
       `Ollama connection failed at ${OLLAMA_BASE_URL} — is Ollama running? (${err instanceof Error ? err.message : String(err)})`,
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!res.ok) {

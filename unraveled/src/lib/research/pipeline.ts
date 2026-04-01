@@ -3,6 +3,7 @@ import { executeAgent } from './agents/executor';
 import { getAgent, AGENT_REGISTRY, RESEARCH_AGENTS } from './agents/definitions';
 import { updateSessionStatus, setRaciAssignments, logSessionError } from './storage/sessions';
 import { getFindingsBySession } from './storage/findings';
+import { IS_OLLAMA_MODE, OLLAMA_CONCURRENCY, runWithConcurrency } from './llm/concurrency';
 import type { AgentExecutionResult } from './agents/executor';
 import type { AgentFinding } from './types';
 
@@ -40,8 +41,10 @@ export async function runLayer1(
   console.log(`[pipeline] Responsible: ${raci.responsible.join(', ')}`);
   console.log(`[pipeline] Accountable: ${raci.accountable.join(', ')}`);
 
-  // Run all active agents in parallel
-  const execPromises = activeAgentIds.map((agentId) => {
+  const concurrency = IS_OLLAMA_MODE ? OLLAMA_CONCURRENCY : activeAgentIds.length;
+  console.log(`[pipeline] Concurrency: ${IS_OLLAMA_MODE ? `Ollama mode (${concurrency} at a time)` : 'cloud mode (all parallel)'}`);
+
+  const settled = await runWithConcurrency(activeAgentIds, concurrency, (agentId) => {
     const def = AGENT_REGISTRY[agentId];
     if (!def) {
       return Promise.resolve({
@@ -56,8 +59,6 @@ export async function runLayer1(
     }
     return executeAgent(def, topic, researchQuestions, { sessionId, additionalContext });
   });
-
-  const settled = await Promise.allSettled(execPromises);
 
   const results: AgentExecutionResult[] = [];
   const errors: { agentId: string; error: string }[] = [];

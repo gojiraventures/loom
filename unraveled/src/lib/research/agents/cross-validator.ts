@@ -3,6 +3,7 @@ import { ValidationResultsSchema } from '../schemas';
 import { buildValidationPrompt } from '../prompt-builder';
 import { insertValidations } from '../storage/validations';
 import { getAgent } from './definitions';
+import { IS_OLLAMA_MODE, OLLAMA_CONCURRENCY, runWithConcurrency } from '../llm/concurrency';
 import type { AgentFinding, ValidationResult } from '../types';
 
 export interface CrossValidationResult {
@@ -45,6 +46,7 @@ export async function runCrossValidation(
     response = await route(
       {
         provider: 'gemini-flash', // Use Flash for cross-validation — cheaper
+        skipOllamaOverride: true, // Phases 2-5 always use cloud; Ollama is Layer 1 only
         systemPrompt,
         userPrompt,
         jsonMode: true,
@@ -86,8 +88,9 @@ export async function runAllCrossValidation(
   findings: (AgentFinding & { id: string })[],
   reviewerAgentIds: string[],
 ): Promise<CrossValidationResult[]> {
-  const settled = await Promise.allSettled(
-    reviewerAgentIds.map((id) => runCrossValidation(sessionId, topic, findings, id)),
+  const concurrency = IS_OLLAMA_MODE ? OLLAMA_CONCURRENCY : reviewerAgentIds.length;
+  const settled = await runWithConcurrency(reviewerAgentIds, concurrency, (id) =>
+    runCrossValidation(sessionId, topic, findings, id),
   );
 
   return settled.map((r) =>

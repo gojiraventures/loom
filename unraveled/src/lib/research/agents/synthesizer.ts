@@ -52,7 +52,7 @@ function buildSynthesizerPrompt(
       seenClaims.add(key);
       return true;
     })
-    .slice(0, 120);
+    .slice(0, 60);
 
   const topFindings = uniqueFindings
     .map((f) =>
@@ -203,7 +203,7 @@ export async function runSynthesis(
         systemPrompt: SYNTHESIZER_SYSTEM_PROMPT,
         userPrompt: buildSynthesizerPrompt(topic, findings, validations, convergenceAnalyses, debate),
         jsonMode: true,
-        maxTokens: 16384,
+        maxTokens: 8192,
         temperature: 0.60,
         sessionId,
       },

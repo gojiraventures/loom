@@ -15,7 +15,7 @@ export async function upsertTopicDossier(params: {
   const { error } = await supabase.from('topic_dossiers').upsert({
     topic: params.topic,
     title: params.title,
-    summary: params.synthesized_output.executive_summary,
+    summary: params.synthesized_output.subtitle ?? params.synthesized_output.executive_summary,
     synthesized_output: params.synthesized_output,
     best_convergence_score: params.convergence_score,
     key_traditions: params.traditions,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ConvergenceCard } from '@/components/ConvergenceCard';
 
 interface Topic {
@@ -24,44 +24,91 @@ function isNew(published_at: string | null): boolean {
   return Date.now() - new Date(published_at).getTime() < THIRTY_DAYS_MS;
 }
 
+type SortOption = 'score' | 'newest' | 'oldest' | 'az';
+
+const SORT_LABELS: Record<SortOption, string> = {
+  score: 'Highest Score',
+  newest: 'Newest',
+  oldest: 'Oldest',
+  az: 'A → Z',
+};
+
 export function TopicsGrid({ topics }: TopicsGridProps) {
   const [activeTradition, setActiveTradition] = useState<string>('All');
+  const [sort, setSort] = useState<SortOption>('score');
 
-  // Collect unique traditions across all topics
   const allTraditions = Array.from(
     new Set(topics.flatMap((t) => t.key_traditions))
   ).sort();
 
   const pills = ['All', ...allTraditions];
 
+  const sorted = useMemo(() => {
+    const list = [...topics];
+    switch (sort) {
+      case 'score':
+        return list.sort((a, b) => b.convergence_score - a.convergence_score);
+      case 'newest':
+        return list.sort((a, b) =>
+          new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime()
+        );
+      case 'oldest':
+        return list.sort((a, b) =>
+          new Date(a.published_at ?? 0).getTime() - new Date(b.published_at ?? 0).getTime()
+        );
+      case 'az':
+        return list.sort((a, b) => a.title.localeCompare(b.title));
+    }
+  }, [topics, sort]);
+
   const filtered =
     activeTradition === 'All'
-      ? topics
-      : topics.filter((t) => t.key_traditions.includes(activeTradition));
+      ? sorted
+      : sorted.filter((t) => t.key_traditions.includes(activeTradition));
 
   return (
     <div>
-      {/* Filter pills */}
-      {allTraditions.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-8">
-          {pills.map((pill) => (
+      {/* Sort + filter controls */}
+      <div className="flex flex-col gap-4 mb-8">
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mr-1">Sort:</span>
+          {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
             <button
-              key={pill}
-              onClick={() => setActiveTradition(pill)}
+              key={opt}
+              onClick={() => setSort(opt)}
               className={[
                 'font-mono text-[9px] tracking-[0.15em] uppercase px-3 py-1.5 rounded border transition-colors',
-                activeTradition === pill
+                sort === opt
                   ? 'border-gold/60 bg-gold/10 text-gold'
                   : 'border-border text-text-tertiary hover:border-gold/30 hover:text-text-secondary',
               ].join(' ')}
             >
-              {pill}
+              {SORT_LABELS[opt]}
             </button>
           ))}
         </div>
-      )}
 
-      {/* Grid */}
+        {allTraditions.length > 0 && (
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mr-1">Filter:</span>
+            {pills.map((pill) => (
+              <button
+                key={pill}
+                onClick={() => setActiveTradition(pill)}
+                className={[
+                  'font-mono text-[9px] tracking-[0.15em] uppercase px-3 py-1.5 rounded border transition-colors',
+                  activeTradition === pill
+                    ? 'border-gold/60 bg-gold/10 text-gold'
+                    : 'border-border text-text-tertiary hover:border-gold/30 hover:text-text-secondary',
+                ].join(' ')}
+              >
+                {pill}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {filtered.length === 0 ? (
         <div className="py-16 text-center text-text-tertiary text-sm font-mono">
           No topics match this filter.

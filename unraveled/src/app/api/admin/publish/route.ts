@@ -21,9 +21,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'slug is invalid' }, { status: 400 });
 
   const supabase = createServerSupabaseClient();
+  const now = new Date().toISOString();
   const { error } = await supabase
     .from('topic_dossiers')
-    .update({ slug: cleanSlug, published: true, updated_at: new Date().toISOString() })
+    .update({ slug: cleanSlug, published: true, published_at: now, updated_at: now })
     .eq('topic', topic.trim());
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

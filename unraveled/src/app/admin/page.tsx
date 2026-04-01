@@ -27,6 +27,7 @@ interface Dossier {
   title: string;
   slug: string | null;
   published: boolean;
+  featured: boolean;
   best_convergence_score: number;
   key_traditions: string[];
   summary: string | null;
@@ -46,6 +47,7 @@ interface Session {
   started_at: string | null;
   completed_at: string | null;
   error_log: string[];
+  pipeline_locked: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -510,6 +512,7 @@ function SessionsTab() {
   const [error, setError] = useState('');
   const [rerunStatus, setRerunStatus] = useState<Record<string, string>>({});
   const [rerunSessionId, setRerunSessionId] = useState<Record<string, string>>({});
+  const [continueStatus, setContinueStatus] = useState<Record<string, string>>({});
   const [reviewStatus, setReviewStatus] = useState<Record<string, string>>({});
   const [expandedPreview, setExpandedPreview] = useState<string | null>(null);
   const pollRefs = useRef<Record<string, ReturnType<typeof setInterval>>>({});
@@ -578,6 +581,41 @@ function SessionsTab() {
     }
   };
 
+  const continueSession = async (s: Session) => {
+    setContinueStatus((r) => ({ ...r, [s.id]: 'continuing…' }));
+    try {
+      const res = await fetch(`/api/research/${s.id}/continue`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setContinueStatus((r) => ({ ...r, [s.id]: `error: ${(err as { error?: string }).error ?? res.statusText}` }));
+        return;
+      }
+      pollRefs.current[`continue_${s.id}`] = setInterval(async () => {
+        try {
+          const pr = await fetch(`/api/research/${s.id}`);
+          if (!pr.ok) return;
+          const pd = await pr.json();
+          const st = pd?.session?.status ?? 'pending';
+          if (st === 'complete') {
+            clearInterval(pollRefs.current[`continue_${s.id}`]);
+            setContinueStatus((r) => ({ ...r, [s.id]: 'complete ✓' }));
+            load();
+          } else if (st === 'failed') {
+            clearInterval(pollRefs.current[`continue_${s.id}`]);
+            setContinueStatus((r) => ({ ...r, [s.id]: 'failed' }));
+          } else {
+            setContinueStatus((r) => ({ ...r, [s.id]: `${SESSION_STATUS_LABELS[st] ?? st}…` }));
+          }
+        } catch { /* blip */ }
+      }, 8000);
+    } catch (err) {
+      setContinueStatus((r) => ({ ...r, [s.id]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  const canContinue = (s: Session) =>
+    ['researched', 'failed', 'cross_validating', 'converging', 'debating', 'synthesizing'].includes(s.status) &&
+    !s.pipeline_locked;
   const canRerun = (status: string) => ['failed', 'researched', 'cross_validating', 'converging', 'debating', 'synthesizing'].includes(status);
 
   const reviewSession = async (s: Session, action: 'approve' | 'reject') => {
@@ -758,6 +796,24 @@ function SessionsTab() {
                     </div>
                   )}
                 </div>
+                {s.pipeline_locked && !continueStatus[s.id] && (
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-sky-400 animate-pulse">
+                    running…
+                  </span>
+                )}
+                {canContinue(s) && !rerunStatus[s.id] && !continueStatus[s.id] && (
+                  <button
+                    onClick={() => continueSession(s)}
+                    className="font-mono text-[9px] uppercase tracking-widest text-sky-400 border border-sky-400/30 bg-sky-400/5 hover:bg-sky-400/10 px-2 py-1 rounded transition-colors"
+                  >
+                    Continue →
+                  </button>
+                )}
+                {continueStatus[s.id] && (
+                  <span className={`font-mono text-[9px] ${continueStatus[s.id].startsWith('error') || continueStatus[s.id] === 'failed' ? 'text-red-400' : continueStatus[s.id] === 'complete ✓' ? 'text-emerald-400' : 'text-sky-400'}`}>
+                    {continueStatus[s.id]}
+                  </span>
+                )}
                 {canRerun(s.status) && !rerunStatus[s.id] && (
                   <button
                     onClick={() => rerun(s)}
@@ -809,6 +865,24 @@ function ContentTab() {
   const [deepDiveQuestions, setDeepDiveQuestions] = useState<Record<string, string>>({});
   const [deepDiveStatus, setDeepDiveStatus] = useState<Record<string, string>>({});
   const [resynthStatus, setResynthStatus] = useState<Record<string, string>>({});
+  const [featureStatus, setFeatureStatus] = useState<Record<string, string>>({});
+
+  const toggleFeature = async (topic: string, currentlyFeatured: boolean) => {
+    const next = !currentlyFeatured;
+    setFeatureStatus((s) => ({ ...s, [topic]: 'saving…' }));
+    try {
+      const res = await fetch('/api/admin/dossier', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, featured: next }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setFeatureStatus((s) => ({ ...s, [topic]: next ? 'featured ★' : 'unfeatured' }));
+      load();
+    } catch {
+      setFeatureStatus((s) => ({ ...s, [topic]: 'error' }));
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -839,8 +913,8 @@ function ContentTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const publishOrUpdate = async (topic: string, isUpdate: boolean) => {
-    const slug = slugInputs[topic]?.trim();
+  const publishOrUpdate = async (topic: string, isUpdate: boolean, resolvedSlug: string) => {
+    const slug = resolvedSlug.trim();
     if (!slug) return;
     setPublishStatus((s) => ({ ...s, [topic]: isUpdate ? 'updating…' : 'publishing…' }));
     try {
@@ -1073,7 +1147,7 @@ function ContentTab() {
                   onChange={(e) => setSlugInputs((s) => ({ ...s, [d.topic]: e.target.value }))}
                 />
                 <button
-                  onClick={() => publishOrUpdate(d.topic, d.published)}
+                  onClick={() => publishOrUpdate(d.topic, d.published, slugVal)}
                   disabled={!slugVal || publishStatus[d.topic] === 'publishing…' || publishStatus[d.topic] === 'updating…'}
                   className={`font-mono text-[9px] uppercase tracking-widest border px-3 py-1 rounded transition-colors disabled:opacity-40 ${
                     d.published
@@ -1094,6 +1168,24 @@ function ContentTab() {
                   >
                     Unpublish
                   </button>
+                )}
+                {d.published && (
+                  <button
+                    onClick={() => toggleFeature(d.topic, d.featured)}
+                    disabled={featureStatus[d.topic] === 'saving…'}
+                    className={`font-mono text-[9px] uppercase tracking-widest border px-3 py-1 rounded transition-colors disabled:opacity-40 ${
+                      d.featured
+                        ? 'text-amber-400 border-amber-400/30 bg-amber-400/10 hover:bg-amber-400/20'
+                        : 'text-text-tertiary border-border hover:border-amber-400/30 hover:text-amber-400'
+                    }`}
+                  >
+                    {d.featured ? '★ Featured' : '☆ Feature'}
+                  </button>
+                )}
+                {featureStatus[d.topic] && (
+                  <span className={`font-mono text-[9px] ${featureStatus[d.topic] === 'error' ? 'text-red-400' : 'text-amber-400'}`}>
+                    {featureStatus[d.topic]}
+                  </span>
                 )}
                 {statusMsg && (
                   <span className={`font-mono text-[9px] ${statusMsg.startsWith('error') ? 'text-red-400' : statusMsg.startsWith('live') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
@@ -2674,6 +2766,47 @@ function InstitutionsTab() {
   );
 }
 
+// ── Ollama Status Banner ──────────────────────────────────────────────────────
+
+function OllamaBanner() {
+  const [status, setStatus] = useState<{ enabled: boolean; online?: boolean; url?: string } | null>(null);
+
+  const check = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/ollama-status');
+      if (res.ok) setStatus(await res.json());
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    check();
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
+  }, [check]);
+
+  if (!status?.enabled || status.online !== false) return null;
+
+  return (
+    <div className="border-b border-amber-500/30 bg-amber-500/5">
+      <div className="max-w-5xl mx-auto px-6 py-2 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-amber-400 text-xs">⚠</span>
+          <span className="font-mono text-[10px] text-amber-400 uppercase tracking-widest">Ollama offline</span>
+          <span className="text-[11px] text-text-tertiary">
+            — {status.url} is unreachable. Research agents will fall back to cloud providers (costs apply).
+          </span>
+        </div>
+        <button
+          onClick={check}
+          className="font-mono text-[9px] uppercase tracking-widest text-amber-400/60 hover:text-amber-400 transition-colors shrink-0"
+        >
+          Re-check
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Admin Page ────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -2710,6 +2843,8 @@ export default function AdminPage() {
           </a>
         </div>
       </div>
+
+      <OllamaBanner />
 
       {/* Tab nav */}
       <div className="border-b border-border">

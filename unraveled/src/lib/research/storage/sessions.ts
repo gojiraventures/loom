@@ -58,19 +58,42 @@ export async function logSessionError(sessionId: string, message: string): Promi
 }
 
 /**
- * Atomically transitions a session from 'researched' → 'cross_validating'.
- * Returns true if this caller won the lock; false if another call already claimed it.
- * Use this at the start of /continue to prevent concurrent pipeline runs.
+ * Atomically acquires the pipeline lock for a session.
+ * For 'researched' sessions also flips status → 'cross_validating'.
+ * Returns true if this caller won the lock; false if already locked.
  */
-export async function claimSessionForContinue(sessionId: string): Promise<boolean> {
+export async function claimSessionForContinue(sessionId: string, currentStatus: string): Promise<boolean> {
   const supabase = createServerSupabaseClient();
+
+  if (currentStatus === 'researched') {
+    // Atomic: flip status AND set lock in one update — only succeeds if still 'researched' and unlocked
+    const { data } = await supabase
+      .from('research_sessions')
+      .update({ status: 'cross_validating', pipeline_locked: true, updated_at: new Date().toISOString() })
+      .eq('id', sessionId)
+      .eq('status', 'researched')
+      .eq('pipeline_locked', false)
+      .select('id');
+    return Array.isArray(data) && data.length > 0;
+  }
+
+  // For mid-pipeline states: just acquire the lock without changing status
   const { data } = await supabase
     .from('research_sessions')
-    .update({ status: 'cross_validating', updated_at: new Date().toISOString() })
+    .update({ pipeline_locked: true, updated_at: new Date().toISOString() })
     .eq('id', sessionId)
-    .eq('status', 'researched')
+    .eq('pipeline_locked', false)
     .select('id');
   return Array.isArray(data) && data.length > 0;
+}
+
+/** Release the pipeline lock. Always call in a finally block. */
+export async function releaseSessionLock(sessionId: string): Promise<void> {
+  const supabase = createServerSupabaseClient();
+  await supabase
+    .from('research_sessions')
+    .update({ pipeline_locked: false })
+    .eq('id', sessionId);
 }
 
 export async function getSession(sessionId: string): Promise<ResearchSession | null> {

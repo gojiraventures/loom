@@ -27,7 +27,7 @@ export const timelineAnalyst: AgentDefinition = {
   llm: {
     provider: 'gemini-flash',
     model: 'gemini-2.5-flash',
-    maxTokens: 6144,
+    maxTokens: 12288,
     temperature: 0.25,
   },
 
