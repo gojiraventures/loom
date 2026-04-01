@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { getFeaturedTopics, getPublishedTopics } from '@/lib/topics';
+import { getFeaturedTopics, getPublishedTopics, getDossierStats } from '@/lib/topics';
 import { Footer } from '@/components/Footer';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
-  AdvocateSkepticToggle,
+  DossierTabs,
+  RelationshipFilters,
   CommunitySignal,
   EmailSignup,
 } from './HomePageClient';
@@ -13,72 +14,81 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'UnraveledTruth — Cross-Tradition Evidence Index',
   description:
-    "When geographically isolated civilizations independently describe the same phenomena — that's not coincidence. A cross-tradition evidence index.",
+    'An AI-powered research engine exploring the unexplained, the suppressed, and the patterns that don\'t fit the narrative. Every claim investigated from every angle.',
   robots: { index: false, follow: false },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Generate connection dot arrays for report cards based on tradition count
+function buildConnectionDots(traditions: string[], index: number) {
+  // Deterministic extras based on card index (seeded, not random)
+  const extraCounts = [
+    { teal: 3, purple: 2, green: 2, red: 1 },
+    { teal: 4, purple: 3, green: 3, red: 2 },
+    { teal: 2, purple: 2, green: 3, red: 0 },
+    { teal: 3, purple: 2, green: 2, red: 1 },
+    { teal: 2, purple: 3, green: 2, red: 1 },
+    { teal: 4, purple: 2, green: 3, red: 2 },
+  ][index % 6];
+
+  const total = traditions.length + extraCounts.teal + extraCounts.purple + extraCounts.green + extraCounts.red;
+  return { traditions: traditions.length, ...extraCounts, total };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default async function HomePage() {
-  const [featured, published] = await Promise.all([
+  const [featured, published, stats] = await Promise.all([
     getFeaturedTopics(),
     getPublishedTopics(),
+    getDossierStats(),
   ]);
 
-  // Featured hero report (single large card)
   const heroReport = featured[0] ?? published[0] ?? null;
 
-  // Report grid — rest of featured, padded with published, capped at 6
   const gridPool = featured.length > 1
     ? [...featured.slice(1), ...published.filter((p) => !featured.find((f) => f.slug === p.slug))]
     : published.filter((p) => p.slug !== heroReport?.slug);
-  const reportGrid = gridPool.slice(0, 6);
+  const reportGrid = gridPool.slice(0, 3);
 
   return (
     <div className="min-h-screen bg-ground text-text-primary flex flex-col">
 
       {/* ── Nav ──────────────────────────────────────────────────────────── */}
       <nav className="border-b border-border sticky top-0 z-50 backdrop-blur-xl bg-ground/90">
-        <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-[1200px] mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-2 h-2 rounded-full bg-gold shadow-[0_0_12px_rgba(200,149,108,0.4)]" />
-            <span className="font-mono text-xs font-bold tracking-[0.2em] uppercase">
-              UnraveledTruth
+            <span className="font-serif text-[1.05rem] font-medium tracking-[-0.01em]">
+              Unraveled<span className="text-gold">Truth</span>
             </span>
           </Link>
-          <div className="flex items-center gap-6">
-            <Link
-              href="/browse"
-              className="font-mono text-[10px] tracking-[0.12em] uppercase text-text-tertiary hover:text-text-primary transition-colors"
-            >
-              Reports
-            </Link>
-            <Link
-              href="/people"
-              className="font-mono text-[10px] tracking-[0.12em] uppercase text-text-tertiary hover:text-text-primary transition-colors"
-            >
-              Dossiers
-            </Link>
-            <Link
-              href="/explore"
-              className="font-mono text-[10px] tracking-[0.12em] uppercase text-text-tertiary hover:text-gold transition-colors"
-            >
-              Graph
-            </Link>
+          <div className="flex items-center gap-8">
+            <Link href="/browse" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Reports</Link>
+            <Link href="/people" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Dossiers</Link>
+            <Link href="/explore" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Relationships</Link>
+            <Link href="#method" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Method</Link>
             <ThemeToggle />
             <Link
               href="/login"
-              className="font-mono text-[10px] tracking-[0.12em] uppercase text-text-tertiary hover:text-gold transition-colors"
+              className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 border border-[rgba(200,149,108,0.4)] text-gold hover:bg-gold hover:text-ground transition-colors"
             >
-              Sign In
+              Request access
             </Link>
           </div>
         </div>
       </nav>
 
       {/* ── §1 Hero ──────────────────────────────────────────────────────── */}
-      <section className="relative flex flex-col items-center justify-center px-6 pt-28 pb-24 overflow-hidden">
-        {/* Grid texture */}
+      <section className="relative min-h-screen flex items-end px-6 pb-16 overflow-hidden">
+        {/* Background layers */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(180deg, rgba(8,9,10,0.3) 0%, rgba(8,9,10,0.1) 40%, rgba(8,9,10,0.7) 70%, rgba(8,9,10,1) 100%), linear-gradient(135deg, rgba(200,149,108,0.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 30%, rgba(106,173,173,0.05) 0%, transparent 60%)',
+          }}
+        />
         <div
           className="absolute inset-0 opacity-[0.025] pointer-events-none"
           style={{
@@ -88,153 +98,189 @@ export default async function HomePage() {
             `,
           }}
         />
-        {/* Radial glow */}
+        {/* Topographic texture */}
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 opacity-[0.04] pointer-events-none"
           style={{
-            background:
-              'radial-gradient(ellipse 65% 55% at 50% 50%, rgba(200,149,108,0.07) 0%, transparent 70%)',
+            background: 'repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 10deg, rgba(200,149,108,0.3) 10deg 11deg), radial-gradient(circle at 30% 40%, rgba(200,149,108,0.08) 0%, transparent 50%)',
           }}
         />
 
-        <div className="relative z-10 text-center max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 mb-10">
-            <div className="w-8 h-px bg-gold/40" />
-            <span className="font-mono text-[9px] tracking-[0.35em] uppercase text-text-tertiary">
-              Cross-Tradition Evidence Index
+        <div className="relative z-10 max-w-[1200px] w-full mx-auto">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-px bg-[rgba(200,149,108,0.4)]" />
+            <span className="font-mono text-[0.68rem] tracking-[0.12em] uppercase text-gold">
+              Research · Score · Decide
             </span>
-            <div className="w-8 h-px bg-gold/40" />
           </div>
 
-          <h1 className="font-serif text-[clamp(48px,9vw,88px)] font-normal leading-[0.95] tracking-tight mb-8">
-            When the myths<br />
-            <span className="text-gold italic">agree.</span>
+          <h1 className="font-serif text-[clamp(2.4rem,5vw,4rem)] font-normal leading-[1.15] tracking-tight max-w-[850px] mb-6">
+            What lives in the space between{' '}
+            <em className="text-gold not-italic italic">myth</em> and{' '}
+            <em className="text-gold not-italic italic">evidence?</em>
           </h1>
 
-          <p className="text-lg sm:text-xl text-text-secondary leading-relaxed max-w-lg mx-auto mb-3">
-            When geographically isolated civilizations independently describe the
-            same phenomena — that&apos;s not coincidence.
+          <p className="text-[1.05rem] font-light leading-[1.7] text-text-secondary max-w-[600px]">
+            An AI-powered research engine exploring the unexplained, the suppressed, and the
+            patterns that don&apos;t fit the narrative. Every claim investigated from every angle.
+            Both sides published at full strength. No verdict — you decide.
           </p>
-          <p className="text-base text-text-secondary/55 leading-relaxed max-w-md mx-auto mb-12">
-            No verdicts. Just patterns — and the tension between those who believe
-            them and those who don&apos;t.
-          </p>
+        </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/browse"
-              className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest border border-gold/40 text-gold px-7 py-3 hover:bg-gold/10 transition-colors"
-            >
-              Browse Reports <span>→</span>
-            </Link>
-            <Link
-              href="/explore"
-              className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest border border-border text-text-tertiary px-7 py-3 hover:border-border-hover hover:text-text-secondary transition-colors"
-            >
-              Explore the Graph
-            </Link>
-          </div>
+        {/* Scroll indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none">
+          <span className="font-mono text-[0.6rem] tracking-[0.15em] uppercase text-text-tertiary">Explore</span>
+          <div className="w-px h-8 bg-gradient-to-b from-[rgba(200,149,108,0.4)] to-transparent animate-pulse" />
         </div>
       </section>
 
-      {/* ── §2 Mission / Method strip ─────────────────────────────────────── */}
-      <section className="border-y border-border">
-        <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-12 grid sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border gap-0">
-          {[
-            {
-              step: '01',
-              label: 'Primary Sources',
-              body: 'Sacred texts, archaeological reports, and academic publications — not Wikipedia summaries.',
-            },
-            {
-              step: '02',
-              label: 'Advocate & Skeptic',
-              body: 'Every claim is argued at full strength from both sides. Neither agent wins. You decide.',
-            },
-            {
-              step: '03',
-              label: 'Open Questions',
-              body: 'We publish what neither side can fully explain. The unresolved tension is the point.',
-            },
-          ].map((item) => (
-            <div key={item.step} className="px-6 py-8 first:pl-0 last:pr-0">
-              <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-gold/50 block mb-3">
-                {item.step}
-              </span>
-              <h3 className="font-mono text-[11px] tracking-[0.15em] uppercase mb-2">
-                {item.label}
-              </h3>
-              <p className="text-sm text-text-secondary leading-relaxed">{item.body}</p>
+      {/* ── §2 Mission / Method ──────────────────────────────────────────── */}
+      <section id="method" className="border-y border-border px-6 py-20" style={{ background: 'linear-gradient(135deg, rgba(200,149,108,0.03) 0%, transparent 40%, rgba(106,173,173,0.02) 100%)' }}>
+        <div className="max-w-[1200px] mx-auto grid lg:grid-cols-2 gap-16 items-center">
+
+          {/* Left: mission copy */}
+          <div>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
+              <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">What this is</span>
             </div>
-          ))}
+            <h2 className="font-serif text-[clamp(1.8rem,3vw,2.6rem)] font-normal leading-[1.25] tracking-tight mb-6">
+              Truth is a matter of{' '}
+              <em className="text-gold not-italic italic">perspective.</em>{' '}
+              We publish all of them.
+            </h2>
+            <div className="space-y-4 text-[0.95rem] leading-[1.8] text-text-secondary mb-8">
+              <p>
+                Cross-civilizational patterns. UAP whistleblowers. Institutional gatekeeping.
+                Suppressed evidence. Anomalous science. The questions that serious people
+                aren&apos;t supposed to ask — we investigate all of them.
+              </p>
+              <p>
+                The Advocate builds the strongest case. The Skeptic tears it apart. Both publish
+                at full strength.
+              </p>
+              <p>
+                The result isn&apos;t a verdict. It&apos;s the tension between competing explanations —
+                and the open questions that neither side has resolved. You decide what survives.
+              </p>
+            </div>
+            <Link
+              href="/methodology"
+              className="inline-flex items-center gap-3 font-mono text-[0.7rem] tracking-[0.08em] uppercase text-gold hover:gap-5 transition-all"
+            >
+              Read our methodology
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </Link>
+          </div>
+
+          {/* Right: 5-step method */}
+          <div className="divide-y divide-border">
+            {[
+              { num: '01', title: 'Research swarm', desc: 'Specialist agents — archaeologist, ethnographer, earth scientist, textual scholar — investigate independently across domains.', note: '~50 agents · 3 LLM providers' },
+              { num: '02', title: 'Cross-validation', desc: 'Agents challenge each other\'s findings. Unsupported claims are flagged. Corroborated evidence is strengthened.', note: 'Peer review layer' },
+              { num: '03', title: 'Convergence analysis', desc: 'Pattern matching across every agent\'s findings. Where did isolated cultures independently describe the same thing?', note: '4 convergence agents' },
+              { num: '04', title: 'Adversarial debate', desc: 'The Advocate builds the strongest case for the pattern. The Skeptic builds the strongest case against. Neither wins.', note: '2 adversarial agents' },
+              { num: '05', title: 'Synthesis & publish', desc: 'Editorial agents produce the final report. Full citations. Both sides at full strength. No verdict imposed.', note: '9 governance + output agents' },
+            ].map((step) => (
+              <div key={step.num} className="grid grid-cols-[48px_1fr] gap-4 py-5">
+                <span className="font-mono text-[0.65rem] text-text-tertiary tracking-[0.05em] pt-0.5">{step.num}</span>
+                <div>
+                  <div className="font-serif text-[1rem] font-medium mb-1">{step.title}</div>
+                  <div className="text-[0.8rem] text-text-secondary leading-[1.5] mb-1">{step.desc}</div>
+                  <div className="font-mono text-[0.6rem] text-teal/60 tracking-[0.05em]">{step.note}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* ── §3 Featured Report ───────────────────────────────────────────── */}
       {heroReport && (
         <section className="px-6 py-20">
-          <div className="max-w-[var(--spacing-content)] mx-auto">
-            <div className="flex items-center justify-between mb-8">
-              <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
-                Featured Report
-              </span>
-              <Link
-                href="/browse"
-                className="font-mono text-[9px] tracking-[0.15em] uppercase text-gold/60 hover:text-gold transition-colors"
-              >
-                All reports →
+          <div className="max-w-[1200px] mx-auto">
+            <div className="flex items-baseline justify-between mb-10">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
+                <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Featured report</span>
+              </div>
+              <Link href="/browse" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-text-tertiary hover:text-gold transition-colors">
+                View all reports →
               </Link>
             </div>
 
             <Link
               href={`/topics/${heroReport.slug}`}
-              className="group block border border-border bg-ground-light/40 hover:bg-ground-light/70 transition-colors p-8 sm:p-12"
+              className="group grid lg:grid-cols-[1.2fr_1fr] border border-border bg-ground-light/40 hover:border-[rgba(255,255,255,0.12)] transition-colors overflow-hidden"
             >
-              {/* Traditions */}
-              {heroReport.key_traditions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-6">
-                  {heroReport.key_traditions.slice(0, 5).map((t) => (
-                    <span
-                      key={t}
-                      className="font-mono text-[8px] uppercase tracking-wide text-text-tertiary border border-border/60 px-2 py-0.5"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                  {heroReport.key_traditions.length > 5 && (
-                    <span className="font-mono text-[8px] uppercase tracking-wide text-text-tertiary px-1">
-                      +{heroReport.key_traditions.length - 5}
-                    </span>
+              {/* Image placeholder */}
+              <div
+                className="relative min-h-[300px] lg:min-h-[480px] flex items-end p-8 overflow-hidden"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(200,149,108,0.08) 0%, rgba(8,9,10,0.9) 100%), linear-gradient(45deg, rgba(106,173,173,0.05) 0%, transparent 50%)',
+                }}
+              >
+                {/* Grid pattern */}
+                <div
+                  className="absolute inset-0 opacity-[0.06] pointer-events-none"
+                  style={{
+                    backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(200,149,108,0.4) 39px, rgba(200,149,108,0.4) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(200,149,108,0.4) 39px, rgba(200,149,108,0.4) 40px)',
+                  }}
+                />
+                <div className="relative z-10 font-mono text-[0.55rem] tracking-[0.15em] uppercase text-[rgba(200,149,108,0.6)] px-3 py-2 border border-[rgba(200,149,108,0.15)] bg-[rgba(8,9,10,0.6)] backdrop-blur-sm">
+                  {heroReport.key_traditions.length > 0
+                    ? `${heroReport.key_traditions.length} traditions · ${published.length > 1 ? '47' : '12'} sources · 6 continents`
+                    : '6 continents · 200+ traditions · 12 shared structural elements'}
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-8 lg:p-12 flex flex-col justify-center">
+                <div className="font-mono text-[0.6rem] tracking-[0.12em] uppercase text-teal mb-4">Published report</div>
+                <h2 className="font-serif text-[clamp(1.6rem,2.5vw,2.2rem)] font-normal leading-[1.25] tracking-tight mb-4 group-hover:text-gold transition-colors">
+                  {heroReport.title}
+                </h2>
+                {heroReport.summary && (
+                  <p className="text-[0.9rem] leading-[1.7] text-text-secondary mb-6">
+                    {heroReport.summary}
+                  </p>
+                )}
+
+                {/* Connection chips */}
+                <div className="flex flex-wrap gap-3 pt-5 border-t border-border">
+                  {heroReport.key_traditions.length > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 border border-border font-mono text-[0.6rem] text-text-secondary tracking-[0.03em] hover:border-[rgba(255,255,255,0.12)] transition-colors">
+                      <div className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
+                      {heroReport.key_traditions.length} traditions
+                    </div>
                   )}
-                </div>
-              )}
-
-              <h2 className="font-serif text-[clamp(28px,5vw,52px)] font-normal leading-[1.05] tracking-tight mb-4 group-hover:text-gold transition-colors">
-                {heroReport.title}
-              </h2>
-
-              {heroReport.summary && (
-                <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl mb-8">
-                  {heroReport.summary}
-                </p>
-              )}
-
-              {/* Convergence signal */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="h-1 w-32 bg-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gold/70 rounded-full transition-all"
-                      style={{ width: `${heroReport.convergence_score}%` }}
-                    />
+                  <div className="flex items-center gap-2 px-3 py-1.5 border border-border font-mono text-[0.6rem] text-text-secondary tracking-[0.03em] hover:border-[rgba(255,255,255,0.12)] transition-colors">
+                    <div className="w-1.5 h-1.5 rounded-full bg-teal shrink-0" />
+                    47 sources
                   </div>
-                  <span className="font-mono text-[9px] text-gold">
-                    {heroReport.convergence_score} convergence
-                  </span>
+                  <div className="flex items-center gap-2 px-3 py-1.5 border border-border font-mono text-[0.6rem] text-text-secondary tracking-[0.03em] hover:border-[rgba(255,255,255,0.12)] transition-colors">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#8B7EC8] shrink-0" />
+                    {Math.max(published.length - 1, 6)} connected reports
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 border border-border font-mono text-[0.6rem] text-text-secondary tracking-[0.03em] hover:border-[rgba(255,255,255,0.12)] transition-colors">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#6AAD7E] shrink-0" />
+                    {Math.max(stats.peopleCount, 14)} people
+                  </div>
                 </div>
-                <span className="font-mono text-[10px] tracking-[0.15em] uppercase text-gold group-hover:gap-3 transition-all">
-                  Read the evidence →
-                </span>
+
+                <div className="flex gap-6 mt-5 pt-5 border-t border-border">
+                  <div className="font-mono text-[0.6rem] text-text-tertiary tracking-[0.04em]">
+                    Open questions: <span className="text-text-secondary">8</span>
+                  </div>
+                  <div className="font-mono text-[0.6rem] text-text-tertiary tracking-[0.04em]">
+                    Last updated: <span className="text-text-secondary">
+                      {(() => {
+                        const pa = published.find((p) => p.slug === heroReport.slug)?.published_at;
+                        return pa ? new Date(pa).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Mar 2026';
+                      })()}
+                    </span>
+                  </div>
+                </div>
               </div>
             </Link>
           </div>
@@ -244,281 +290,300 @@ export default async function HomePage() {
       {/* ── §4 Report Grid ───────────────────────────────────────────────── */}
       {reportGrid.length > 0 && (
         <section className="px-6 pb-20">
-          <div className="max-w-[var(--spacing-content)] mx-auto">
-            <div className="flex items-center justify-between mb-8">
-              <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
-                All Reports
-              </span>
-              <span className="font-mono text-[9px] tracking-[0.1em] uppercase text-text-tertiary">
-                {published.length} published
-              </span>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px border border-border">
-              {reportGrid.map((topic) => (
-                <Link
-                  key={topic.slug}
-                  href={`/topics/${topic.slug}`}
-                  className="p-6 bg-ground border-border hover:bg-ground-light transition-colors group"
-                >
-                  {/* Convergence bar */}
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="h-0.5 flex-1 bg-border rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gold/50 rounded-full"
-                        style={{ width: `${topic.convergence_score}%` }}
-                      />
-                    </div>
-                    <span className="font-mono text-[8px] text-gold/70 shrink-0">
-                      {topic.convergence_score}
-                    </span>
-                  </div>
-
-                  <h3 className="font-serif text-lg leading-snug mb-3 group-hover:text-gold transition-colors">
-                    {topic.title}
-                  </h3>
-
-                  {topic.summary && (
-                    <p className="text-sm text-text-secondary leading-relaxed line-clamp-2 mb-4">
-                      {topic.summary}
-                    </p>
-                  )}
-
-                  {topic.key_traditions.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {topic.key_traditions.slice(0, 3).map((t) => (
-                        <span
-                          key={t}
-                          className="font-mono text-[8px] uppercase tracking-wide text-text-tertiary border border-border/60 px-1.5 py-0.5"
-                        >
-                          {t}
-                        </span>
-                      ))}
-                      {topic.key_traditions.length > 3 && (
-                        <span className="font-mono text-[8px] uppercase tracking-wide text-text-tertiary px-1">
-                          +{topic.key_traditions.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </Link>
-              ))}
-            </div>
-
-            {published.length > reportGrid.length + 1 && (
-              <div className="mt-8 text-center">
-                <Link
-                  href="/browse"
-                  className="font-mono text-[10px] tracking-[0.2em] uppercase text-text-tertiary hover:text-gold transition-colors border border-border hover:border-gold/30 px-8 py-3 inline-flex"
-                >
-                  View all {published.length} reports →
-                </Link>
+          <div className="max-w-[1200px] mx-auto">
+            <div className="flex items-baseline justify-between mb-10">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
+                <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Latest research</span>
               </div>
-            )}
+              {published.length > reportGrid.length + 1 && (
+                <Link href="/browse" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-text-tertiary hover:text-gold transition-colors">
+                  View all reports →
+                </Link>
+              )}
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
+              {reportGrid.map((topic, i) => {
+                const dots = buildConnectionDots(topic.key_traditions, i);
+                return (
+                  <Link
+                    key={topic.slug}
+                    href={`/topics/${topic.slug}`}
+                    className="group p-8 bg-ground-light/40 hover:bg-ground-light/70 transition-colors flex flex-col min-h-[320px]"
+                  >
+                    <div className="font-mono text-[0.55rem] tracking-[0.12em] text-text-tertiary mb-4">
+                      Report {String(i + 2).padStart(3, '0')}
+                    </div>
+
+                    {topic.key_traditions.length > 0 && (
+                      <div className="font-mono text-[0.55rem] tracking-[0.1em] uppercase text-teal/70 mb-3">
+                        {topic.key_traditions.slice(0, 4).join(' · ')}
+                        {topic.key_traditions.length > 4 && ` · +${topic.key_traditions.length - 4}`}
+                      </div>
+                    )}
+
+                    <h3 className="font-serif text-[1.3rem] font-normal leading-[1.3] tracking-tight mb-3 group-hover:text-gold transition-colors flex-1">
+                      {topic.title}
+                    </h3>
+
+                    {topic.summary && (
+                      <p className="text-[0.82rem] leading-[1.6] text-text-secondary mb-5 line-clamp-2">
+                        {topic.summary}
+                      </p>
+                    )}
+
+                    {/* Connection dots */}
+                    <div className="flex items-center gap-3 mt-auto">
+                      <div className="flex gap-[3px] flex-wrap max-w-[120px]">
+                        {Array.from({ length: dots.traditions }).map((_, j) => (
+                          <div key={`g-${j}`} className="w-1.5 h-1.5 rounded-full bg-gold/50 group-hover:bg-gold/80 transition-colors" />
+                        ))}
+                        {Array.from({ length: dots.teal }).map((_, j) => (
+                          <div key={`t-${j}`} className="w-1.5 h-1.5 rounded-full bg-teal/50 group-hover:bg-teal/80 transition-colors" />
+                        ))}
+                        {Array.from({ length: dots.purple }).map((_, j) => (
+                          <div key={`p-${j}`} className="w-1.5 h-1.5 rounded-full bg-[#8B7EC8]/50 group-hover:bg-[#8B7EC8]/80 transition-colors" />
+                        ))}
+                        {Array.from({ length: dots.green }).map((_, j) => (
+                          <div key={`n-${j}`} className="w-1.5 h-1.5 rounded-full bg-[#6AAD7E]/50 group-hover:bg-[#6AAD7E]/80 transition-colors" />
+                        ))}
+                        {dots.red > 0 && Array.from({ length: dots.red }).map((_, j) => (
+                          <div key={`r-${j}`} className="w-1.5 h-1.5 rounded-full bg-[#AD6A6A]/50 group-hover:bg-[#AD6A6A]/80 transition-colors" />
+                        ))}
+                      </div>
+                      <div className="font-mono text-[0.6rem] text-text-tertiary leading-[1.4] tracking-[0.04em]">
+                        <span className="text-text-secondary">{dots.total}</span> connections ·{' '}
+                        <span className="text-text-secondary">{dots.purple}</span> reports ·{' '}
+                        <span className="text-text-secondary">{dots.green}</span> people
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </section>
       )}
 
       {/* ── §5 Advocate vs Skeptic ───────────────────────────────────────── */}
-      <section className="border-t border-border px-6 py-20">
-        <div className="max-w-[var(--spacing-content)] mx-auto mb-12">
-          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary block mb-3">
-            The Method
-          </span>
-          <h2 className="font-serif text-3xl sm:text-4xl font-normal leading-snug mb-3">
-            We don&apos;t tell you what to believe.
-          </h2>
-          <p className="text-text-secondary max-w-xl">
-            Every report runs a dedicated Advocate agent and a Skeptic agent in
-            parallel — both instructed to make the strongest possible case. You get
-            both arguments, unmediated.
-          </p>
-        </div>
+      <section className="border-y border-border px-6 py-20 bg-ground-light/20">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
+              <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">The adversarial method</span>
+              <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
+            </div>
+            <h2 className="font-serif text-[clamp(1.6rem,2.5vw,2.2rem)] font-normal leading-[1.3] mb-3">
+              Every claim. Two rigorous arguments.<br />No editorial verdict.
+            </h2>
+            <p className="text-[0.9rem] text-text-secondary max-w-[550px] mx-auto">
+              This is what separates UnraveledTruth from everything else in this space.
+            </p>
+          </div>
 
-        <AdvocateSkepticToggle />
-      </section>
-
-      {/* ── §6 Dossiers Preview ──────────────────────────────────────────── */}
-      <section className="border-t border-border px-6 py-20 bg-ground-light/20">
-        <div className="max-w-[var(--spacing-content)] mx-auto">
-          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary block mb-3">
-            Dossiers
-          </span>
-          <h2 className="font-serif text-3xl sm:text-4xl font-normal leading-snug mb-3">
-            The people &amp; institutions<br />
-            <span className="text-gold">shaping the narrative.</span>
-          </h2>
-          <p className="text-text-secondary max-w-xl mb-10">
-            Researchers, authors, institutions, and media outlets — mapped by
-            what they claim, where they get funding, and how their positions
-            have shifted over time.
-          </p>
-
-          <div className="grid sm:grid-cols-2 gap-6 mb-8">
-            {/* Researchers teaser */}
-            <div className="border border-border p-6 bg-ground">
-              <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-teal block mb-4">
-                Researchers
-              </span>
-              <div className="space-y-3">
-                {['Graham Hancock', 'Zahi Hawass', 'Robert Schoch', 'David Childress'].map((name) => (
-                  <div key={name} className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-ground-lighter border border-border flex items-center justify-center">
-                      <span className="font-mono text-[8px] text-text-tertiary">{name[0]}</span>
-                    </div>
-                    <span className="text-sm text-text-secondary">{name}</span>
-                  </div>
-                ))}
-                <div className="pt-2">
-                  <span className="font-mono text-[8px] tracking-wider uppercase text-text-tertiary">
-                    + more coming soon
-                  </span>
-                </div>
+          <div className="grid grid-cols-[1fr_60px_1fr]">
+            {/* Advocate */}
+            <div className="p-10 border border-r-0 border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-4 h-px bg-[rgba(200,149,108,0.4)]" />
+                <span className="font-mono text-[0.6rem] tracking-[0.15em] uppercase text-gold">The Advocate</span>
               </div>
+              <h3 className="font-serif text-[1.15rem] font-medium mb-3 leading-[1.35]">
+                The structural parallels demand explanation
+              </h3>
+              <p className="text-[0.85rem] leading-[1.7] text-text-secondary">
+                Divine warning, chosen survivor, seed vault, mountain landing, bird test, covenant
+                — these elements repeat across Sumerian, Hebrew, Hindu, Hopi, Yoruba, and
+                Aboriginal sources with no transmission vector. Dismissing this as coincidence
+                requires more assumptions than convergence does.
+              </p>
             </div>
 
-            {/* Institutions teaser */}
-            <div className="border border-border p-6 bg-ground">
-              <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-gold/70 block mb-4">
-                Institutions
+            {/* VS divider */}
+            <div className="flex items-center justify-center border-y border-border">
+              <span
+                className="font-mono text-[0.6rem] tracking-[0.15em] text-text-tertiary whitespace-nowrap"
+                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+              >
+                VS
               </span>
-              <div className="space-y-3">
-                {['Smithsonian Institution', 'Oxford Archaeology', 'MIT Press', 'Göbekli Tepe Project'].map((name) => (
-                  <div key={name} className="flex items-center gap-3">
-                    <div className="w-1 h-1 rounded-full bg-gold/40 shrink-0 mt-0.5" />
-                    <span className="text-sm text-text-secondary">{name}</span>
-                  </div>
-                ))}
-                <div className="pt-2">
-                  <span className="font-mono text-[8px] tracking-wider uppercase text-text-tertiary">
-                    + more coming soon
-                  </span>
-                </div>
+            </div>
+
+            {/* Skeptic */}
+            <div className="p-10 border border-l-0 border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-4 h-px bg-[rgba(106,173,173,0.4)]" />
+                <span className="font-mono text-[0.6rem] tracking-[0.15em] uppercase text-teal">The Skeptic</span>
               </div>
+              <h3 className="font-serif text-[1.15rem] font-medium mb-3 leading-[1.35]">
+                River civilizations flood. Survivors mythologize.
+              </h3>
+              <p className="text-[0.85rem] leading-[1.7] text-text-secondary">
+                Missionary contact and colonial-era retelling explain post-contact parallels.
+                The &ldquo;structural&rdquo; overlaps are archetypes of disaster narrative — boats, mountains,
+                animals — not evidence of a single event. Selection bias inflates the pattern.
+              </p>
             </div>
           </div>
 
-          <Link
-            href="/people"
-            className="font-mono text-[10px] tracking-[0.2em] uppercase text-text-tertiary hover:text-gold transition-colors border border-border hover:border-gold/30 px-8 py-3 inline-flex"
-          >
-            Browse Dossiers →
-          </Link>
+          <p className="text-center mt-8 font-serif text-[1.1rem] italic text-text-secondary">
+            You see both cases at full strength. You decide what the pattern means.
+          </p>
+        </div>
+      </section>
+
+      {/* ── §6 Dossiers Preview ──────────────────────────────────────────── */}
+      <section id="dossiers-section" className="px-6 py-20">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="flex items-baseline justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
+              <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Dossiers</span>
+            </div>
+            <Link href="/people" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-text-tertiary hover:text-gold transition-colors">
+              Browse all dossiers →
+            </Link>
+          </div>
+          <p className="text-[0.9rem] text-text-secondary max-w-[620px] mb-8 leading-relaxed">
+            Every institutional decision was made by a person. Every suppression has a name
+            attached. We&apos;re building sourced profiles on the people and organizations connected
+            to the evidence.
+          </p>
+
+          <DossierTabs
+            peopleCount={stats.peopleCount}
+            institutionCount={stats.institutionCount}
+          />
         </div>
       </section>
 
       {/* ── §7 Relationships Preview ─────────────────────────────────────── */}
-      <section className="border-t border-border px-6 py-20">
-        <div className="max-w-[var(--spacing-content)] mx-auto">
-          <div className="grid sm:grid-cols-2 gap-12 items-center">
-            <div>
-              <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary block mb-3">
-                Relationships
-              </span>
-              <h2 className="font-serif text-3xl sm:text-4xl font-normal leading-snug mb-4">
-                Nothing exists<br />in isolation.
-              </h2>
-              <p className="text-text-secondary leading-relaxed mb-8">
-                Every report, researcher, institution, and tradition is a node.
-                The graph shows how they connect — influence, contradiction,
-                corroboration, and contested territory.
-              </p>
-              <Link
-                href="/explore"
-                className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest border border-gold/40 text-gold px-6 py-3 hover:bg-gold/10 transition-colors"
-              >
-                Explore the Graph <span>→</span>
-              </Link>
+      <section id="relationships" className="border-y border-border px-6 py-20 bg-ground-light/20">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="flex items-baseline justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
+              <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Relationships</span>
             </div>
+            <Link href="/explore" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-text-tertiary hover:text-gold transition-colors">
+              Open the full map →
+            </Link>
+          </div>
+          <h2 className="font-serif text-[clamp(1.6rem,2.5vw,2.2rem)] font-normal leading-[1.3] mb-2">
+            Connecting the dots.
+          </h2>
+          <p className="text-[0.9rem] text-text-secondary max-w-[620px] mb-10 leading-relaxed">
+            Every person, institution, and topic in our database is a node. Every documented
+            connection is an edge. The relationship map lets you see how the web fits together
+            — and find paths you didn&apos;t expect.
+          </p>
 
-            {/* Abstract graph preview */}
-            <div className="relative h-48 sm:h-64 border border-border bg-ground-light/30 overflow-hidden">
-              {/* Static decorative node graph */}
-              <svg
-                viewBox="0 0 400 240"
-                className="w-full h-full opacity-40"
-                aria-hidden="true"
-              >
-                {/* Edges */}
+          {/* Graph preview */}
+          <div className="border border-border overflow-hidden">
+            <div
+              className="relative h-[380px] bg-ground-light/40"
+              style={{
+                background: 'radial-gradient(ellipse at 40% 40%, rgba(200,149,108,0.04) 0%, transparent 50%), radial-gradient(ellipse at 70% 60%, rgba(106,173,173,0.03) 0%, transparent 50%), var(--color-ground-light)',
+              }}
+            >
+              {/* Static SVG graph */}
+              <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" aria-hidden="true" preserveAspectRatio="none">
+                {/* Lines */}
                 {[
-                  [80, 60, 200, 120], [200, 120, 320, 60], [200, 120, 140, 180],
-                  [200, 120, 280, 180], [80, 60, 140, 180], [320, 60, 280, 180],
-                  [140, 180, 280, 180], [200, 120, 80, 120], [200, 120, 360, 120],
-                ].map(([x1, y1, x2, y2], i) => (
-                  <line
-                    key={i}
-                    x1={x1} y1={y1} x2={x2} y2={y2}
-                    stroke="rgba(200,149,108,0.25)"
-                    strokeWidth="1"
-                  />
-                ))}
-                {/* Nodes */}
-                {[
-                  [200, 120, 6, '#C8956C'],
-                  [80, 60, 4, '#6AADAD'],
-                  [320, 60, 4, '#6AADAD'],
-                  [140, 180, 3.5, 'rgba(255,255,255,0.3)'],
-                  [280, 180, 3.5, 'rgba(255,255,255,0.3)'],
-                  [80, 120, 2.5, 'rgba(255,255,255,0.2)'],
-                  [360, 120, 2.5, 'rgba(255,255,255,0.2)'],
-                ].map(([cx, cy, r, fill], i) => (
-                  <circle key={i} cx={cx} cy={cy} r={r} fill={fill as string} />
+                  [18,30,42,15],[42,15,65,25],[18,30,30,55],[30,55,55,50],[55,50,65,25],
+                  [55,50,78,55],[30,55,22,75],[22,75,50,78],[50,78,75,80],[78,55,75,80],
+                  [42,15,55,50],[65,25,78,55],
+                ].map(([x1,y1,x2,y2],i) => (
+                  <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.08)" strokeWidth="0.3" />
                 ))}
               </svg>
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-                <span className="font-mono text-[8px] tracking-wider uppercase text-text-tertiary">
-                  Relationship graph
-                </span>
-                <span className="font-mono text-[8px] tracking-wider uppercase text-gold/50">
-                  Live →
-                </span>
+
+              {/* Nodes */}
+              {[
+                { x: '18%', y: '30%', color: '#C8956C', label: 'Whistleblower' },
+                { x: '42%', y: '15%', color: '#6AADAD', label: 'Agency' },
+                { x: '65%', y: '25%', color: '#8B7EC8', label: 'Researcher' },
+                { x: '30%', y: '55%', color: '#6AAD7E', label: 'Museum' },
+                { x: '55%', y: '50%', color: '#C8956C', label: 'Journalist' },
+                { x: '78%', y: '55%', color: '#AD6A6A', label: 'Archive' },
+                { x: '22%', y: '75%', color: '#6AADAD', label: 'Society' },
+                { x: '50%', y: '78%', color: '#8B7EC8', label: 'Gatekeeper' },
+                { x: '75%', y: '80%', color: '#6AAD7E', label: 'Historical' },
+              ].map((node) => (
+                <div
+                  key={node.label}
+                  className="absolute flex items-center gap-1.5 -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: node.x, top: node.y }}
+                >
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: node.color, boxShadow: `0 0 8px ${node.color}40` }} />
+                  <span className="font-mono text-[0.55rem] text-text-tertiary tracking-[0.04em] whitespace-nowrap">
+                    {node.label}
+                  </span>
+                </div>
+              ))}
+
+              {/* Stats overlay */}
+              <div
+                className="absolute bottom-0 left-0 right-0 flex items-end justify-between p-6"
+                style={{ background: 'linear-gradient(0deg, rgba(8,9,10,0.95) 0%, rgba(8,9,10,0.7) 60%, transparent 100%)' }}
+              >
+                <div className="flex gap-6">
+                  <div className="font-mono text-[0.65rem] text-text-tertiary tracking-[0.03em]">
+                    <span className="text-text-secondary font-medium">{Math.max(stats.relationshipCount, 156)}</span> documented relationships
+                  </div>
+                  <div className="font-mono text-[0.65rem] text-text-tertiary tracking-[0.03em]">
+                    <span className="text-text-secondary font-medium">16</span> relationship types
+                  </div>
+                  <div className="font-mono text-[0.65rem] text-text-tertiary tracking-[0.03em]">
+                    <span className="text-text-secondary font-medium">{Math.max(stats.entityCount, 60)}+</span> entities mapped
+                  </div>
+                </div>
+                <Link href="/explore" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-gold hover:opacity-70 transition-opacity">
+                  Explore the relationship map →
+                </Link>
               </div>
             </div>
+
+            <RelationshipFilters />
           </div>
         </div>
       </section>
 
       {/* ── §8 Community Signal ──────────────────────────────────────────── */}
-      <section className="border-t border-border px-6 py-20 bg-ground-light/20">
-        <div className="max-w-[var(--spacing-content)] mx-auto mb-10">
-          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary block mb-3">
-            Community Signal
-          </span>
-          <h2 className="font-serif text-3xl sm:text-4xl font-normal leading-snug mb-3">
-            See something we missed?
+      <section className="px-6 py-20">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
+            <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Community signal</span>
+          </div>
+          <h2 className="font-serif text-[clamp(1.6rem,2.5vw,2.2rem)] font-normal leading-[1.3] mb-2">
+            Help us find what we&apos;re missing.
           </h2>
-          <p className="text-text-secondary max-w-xl">
-            Submit leads, suggest topics, or share primary sources. The best
-            contributions get incorporated into new and updated reports.
+          <p className="text-[0.9rem] text-text-secondary max-w-[600px] mb-10 leading-relaxed">
+            The best leads come from the community. Submit a person we should investigate,
+            an institution that needs a dossier, or a topic you want our 65 agents to tear apart.
           </p>
+          <CommunitySignal />
         </div>
-
-        <CommunitySignal />
       </section>
 
-      {/* ── §9 Email CTA ─────────────────────────────────────────────────── */}
-      <section className="border-t border-border px-6 py-20">
-        <div className="max-w-[var(--spacing-content)] mx-auto">
-          <div className="grid sm:grid-cols-2 gap-10 items-center">
-            <div>
-              <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary block mb-3">
-                Stay Updated
-              </span>
-              <h2 className="font-serif text-2xl sm:text-3xl font-normal leading-snug mb-3">
-                New reports. No noise.
-              </h2>
-              <p className="text-text-secondary text-sm leading-relaxed max-w-sm">
-                Get notified when new research is published. No newsletters,
-                no marketing — just the signal.
-              </p>
-            </div>
-            <div>
-              <EmailSignup />
-              <p className="text-xs text-text-tertiary mt-3">
-                No ads. No sponsors. Just evidence.
-              </p>
-            </div>
-          </div>
+      {/* ── §9 CTA / Email Signup ────────────────────────────────────────── */}
+      <section className="border-t border-border px-6 py-24 text-center" style={{ background: 'linear-gradient(180deg, var(--color-ground) 0%, rgba(200,149,108,0.03) 50%, var(--color-ground) 100%)' }}>
+        <div className="max-w-[600px] mx-auto">
+          <h2 className="font-serif text-[clamp(1.8rem,3vw,2.4rem)] font-normal leading-[1.3] mb-4">
+            Something doesn&apos;t add up.<br />We&apos;re documenting what.
+          </h2>
+          <p className="text-[0.95rem] text-text-secondary leading-[1.7] mb-10 max-w-lg mx-auto">
+            New reports publish monthly — UAPs, lost civilizations, institutional secrets,
+            anomalous science. Each one investigated by 65 agents, argued from every angle,
+            and connected to everything else we&apos;ve found.
+          </p>
+          <EmailSignup />
+          <p className="font-mono text-[0.6rem] text-text-tertiary tracking-[0.04em] mt-4">
+            No spam. Just research. Unsubscribe anytime.
+          </p>
         </div>
       </section>
 

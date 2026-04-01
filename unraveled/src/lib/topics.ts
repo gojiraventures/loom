@@ -58,6 +58,36 @@ export async function getFeaturedTopics(): Promise<{
 }
 
 /**
+ * Returns aggregate stats for the dossiers and relationships preview sections.
+ */
+export async function getDossierStats(): Promise<{
+  peopleCount: number;
+  institutionCount: number;
+  relationshipCount: number;
+  entityCount: number;
+}> {
+  const supabase = createServerSupabaseClient();
+  const [
+    { count: peopleCount },
+    { count: instCount },
+    { count: relCount },
+    { count: instRelCount },
+  ] = await Promise.all([
+    supabase.from('people').select('*', { count: 'exact', head: true }),
+    supabase.from('institutions').select('*', { count: 'exact', head: true }),
+    supabase.from('people_relationships').select('*', { count: 'exact', head: true }),
+    supabase.from('institution_relationships').select('*', { count: 'exact', head: true }),
+  ]);
+
+  return {
+    peopleCount: peopleCount ?? 0,
+    institutionCount: instCount ?? 0,
+    relationshipCount: (relCount ?? 0) + (instRelCount ?? 0),
+    entityCount: (peopleCount ?? 0) + (instCount ?? 0),
+  };
+}
+
+/**
  * Returns all published topics for the homepage and sitemap.
  */
 export async function getPublishedTopics(): Promise<{
