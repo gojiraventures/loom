@@ -3151,10 +3151,237 @@ function BacklogTab() {
   );
 }
 
+// ── Jobs Tab ──────────────────────────────────────────────────────────────────
+
+interface ResearchJob {
+  id: string;
+  session_id: string;
+  job_type: string;
+  status: string;
+  priority: number;
+  params: Record<string, unknown>;
+  output_data: Record<string, unknown> | null;
+  run_after_job_ids: string[];
+  requires_approval: boolean;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const JOB_STATUS_COLORS: Record<string, string> = {
+  pending: 'text-text-tertiary bg-border/30',
+  running: 'text-sky-400 bg-sky-400/10',
+  complete: 'text-emerald-400 bg-emerald-400/10',
+  failed: 'text-red-400 bg-red-400/10',
+  awaiting_approval: 'text-gold bg-gold/10',
+};
+
+const JOB_TYPE_LABELS: Record<string, string> = {
+  agent_signal: 'Agent',
+  cross_validation: 'Cross-Val',
+  convergence: 'Convergence',
+  debate: 'Debate',
+  synthesis_outline: 'Outline',
+  synthesis_section: 'Section',
+  synthesis_assembly: 'Assembly',
+};
+
+function JobsTab() {
+  const [jobs, setJobs] = useState<ResearchJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [tickLoading, setTickLoading] = useState(false);
+  const [tickResult, setTickResult] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/jobs');
+      if (res.ok) {
+        const data = await res.json();
+        setJobs(data.jobs ?? []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const runTick = async () => {
+    setTickLoading(true);
+    setTickResult(null);
+    try {
+      const res = await fetch('/api/jobs/tick', { method: 'POST' });
+      const data = await res.json();
+      setTickResult(`Fired ${data.jobs_fired ?? 0} jobs (${data.stale_reset ?? 0} stale reset)`);
+      setTimeout(() => void load(), 2000);
+    } catch {
+      setTickResult('Tick failed');
+    } finally {
+      setTickLoading(false);
+    }
+  };
+
+  const approve = async (jobId: string) => {
+    setActionLoading(jobId);
+    try {
+      await fetch(`/api/jobs/${jobId}/approve`, { method: 'POST' });
+      await load();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const reject = async (jobId: string) => {
+    const notes = prompt('Rejection notes (optional):') ?? '';
+    setActionLoading(jobId);
+    try {
+      await fetch(`/api/jobs/${jobId}/approve?action=reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+      await load();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const filtered = filterStatus === 'all' ? jobs : jobs.filter((j) => j.status === filterStatus);
+  const counts = jobs.reduce<Record<string, number>>((acc, j) => {
+    acc[j.status] = (acc[j.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-6">
+      {/* Controls */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          {['all', 'pending', 'running', 'awaiting_approval', 'complete', 'failed'].map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className={`font-mono text-[10px] uppercase tracking-widest px-3 py-1 rounded border transition-colors ${
+                filterStatus === s
+                  ? 'border-gold text-gold bg-gold/5'
+                  : 'border-border text-text-tertiary hover:text-text-secondary'
+              }`}
+            >
+              {s === 'all' ? `All (${jobs.length})` : `${s.replace('_', ' ')} (${counts[s] ?? 0})`}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          {tickResult && (
+            <span className="font-mono text-[10px] text-emerald-400">{tickResult}</span>
+          )}
+          <button
+            onClick={() => void runTick()}
+            disabled={tickLoading}
+            className="font-mono text-[10px] uppercase tracking-widest px-4 py-2 border border-sky-400/30 text-sky-400 hover:bg-sky-400/5 rounded transition-colors disabled:opacity-50"
+          >
+            {tickLoading ? 'Ticking…' : 'Run Tick'}
+          </button>
+          <button
+            onClick={() => void load()}
+            className="font-mono text-[10px] uppercase tracking-widest px-4 py-2 border border-border text-text-tertiary hover:text-text-secondary rounded transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="font-mono text-[11px] text-text-tertiary">Loading jobs…</p>
+      ) : filtered.length === 0 ? (
+        <p className="font-mono text-[11px] text-text-tertiary">No jobs found.</p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((job) => (
+            <div key={job.id} className="border border-border rounded p-4 space-y-2">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3 flex-wrap min-w-0">
+                  <span className={`font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded ${JOB_STATUS_COLORS[job.status] ?? 'text-text-tertiary'}`}>
+                    {job.status.replace('_', ' ')}
+                  </span>
+                  <span className="font-mono text-[10px] text-text-secondary font-medium">
+                    {JOB_TYPE_LABELS[job.job_type] ?? job.job_type}
+                    {job.params.agent_id ? ` — ${String(job.params.agent_id)}` : ''}
+                    {job.params.section_key ? ` — ${String(job.params.section_key)}` : ''}
+                  </span>
+                  <span className="font-mono text-[9px] text-text-tertiary">p{job.priority}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {job.status === 'awaiting_approval' && (
+                    <>
+                      <button
+                        onClick={() => void approve(job.id)}
+                        disabled={actionLoading === job.id}
+                        className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/5 rounded transition-colors disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => void reject(job.id)}
+                        disabled={actionLoading === job.id}
+                        className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 border border-red-400/30 text-red-400 hover:bg-red-400/5 rounded transition-colors disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="font-mono text-[9px] text-text-tertiary">
+                  Session: {job.session_id.slice(0, 8)}…
+                </span>
+                <span className="font-mono text-[9px] text-text-tertiary">
+                  Job: {job.id.slice(0, 8)}…
+                </span>
+                {job.run_after_job_ids.length > 0 && (
+                  <span className="font-mono text-[9px] text-text-tertiary">
+                    Deps: {job.run_after_job_ids.length}
+                  </span>
+                )}
+                <span className="font-mono text-[9px] text-text-tertiary">
+                  {new Date(job.updated_at).toLocaleString()}
+                </span>
+              </div>
+
+              {job.last_error && (
+                <p className="font-mono text-[10px] text-red-400 bg-red-400/5 border border-red-400/10 rounded px-3 py-2">
+                  {job.last_error}
+                </p>
+              )}
+
+              {job.status === 'awaiting_approval' && job.output_data && (
+                <details className="group">
+                  <summary className="font-mono text-[10px] text-gold cursor-pointer hover:text-gold/70">
+                    View output for review
+                  </summary>
+                  <pre className="mt-2 font-mono text-[9px] text-text-tertiary bg-surface border border-border rounded p-3 overflow-auto max-h-64 whitespace-pre-wrap">
+                    {JSON.stringify(job.output_data, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Admin Page ────────────────────────────────────────────────────────────────
 
 const TABS = [
   { id: 'backlog', label: 'Backlog' },
+  { id: 'jobs', label: 'Jobs' },
   { id: 'launch', label: 'Launch Research' },
   { id: 'content', label: 'Content' },
   { id: 'media', label: 'Media Library' },
@@ -3213,6 +3440,7 @@ export default function AdminPage() {
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-10">
         {tab === 'backlog' && <BacklogTab />}
+        {tab === 'jobs' && <JobsTab />}
         {tab === 'launch' && <LaunchTab />}
         {tab === 'content' && <ContentTab />}
         {tab === 'media' && <MediaTab />}
