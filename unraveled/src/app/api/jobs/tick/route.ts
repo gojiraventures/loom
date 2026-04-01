@@ -1,18 +1,26 @@
 /**
  * POST /api/jobs/tick
  *
- * Job runner tick — called by Vercel Cron every 60s.
+ * Job runner tick — called by Vercel Cron every 60s (or manually via Run Tick).
  * 1. Reset stale locks
  * 2. Get runnable pending jobs
  * 3. Claim each job atomically
- * 4. Fire /api/jobs/[id]/run for each claimed job via after()
+ * 4. Run each job directly via dispatch() inside after() — no HTTP hop.
  *
- * Uses after() so the run fetches are guaranteed to complete even after
- * this route's response is sent (works in both local dev and Vercel prod).
+ * after() guarantees each job runs to completion even after this route's
+ * response is sent, in both local dev and Vercel prod.
  */
 import { after } from 'next/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { resetStaleJobLocks, getRunnableJobs, claimJob } from '@/lib/research/storage/jobs';
+import {
+  resetStaleJobLocks,
+  getRunnableJobs,
+  claimJob,
+  completeJob,
+  awaitApproval,
+  failJob,
+} from '@/lib/research/storage/jobs';
+import { dispatch } from '@/lib/research/jobs/dispatcher';
 import crypto from 'crypto';
 
 export const maxDuration = 30;
@@ -34,7 +42,6 @@ export async function POST(req: NextRequest) {
     return [];
   });
 
-  const origin = new URL(req.url).origin;
   const workerId = crypto.randomUUID();
   const fired: string[] = [];
 
@@ -42,24 +49,28 @@ export async function POST(req: NextRequest) {
     const claimed = await claimJob(job.id, workerId).catch(() => false);
     if (!claimed) continue;
 
-    const jobId = job.id;
-    const runUrl = `${origin}/api/jobs/${jobId}/run`;
+    const claimedJob = job;
 
-    // after() guarantees the fetch outlives this response — critical for local dev.
-    // In Vercel prod this also works: each fetch triggers a separate function invocation.
     after(async () => {
+      console.log(`[tick] running ${claimedJob.job_type} job ${claimedJob.id}`);
       try {
-        const res = await fetch(runUrl, { method: 'POST' });
-        if (!res.ok) {
-          const body = await res.text().catch(() => '');
-          console.error(`[tick] /run ${jobId} responded ${res.status}: ${body.slice(0, 200)}`);
+        const outputData = await dispatch(claimedJob);
+
+        if (claimedJob.requires_approval) {
+          await awaitApproval(claimedJob.id, outputData);
+          console.log(`[tick] ${claimedJob.job_type} ${claimedJob.id} → awaiting_approval`);
+        } else {
+          await completeJob(claimedJob.id, outputData);
+          console.log(`[tick] ${claimedJob.job_type} ${claimedJob.id} → complete`);
         }
       } catch (err) {
-        console.error(`[tick] failed to fire job ${jobId}:`, err);
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[tick] ${claimedJob.job_type} ${claimedJob.id} failed:`, message);
+        await failJob(claimedJob.id, message).catch(() => null);
       }
     });
 
-    fired.push(jobId);
+    fired.push(job.id);
   }
 
   return NextResponse.json({
