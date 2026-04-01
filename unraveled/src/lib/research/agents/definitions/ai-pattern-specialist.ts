@@ -27,7 +27,7 @@ export const aiPatternSpecialist: AgentDefinition = {
   llm: {
     provider: 'claude',
     model: 'claude-sonnet-4-6',
-    maxTokens: 10240,
+    maxTokens: 16000,
     temperature: 0.32,
   },
 

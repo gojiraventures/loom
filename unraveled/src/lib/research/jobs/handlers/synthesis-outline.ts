@@ -2,6 +2,7 @@ import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { getConvergenceBySession } from '@/lib/research/storage/convergence';
 import { getDebateBySession } from '@/lib/research/storage/debates';
 import { queryClaude } from '@/lib/research/llm/claude';
+import { parseJsonResponse } from '@/lib/research/llm/parse';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SynthesisOutline } from '../section-prompts';
 
@@ -101,15 +102,11 @@ Produce the synthesis outline. For top_finding_ids_by_section, assign the 3-8 mo
     systemPrompt: OUTLINE_SYSTEM,
     userPrompt,
     jsonMode: true,
-    maxTokens: 4096,
+    maxTokens: 8192,
     temperature: 0.3,
   });
 
-  if (!response.parsed) {
-    throw new Error('Outline LLM returned unparseable JSON');
-  }
-
-  const outline = response.parsed as SynthesisOutline;
+  const outline = parseJsonResponse(response) as SynthesisOutline;
 
   return {
     outline,

@@ -23,10 +23,19 @@ export async function handleDebate(job: ResearchJob): Promise<Record<string, unk
     throw new Error(result.error ?? 'Debate produced no output');
   }
 
+  const d = result.debate;
   return {
-    advocate_confidence: result.debate.advocate_confidence,
-    skeptic_confidence: result.debate.skeptic_confidence,
-    unresolved_tensions: result.debate.unresolved_tensions.length,
-    agreed_facts: result.debate.agreed_facts.length,
+    advocate_confidence: d.advocate_confidence,
+    skeptic_confidence: d.skeptic_confidence,
+    rounds: d.rounds,
+    agreed_facts_count: d.agreed_facts.length,
+    unresolved_tensions_count: d.unresolved_tensions.length,
+    // Human-readable content for the approval UI
+    advocate_case_excerpt: d.advocate_case.slice(0, 600),
+    skeptic_case_excerpt: d.skeptic_case.slice(0, 600),
+    advocate_strongest_points: d.advocate_strongest_points,
+    skeptic_strongest_points: d.skeptic_strongest_points,
+    unresolved_tensions: d.unresolved_tensions,
+    agreed_facts: d.agreed_facts,
   };
 }

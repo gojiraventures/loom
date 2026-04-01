@@ -235,6 +235,24 @@ export async function appendJobDeps(jobId: string, newDepIds: string[]): Promise
   }
 }
 
+/** Resets a failed job back to pending so it can be retried. */
+export async function retryJob(jobId: string): Promise<void> {
+  const supabase = createServerSupabaseClient();
+  const { error } = await supabase
+    .from('research_jobs')
+    .update({
+      status: 'pending',
+      last_error: null,
+      locked_by: null,
+      locked_at: null,
+      lock_expires_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', jobId)
+    .eq('status', 'failed');
+  if (error) throw new Error(`retryJob: ${error.message}`);
+}
+
 /** Resets jobs whose locks have expired back to pending. */
 export async function resetStaleJobLocks(): Promise<number> {
   const supabase = createServerSupabaseClient();

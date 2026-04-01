@@ -1,5 +1,6 @@
 import { route } from '../llm/router';
-import { AgentFindingsSchema } from '../schemas';
+import { parseJsonResponse } from '../llm/parse';
+import { AgentFindingsSchema, AgentFindingSchema } from '../schemas';
 import { buildAgentPrompt } from '../prompt-builder';
 import { insertFindings } from '../storage/findings';
 import type { AgentDefinition, AgentFinding } from '../types';
@@ -62,16 +63,32 @@ export async function executeAgent(
   // Parse and validate via Zod
   let findings: AgentFinding[] = [];
   try {
-    // Strip markdown code fences if the LLM wrapped the JSON (```json ... ```)
-    const text = llmResponse.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-    const raw = llmResponse.parsed ?? JSON.parse(text);
+    // parseJsonResponse handles: markdown fences, bare JSON, truncated/malformed output via jsonrepair
+    const raw = parseJsonResponse(llmResponse);
     // Some LLMs return a bare array instead of { findings: [...] } — normalise it
     const normalized = Array.isArray(raw) ? { findings: raw } : raw;
-    const validated = AgentFindingsSchema.parse(normalized);
-    findings = validated.findings.map((f) => ({
-      ...f,
-      agent_id: def.id, // ensure agent_id is always correct
-    }));
+    const result = AgentFindingsSchema.safeParse(normalized);
+    if (result.success) {
+      findings = result.data.findings.map((f) => ({
+        ...f,
+        agent_id: def.id,
+      }));
+    } else {
+      // Full parse failed — try salvaging individual findings (handles truncated last item)
+      const rawFindings = Array.isArray(normalized)
+        ? normalized
+        : (normalized as Record<string, unknown>).findings;
+      if (!Array.isArray(rawFindings) || rawFindings.length === 0) {
+        throw result.error;
+      }
+      const valid = rawFindings
+        .map((f) => AgentFindingSchema.safeParse(f))
+        .filter((r) => r.success)
+        .map((r) => ({ ...(r as { success: true; data: AgentFinding }).data, agent_id: def.id }));
+      if (valid.length === 0) throw result.error;
+      console.warn(`[executor] ${def.id}: salvaged ${valid.length}/${rawFindings.length} findings after truncation`);
+      findings = valid;
+    }
   } catch (err) {
     return {
       agentId: def.id,

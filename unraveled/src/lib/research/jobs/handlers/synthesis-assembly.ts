@@ -1,5 +1,29 @@
+import { jsonrepair } from 'jsonrepair';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { getFindingsBySession } from '@/lib/research/storage/findings';
+import { getConvergenceBySession } from '@/lib/research/storage/convergence';
+import { updateSessionStatus } from '@/lib/research/storage/sessions';
+import { getJobsForSession } from '@/lib/research/storage/jobs';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
+import type { SynthesisOutline } from '../section-prompts';
+import type { SynthesizedOutput, JawDropLayer, LegendaryPattern, CircumstantialSignal, SourceReference } from '@/lib/research/types';
+
+/** Parse a section's stored text as JSON, returning the value at the given key. */
+function parseSectionJson(text: string, key: string): unknown {
+  if (!text) return null;
+  try {
+    const obj = JSON.parse(jsonrepair(text)) as Record<string, unknown>;
+    return obj[key] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Extract the text string from a section's content JSONB (stored as { text: "..." }). */
+function sectionText(content: unknown): string {
+  if (!content || typeof content !== 'object') return '';
+  return (content as Record<string, unknown>).text as string ?? '';
+}
 
 export interface SynthesisAssemblyPayload {
   topic: string;
@@ -23,7 +47,7 @@ const SECTION_ORDER = [
 ] as const;
 
 export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<string, unknown>> {
-  const { topic } = job.params as unknown as SynthesisAssemblyPayload;
+  const { topic, title } = job.params as unknown as SynthesisAssemblyPayload;
   const supabase = createServerSupabaseClient();
 
   // Load all sections for this session
@@ -79,6 +103,104 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
     .single();
 
   if (versionError) throw new Error(`Failed to create dossier version: ${versionError.message}`);
+
+  // ── Build full SynthesizedOutput from parsed sections ──────────────────────
+  try {
+    // Load outline for title/subtitle/convergence_score/traditions_analyzed
+    const sessionJobs = await getJobsForSession(job.session_id);
+    const outlineJob = sessionJobs.find((j) => j.job_type === 'synthesis_outline');
+    const outline = outlineJob?.output_data?.outline as SynthesisOutline | undefined;
+
+    const [findings, convergenceAnalyses] = await Promise.all([
+      getFindingsBySession(job.session_id),
+      getConvergenceBySession(job.session_id),
+    ]);
+
+    const bestScore = outline?.convergence_score ?? Math.max(
+      0,
+      ...convergenceAnalyses.flatMap((a) => a.convergence_points).map((cp) => cp.composite_score),
+    );
+    const traditions = outline?.traditions_analyzed ?? [...new Set(findings.flatMap((f) => f.traditions))].sort();
+
+    // Parse each section
+    const get = (sectionKey: string, jsonKey: string): unknown =>
+      parseSectionJson(sectionText(sectionMap[sectionKey]?.content), jsonKey);
+
+    const executiveSummary = (get('executive_summary', 'executive_summary') as string) || '';
+    const keyFindings = (get('key_findings', 'key_findings') as { finding: string; confidence: number; evidence_types: string[] }[]) || [];
+    const advocateCase = (get('advocate_case', 'advocate_case') as string) || '';
+    const skepticCase = (get('skeptic_case', 'skeptic_case') as string) || '';
+    const jawDropLayers = (get('jaw_drop_layers', 'jaw_drop_layers') as JawDropLayer[]) || [];
+    const faithPerspectives = (get('faith_perspectives', 'faith_perspectives') as Record<string, string>) || {};
+    const legendaryPatterns = (get('legendary_patterns', 'legendary_patterns') as LegendaryPattern[]) || [];
+    const circumstantialConvergence = (get('circumstantial_convergence', 'circumstantial_convergence') as CircumstantialSignal[]) || [];
+    const openQuestions = (get('open_questions', 'open_questions') as string[]) || [];
+    const howCulturesDescribe = (get('how_cultures_describe', 'how_cultures_describe') as Record<string, string>) || {};
+    const sources = (get('sources', 'sources') as SourceReference[]) || [];
+
+    // shared_elements_matrix lives inside convergence_deep_dive
+    const convDeepDive = get('convergence_deep_dive', 'convergence_deep_dive') as Record<string, unknown> | null;
+    const sharedElementsMatrix = (convDeepDive?.shared_elements_matrix as { element: string; traditions: Record<string, boolean> }[]) || [];
+
+    const synthesizedOutput: SynthesizedOutput = {
+      title: outline?.title ?? title,
+      subtitle: outline?.subtitle ?? '',
+      executive_summary: executiveSummary,
+      convergence_score: bestScore,
+      key_findings: keyFindings.map((kf) => ({
+        finding: kf.finding,
+        confidence: kf.confidence,
+        evidence_types: (kf.evidence_types ?? []) as import('@/lib/research/types').EvidenceType[],
+      })),
+      traditions_analyzed: traditions,
+      advocate_case: advocateCase,
+      skeptic_case: skepticCase,
+      jaw_drop_layers: jawDropLayers,
+      shared_elements_matrix: sharedElementsMatrix,
+      open_questions: openQuestions,
+      faith_perspectives: faithPerspectives,
+      legendary_patterns: legendaryPatterns,
+      circumstantial_convergence: circumstantialConvergence,
+      powerful_open_questions: openQuestions.slice(0, 5),
+      how_cultures_describe: howCulturesDescribe,
+      sources,
+    };
+
+    const allSources = findings.flatMap((f) => f.sources ?? []);
+    const uniqueSources = allSources.filter(
+      (s, i, arr) => arr.findIndex((x) => x.title === s.title) === i,
+    );
+
+    const { error: dossierError } = await supabase.from('topic_dossiers').upsert({
+      topic,
+      title: synthesizedOutput.title,
+      summary: executiveSummary.slice(0, 500) || `Cross-tradition research on: ${topic}`,
+      synthesized_output: synthesizedOutput,
+      best_convergence_score: Math.round(bestScore),
+      key_traditions: traditions,
+      key_open_questions: openQuestions.slice(0, 10),
+      last_researched_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'topic' });
+
+    if (dossierError) {
+      console.error('[assembly] Failed to upsert topic_dossiers:', dossierError.message);
+    }
+
+    // Increment cumulative counters (best-effort)
+    await supabase.rpc('increment_dossier_counters', {
+      p_topic: topic,
+      p_findings: findings.length,
+      p_sources: uniqueSources.length,
+    }).then(() => null, () => null);
+  } catch (err) {
+    console.error('[assembly] topic_dossiers upsert failed (non-fatal):', err);
+  }
+
+  // Mark session complete so Content tab picks it up
+  await updateSessionStatus(job.session_id, 'complete').catch((err) =>
+    console.error('[assembly] Failed to mark session complete:', err),
+  );
 
   return {
     version_id: versionRow?.id ?? null,

@@ -151,8 +151,8 @@ export default async function TopicPage({
             Ordered by how difficult each finding is to explain away.
           </p>
           <div className="space-y-px">
-            {output.jaw_drop_layers.map((layer) => (
-              <div key={layer.level} className="flex gap-0 border border-border bg-ground-light/20">
+            {output.jaw_drop_layers.map((layer, i) => (
+              <div key={i} className="flex gap-0 border border-border bg-ground-light/20">
                 {/* Level indicator bar */}
                 <div
                   className="w-1 shrink-0"

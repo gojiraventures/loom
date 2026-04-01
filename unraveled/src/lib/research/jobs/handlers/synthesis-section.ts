@@ -74,7 +74,7 @@ export async function handleSynthesisSection(job: ResearchJob): Promise<Record<s
     .single();
 
   if (error) {
-    console.error(`[synthesis-section] Failed to store section ${section_key}:`, error.message);
+    throw new Error(`Failed to store section ${section_key}: ${error.message}`);
   }
 
   return {

@@ -3116,10 +3116,11 @@ const JOB_TYPE_LABELS: Record<string, string> = {
 function JobsTab() {
   const [jobs, setJobs] = useState<ResearchJob[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('active');
   const [tickLoading, setTickLoading] = useState(false);
   const [tickResult, setTickResult] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [queuePhasesStatus, setQueuePhasesStatus] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -3142,7 +3143,14 @@ function JobsTab() {
     try {
       const res = await fetch('/api/jobs/tick', { method: 'POST' });
       const data = await res.json();
-      setTickResult(`Fired ${data.jobs_fired ?? 0} jobs (${data.stale_reset ?? 0} stale reset)`);
+      const fired = data.jobs_fired ?? 0;
+      const running = counts['running'] ?? 0;
+      const msg = fired > 0
+        ? `Fired ${fired} job${fired !== 1 ? 's' : ''}`
+        : running > 0
+        ? `${running} job${running !== 1 ? 's' : ''} already running — waiting for deps`
+        : `No runnable jobs`;
+      setTickResult(msg);
       setTimeout(() => void load(), 2000);
     } catch {
       setTickResult('Tick failed');
@@ -3176,6 +3184,32 @@ function JobsTab() {
     }
   };
 
+  const retry = async (jobId: string) => {
+    setActionLoading(jobId);
+    try {
+      await fetch(`/api/jobs/${jobId}/retry`, { method: 'POST' });
+      await load();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const queuePhases = async (sessionId: string) => {
+    setQueuePhasesStatus((s) => ({ ...s, [sessionId]: 'queuing…' }));
+    try {
+      const res = await fetch(`/api/research/${sessionId}/queue-phases`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setQueuePhasesStatus((s) => ({ ...s, [sessionId]: `error: ${data.error}` }));
+      } else {
+        setQueuePhasesStatus((s) => ({ ...s, [sessionId]: `queued ✓ — run tick to start` }));
+        await load();
+      }
+    } catch (err) {
+      setQueuePhasesStatus((s) => ({ ...s, [sessionId]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
   // Group jobs by session_id, ordered by most-recently-updated session first
   const counts = jobs.reduce<Record<string, number>>((acc, j) => {
     acc[j.status] = (acc[j.status] ?? 0) + 1;
@@ -3195,6 +3229,8 @@ function JobsTab() {
   // Filter: only show sessions that have at least one job matching the status filter
   const visibleSessionIds = filterStatus === 'all'
     ? sessionIds
+    : filterStatus === 'active'
+    ? sessionIds.filter((sid) => !sessionGroups[sid].every((j) => j.status === 'complete'))
     : sessionIds.filter((sid) => sessionGroups[sid].some((j) => j.status === filterStatus));
 
   return (
@@ -3202,7 +3238,7 @@ function JobsTab() {
       {/* Controls */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          {(['all', 'pending', 'running', 'awaiting_approval', 'complete', 'failed'] as const).map((s) => (
+          {(['active', 'all', 'pending', 'running', 'awaiting_approval', 'complete', 'failed'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
@@ -3212,12 +3248,20 @@ function JobsTab() {
                   : 'border-border text-text-tertiary hover:text-text-secondary'
               }`}
             >
-              {s === 'all' ? `All (${jobs.length})` : `${s.replace(/_/g, ' ')} (${counts[s] ?? 0})`}
+              {s === 'all'
+                ? `All (${jobs.length})`
+                : s === 'active'
+                ? `Active (${jobs.filter((j) => j.status !== 'complete').length})`
+                : `${s.replace(/_/g, ' ')} (${counts[s] ?? 0})`}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-3">
-          {tickResult && <span className="font-mono text-[10px] text-emerald-400">{tickResult}</span>}
+          {tickResult && (
+            <span className={`font-mono text-[10px] ${tickResult.startsWith('No runnable') || tickResult.includes('waiting') ? 'text-text-tertiary' : tickResult === 'Tick failed' ? 'text-red-400' : 'text-emerald-400'}`}>
+              {tickResult}
+            </span>
+          )}
           <button
             onClick={() => void runTick()}
             disabled={tickLoading}
@@ -3244,6 +3288,8 @@ function JobsTab() {
             const allSessionJobs = sessionGroups[sid];
             const visibleJobs = filterStatus === 'all'
               ? allSessionJobs
+              : filterStatus === 'active'
+              ? allSessionJobs.filter((j) => j.status !== 'complete')
               : allSessionJobs.filter((j) => j.status === filterStatus);
             const topic = allSessionJobs[0]?.topic || sid.slice(0, 8);
             const sc = allSessionJobs.reduce<Record<string, number>>((acc, j) => {
@@ -3254,6 +3300,9 @@ function JobsTab() {
             const hasFailed = allSessionJobs.some((j) => j.status === 'failed');
             const hasRunning = allSessionJobs.some((j) => j.status === 'running');
             const allComplete = allSessionJobs.every((j) => j.status === 'complete');
+            // Detect sessions where agents + cross-val finished but downstream phases were never queued
+            const missingDownstream = allComplete &&
+              !allSessionJobs.some((j) => ['convergence_analysis', 'adversarial_debate', 'synthesis_outline', 'synthesis_section', 'synthesis_assembly'].includes(j.job_type));
 
             const borderColor = hasApproval
               ? 'border-gold/40'
@@ -3289,9 +3338,14 @@ function JobsTab() {
                         Failed
                       </span>
                     )}
-                    {allComplete && (
+                    {allComplete && !missingDownstream && (
                       <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-400/10 text-emerald-400 shrink-0">
                         Complete
+                      </span>
+                    )}
+                    {missingDownstream && (
+                      <span className="font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded bg-amber-400/10 text-amber-400 shrink-0">
+                        Agents done — phases needed
                       </span>
                     )}
                   </div>
@@ -3303,6 +3357,19 @@ function JobsTab() {
                     {sc.pending ? <span className="font-mono text-[9px] text-text-tertiary">{sc.pending} pending</span> : null}
                     {sc.failed ? <span className="font-mono text-[9px] text-red-400">{sc.failed} failed</span> : null}
                     <span className="font-mono text-[9px] text-text-tertiary">/ {allSessionJobs.length}</span>
+                    {missingDownstream && !queuePhasesStatus[sid] && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); void queuePhases(sid); }}
+                        className="font-mono text-[9px] uppercase tracking-widest px-2 py-1 border border-amber-400/40 text-amber-400 hover:bg-amber-400/5 rounded transition-colors"
+                      >
+                        Queue phases →
+                      </button>
+                    )}
+                    {queuePhasesStatus[sid] && (
+                      <span className={`font-mono text-[9px] ${queuePhasesStatus[sid].startsWith('error') ? 'text-red-400' : queuePhasesStatus[sid].includes('✓') ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {queuePhasesStatus[sid]}
+                      </span>
+                    )}
                   </div>
                 </summary>
 
@@ -3343,6 +3410,15 @@ function JobsTab() {
                             </button>
                           </div>
                         )}
+                        {job.status === 'failed' && (
+                          <button
+                            onClick={() => void retry(job.id)}
+                            disabled={actionLoading === job.id}
+                            className="font-mono text-[10px] uppercase tracking-widest px-3 py-1 border border-amber-400/30 text-amber-400 hover:bg-amber-400/5 rounded transition-colors disabled:opacity-50 shrink-0"
+                          >
+                            Retry
+                          </button>
+                        )}
                       </div>
 
                       {job.last_error && (
@@ -3352,14 +3428,87 @@ function JobsTab() {
                       )}
 
                       {job.status === 'awaiting_approval' && job.output_data && (
-                        <details>
-                          <summary className="font-mono text-[10px] text-gold cursor-pointer hover:text-gold/70">
-                            View output for review
-                          </summary>
-                          <pre className="mt-2 font-mono text-[9px] text-text-tertiary bg-surface border border-border rounded p-3 overflow-auto max-h-64 whitespace-pre-wrap">
-                            {JSON.stringify(job.output_data, null, 2)}
-                          </pre>
-                        </details>
+                        <div className="space-y-2">
+                          {/* Debate: show advocate/skeptic cases and scores */}
+                          {job.job_type === 'adversarial_debate' && (() => {
+                            const d = job.output_data as Record<string, unknown>;
+                            return (
+                              <div className="space-y-2 text-[10px]">
+                                <div className="flex gap-4 font-mono">
+                                  <span className="text-emerald-400">Advocate {Math.round((d.advocate_confidence as number) * 100)}%</span>
+                                  <span className="text-red-400">Skeptic {Math.round((d.skeptic_confidence as number) * 100)}%</span>
+                                  <span className="text-text-tertiary">{d.rounds as number} rounds · {d.agreed_facts_count as number} agreed · {d.unresolved_tensions_count as number} tensions</span>
+                                </div>
+                                {!!d.advocate_case_excerpt && (
+                                  <details open>
+                                    <summary className="font-mono text-[9px] text-emerald-400 cursor-pointer">Advocate case</summary>
+                                    <p className="mt-1 font-mono text-[9px] text-text-secondary bg-surface border border-border rounded p-2 whitespace-pre-wrap">{d.advocate_case_excerpt as string}…</p>
+                                  </details>
+                                )}
+                                {!!d.skeptic_case_excerpt && (
+                                  <details open>
+                                    <summary className="font-mono text-[9px] text-red-400 cursor-pointer">Skeptic case</summary>
+                                    <p className="mt-1 font-mono text-[9px] text-text-secondary bg-surface border border-border rounded p-2 whitespace-pre-wrap">{d.skeptic_case_excerpt as string}…</p>
+                                  </details>
+                                )}
+                                {Array.isArray(d.unresolved_tensions) && (d.unresolved_tensions as string[]).length > 0 && (
+                                  <details>
+                                    <summary className="font-mono text-[9px] text-gold cursor-pointer">Unresolved tensions</summary>
+                                    <ul className="mt-1 space-y-1">{(d.unresolved_tensions as string[]).map((t, i) => <li key={i} className="font-mono text-[9px] text-text-secondary">• {t}</li>)}</ul>
+                                  </details>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Outline: show title, score, section notes */}
+                          {job.job_type === 'synthesis_outline' && (() => {
+                            const o = (job.output_data as Record<string, unknown>).outline as Record<string, unknown> | undefined;
+                            if (!o) return null;
+                            return (
+                              <div className="space-y-2 text-[10px]">
+                                <div className="font-mono">
+                                  <p className="text-text-primary font-medium">{o.title as string}</p>
+                                  <p className="text-text-tertiary">{o.subtitle as string}</p>
+                                  <p className="text-sky-400 mt-1">Convergence score: {o.convergence_score as number}/100</p>
+                                </div>
+                                {!!o.section_notes && (
+                                  <details>
+                                    <summary className="font-mono text-[9px] text-gold cursor-pointer">Section editorial notes</summary>
+                                    <div className="mt-1 space-y-1">
+                                      {Object.entries(o.section_notes as Record<string, string>).map(([k, v]) => (
+                                        <p key={k} className="font-mono text-[9px] text-text-secondary"><span className="text-text-tertiary">{k}:</span> {v}</p>
+                                      ))}
+                                    </div>
+                                  </details>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Assembly: show section list and version */}
+                          {job.job_type === 'synthesis_assembly' && (() => {
+                            const d = job.output_data as Record<string, unknown>;
+                            return (
+                              <div className="font-mono text-[10px] space-y-1">
+                                <p className="text-emerald-400">Version {d.version_number as number} — {d.section_count as number} sections assembled</p>
+                                {Array.isArray(d.missing_sections) && (d.missing_sections as string[]).length > 0 && (
+                                  <p className="text-amber-400">Missing: {(d.missing_sections as string[]).join(', ')}</p>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Fallback: raw JSON for unknown types */}
+                          {!['adversarial_debate', 'synthesis_outline', 'synthesis_assembly'].includes(job.job_type) && (
+                            <details>
+                              <summary className="font-mono text-[10px] text-gold cursor-pointer hover:text-gold/70">View output</summary>
+                              <pre className="mt-2 font-mono text-[9px] text-text-tertiary bg-surface border border-border rounded p-3 overflow-auto max-h-64 whitespace-pre-wrap">
+                                {JSON.stringify(job.output_data, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}

@@ -186,7 +186,6 @@ export async function POST(req: NextRequest) {
         params: { section_key, outline_job_id: outlineJob.id },
         priority: 80,
         run_after_job_ids: [outlineJob.id],
-        requires_approval: true,
       })),
     );
 
