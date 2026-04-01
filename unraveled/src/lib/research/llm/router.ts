@@ -43,6 +43,15 @@ async function dispatchRequest(request: LLMRequest, provider: string): Promise<L
   }
 }
 
+function isOllamaConnectionError(err: unknown): boolean {
+  return err instanceof Error && (
+    err.message.includes('fetch failed') ||
+    err.message.includes('connection failed') ||
+    err.message.includes('ECONNREFUSED') ||
+    err.message.includes('timeout')
+  );
+}
+
 export async function route(
   request: LLMRequest,
   agentId = 'unknown',
@@ -57,15 +66,22 @@ export async function route(
         return await queryOllama(ollamaRequest);
       } catch (err) {
         // Ollama unreachable — fall back to the original cloud provider
-        const isConnectionError = err instanceof Error && (
-          err.message.includes('fetch failed') ||
-          err.message.includes('connection failed') ||
-          err.message.includes('ECONNREFUSED') ||
-          err.message.includes('timeout')
-        );
-        if (isConnectionError) {
+        if (isOllamaConnectionError(err)) {
           console.warn(`[router] Ollama unavailable, falling back to ${request.provider} for agent ${agentId}`);
           return dispatchRequest(request, request.provider);
+        }
+        throw err;
+      }
+    }
+
+    // Direct Ollama agents — fall back to Claude if Ollama is unreachable
+    if (request.provider === 'ollama') {
+      try {
+        return await queryOllama(request);
+      } catch (err) {
+        if (isOllamaConnectionError(err)) {
+          console.warn(`[router] Ollama unreachable, falling back to Claude for agent ${agentId}`);
+          return dispatchRequest({ ...request, provider: 'claude' }, 'claude');
         }
         throw err;
       }

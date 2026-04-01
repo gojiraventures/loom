@@ -50,6 +50,19 @@ interface Session {
   pipeline_locked: boolean;
 }
 
+interface BacklogItem {
+  id: string;
+  title: string;
+  topic: string;
+  angle: string | null;
+  research_questions: string[];
+  key_sources: string[];
+  status: 'pending' | 'launched' | 'archived';
+  launched_at: string | null;
+  launched_session_id: string | null;
+  created_at: string;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const LAYER_COLORS: Record<string, string> = {
@@ -2807,9 +2820,341 @@ function OllamaBanner() {
   );
 }
 
+// ── Backlog Tab ───────────────────────────────────────────────────────────────
+
+type BacklogFilter = 'pending' | 'launched' | 'archived' | 'all';
+
+const BACKLOG_FILTER_LABELS: Record<BacklogFilter, string> = {
+  all: 'All',
+  pending: 'Pending',
+  launched: 'Launched',
+  archived: 'Archived',
+};
+
+const BACKLOG_STATUS_COLORS: Record<string, string> = {
+  pending: 'text-gold border-gold/30 bg-gold/5',
+  launched: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/5',
+  archived: 'text-text-tertiary border-border bg-transparent',
+};
+
+type LaunchResult = { sessionId: string } | { error: string };
+
+function BacklogRow({
+  item,
+  onLaunch,
+  onArchive,
+  onDelete,
+  launching,
+  result,
+}: {
+  item: BacklogItem;
+  onLaunch: (item: BacklogItem) => void;
+  onArchive: (item: BacklogItem) => void;
+  onDelete: (item: BacklogItem) => void;
+  launching: boolean;
+  result?: LaunchResult;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="border border-border rounded p-4 space-y-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={`font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 border rounded ${BACKLOG_STATUS_COLORS[item.status]}`}
+            >
+              {item.status}
+            </span>
+            <span className="font-mono text-[9px] text-text-tertiary">
+              {item.research_questions.length} questions
+            </span>
+          </div>
+          <h3 className="font-serif text-base mt-1">{item.title}</h3>
+          {item.angle && (
+            <p className="text-text-secondary text-xs leading-relaxed mt-1 line-clamp-2">
+              {item.angle}
+            </p>
+          )}
+          {item.launched_session_id && (
+            <p className="font-mono text-[9px] text-text-tertiary mt-1">
+              Session: {item.launched_session_id}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5 shrink-0">
+          {item.status === 'pending' && (
+            <button
+              onClick={() => onLaunch(item)}
+              disabled={launching}
+              className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border border-gold/50 text-gold hover:bg-gold/10 transition-colors rounded disabled:opacity-40"
+            >
+              {launching ? 'Launching…' : 'Launch →'}
+            </button>
+          )}
+          {item.status !== 'archived' && (
+            <button
+              onClick={() => onArchive(item)}
+              className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border border-border text-text-tertiary hover:text-text-secondary hover:border-border/80 transition-colors rounded"
+            >
+              Archive
+            </button>
+          )}
+          <button
+            onClick={() => onDelete(item)}
+            className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border border-red-900/40 text-red-400/60 hover:text-red-400 hover:border-red-400/40 transition-colors rounded"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+
+      {result && (
+        <div className={`font-mono text-[10px] px-3 py-2 rounded border ${'error' in result ? 'border-red-400/30 bg-red-400/5 text-red-400' : 'border-emerald-400/30 bg-emerald-400/5 text-emerald-400'}`}>
+          {'error' in result
+            ? `Launch failed: ${result.error}`
+            : `Launched — session ${result.sessionId}`}
+        </div>
+      )}
+
+      {item.research_questions.length > 0 && (
+        <div>
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-text-secondary transition-colors"
+          >
+            {expanded ? '▲ Hide questions' : '▼ Show questions'}
+          </button>
+          {expanded && (
+            <ol className="mt-2 space-y-1 list-decimal list-inside">
+              {item.research_questions.map((q, i) => (
+                <li key={i} className="text-xs text-text-secondary leading-relaxed">
+                  {q}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddBacklogItemForm({ onAdded }: { onAdded: (item: BacklogItem) => void }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [topic, setTopic] = useState('');
+  const [angle, setAngle] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!title.trim() || !topic.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/backlog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title.trim(), topic: topic.trim(), angle: angle.trim() || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      onAdded(data.item as BacklogItem);
+      setTitle(''); setTopic(''); setAngle(''); setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full border border-dashed border-border text-text-tertiary hover:text-text-secondary hover:border-gold/30 transition-colors rounded px-4 py-3 font-mono text-[9px] uppercase tracking-widest"
+      >
+        + Add Item
+      </button>
+    );
+  }
+
+  return (
+    <div className="border border-gold/30 rounded p-4 space-y-3">
+      <p className="font-mono text-[9px] uppercase tracking-widest text-gold">New Backlog Item</p>
+      <div className="space-y-2">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title (display name)"
+          className="w-full bg-ground border border-border rounded px-3 py-2 text-sm font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-gold/50"
+        />
+        <input
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="Topic (research query)"
+          className="w-full bg-ground border border-border rounded px-3 py-2 text-sm font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-gold/50"
+        />
+        <textarea
+          value={angle}
+          onChange={(e) => setAngle(e.target.value)}
+          placeholder="Angle / brief description (optional)"
+          rows={2}
+          className="w-full bg-ground border border-border rounded px-3 py-2 text-sm font-mono text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-gold/50 resize-none"
+        />
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={save}
+          disabled={saving || !title.trim() || !topic.trim()}
+          className="font-mono text-[9px] uppercase tracking-widest px-4 py-1.5 border border-gold/50 text-gold hover:bg-gold/10 transition-colors rounded disabled:opacity-40"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          className="font-mono text-[9px] uppercase tracking-widest px-4 py-1.5 border border-border text-text-tertiary hover:text-text-secondary transition-colors rounded"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BacklogTab() {
+  const [items, setItems] = useState<BacklogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<BacklogFilter>('pending');
+  const [launching, setLaunching] = useState<string | null>(null);
+  const [launchResults, setLaunchResults] = useState<Record<string, LaunchResult>>({});
+
+  useEffect(() => {
+    fetch('/api/admin/backlog')
+      .then((r) => r.json())
+      .then((d) => setItems(d.items ?? []))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const launch = async (item: BacklogItem) => {
+    setLaunching(item.id);
+    try {
+      const res = await fetch('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: item.topic,
+          title: item.title,
+          research_questions: item.research_questions,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Launch failed');
+
+      const sessionId = data.session_id as string;
+
+      await fetch('/api/admin/backlog', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, status: 'launched', launched_session_id: sessionId }),
+      });
+
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? { ...i, status: 'launched', launched_session_id: sessionId } : i
+        )
+      );
+      setLaunchResults((prev) => ({ ...prev, [item.id]: { sessionId } }));
+    } catch (err) {
+      setLaunchResults((prev) => ({
+        ...prev,
+        [item.id]: { error: err instanceof Error ? err.message : String(err) },
+      }));
+    } finally {
+      setLaunching(null);
+    }
+  };
+
+  const archive = async (item: BacklogItem) => {
+    await fetch('/api/admin/backlog', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id, status: 'archived' }),
+    });
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, status: 'archived' } : i)));
+  };
+
+  const deleteItem = async (item: BacklogItem) => {
+    await fetch(`/api/admin/backlog?id=${item.id}`, { method: 'DELETE' });
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+  };
+
+  const filtered = filter === 'all' ? items : items.filter((i) => i.status === filter);
+
+  const counts: Record<BacklogFilter, number> = {
+    all: items.length,
+    pending: items.filter((i) => i.status === 'pending').length,
+    launched: items.filter((i) => i.status === 'launched').length,
+    archived: items.filter((i) => i.status === 'archived').length,
+  };
+
+  return (
+    <div>
+      <div className="mb-8">
+        <h2 className="font-serif text-2xl mb-1">Research Backlog</h2>
+        <p className="text-sm text-text-secondary">
+          {counts.pending} pending · {counts.launched} launched · {counts.archived} archived
+        </p>
+      </div>
+
+      {/* Filter pills */}
+      <div className="flex gap-2 flex-wrap mb-6">
+        {(Object.keys(BACKLOG_FILTER_LABELS) as BacklogFilter[]).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={[
+              'font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border rounded transition-colors',
+              filter === f
+                ? 'border-gold/60 bg-gold/10 text-gold'
+                : 'border-border text-text-tertiary hover:border-gold/30 hover:text-text-secondary',
+            ].join(' ')}
+          >
+            {BACKLOG_FILTER_LABELS[f]}
+            <span className="ml-1.5 opacity-60">{counts[f]}</span>
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p className="text-text-tertiary text-sm font-mono">Loading…</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-text-tertiary text-sm font-mono py-8 text-center">
+          No {filter === 'all' ? '' : filter} items.
+        </p>
+      ) : (
+        <div className="space-y-3 mb-6">
+          {filtered.map((item) => (
+            <BacklogRow
+              key={item.id}
+              item={item}
+              onLaunch={launch}
+              onArchive={archive}
+              onDelete={deleteItem}
+              launching={launching === item.id}
+              result={launchResults[item.id]}
+            />
+          ))}
+        </div>
+      )}
+
+      <AddBacklogItemForm onAdded={(item) => setItems((prev) => [item, ...prev])} />
+    </div>
+  );
+}
+
 // ── Admin Page ────────────────────────────────────────────────────────────────
 
 const TABS = [
+  { id: 'backlog', label: 'Backlog' },
   { id: 'launch', label: 'Launch Research' },
   { id: 'content', label: 'Content' },
   { id: 'media', label: 'Media Library' },
@@ -2867,6 +3212,7 @@ export default function AdminPage() {
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-10">
+        {tab === 'backlog' && <BacklogTab />}
         {tab === 'launch' && <LaunchTab />}
         {tab === 'content' && <ContentTab />}
         {tab === 'media' && <MediaTab />}

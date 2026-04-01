@@ -43,7 +43,7 @@ export async function proxy(request: NextRequest) {
 
   // Logged-in users don't need the login page
   if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/browse', request.url));
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   // Public paths — allow through
@@ -72,7 +72,7 @@ export async function proxy(request: NextRequest) {
 
   // Admin pages — email check
   if (pathname.startsWith('/admin') && user.email !== ADMIN_EMAIL) {
-    return NextResponse.redirect(new URL('/browse', request.url));
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return response;

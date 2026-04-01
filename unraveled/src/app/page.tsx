@@ -65,7 +65,7 @@ export default async function HomePage() {
             </span>
           </Link>
           <div className="flex items-center gap-8">
-            <Link href="/browse" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Reports</Link>
+            <Link href="/reports" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Reports</Link>
             <Link href="/people" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Dossiers</Link>
             <Link href="/explore" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Relationships</Link>
             <Link href="#method" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Method</Link>
@@ -204,9 +204,6 @@ export default async function HomePage() {
                 <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
                 <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Featured report</span>
               </div>
-              <Link href="/browse" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-text-tertiary hover:text-gold transition-colors">
-                View all reports →
-              </Link>
             </div>
 
             <Link
@@ -296,11 +293,6 @@ export default async function HomePage() {
                 <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
                 <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Latest research</span>
               </div>
-              {published.length > reportGrid.length + 1 && (
-                <Link href="/browse" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-text-tertiary hover:text-gold transition-colors">
-                  View all reports →
-                </Link>
-              )}
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">

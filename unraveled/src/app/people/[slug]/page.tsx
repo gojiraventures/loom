@@ -76,6 +76,11 @@ export default async function PersonPage({ params }: Props) {
           </a>
         </div>
 
+        {/* Disclaimer */}
+        <p className="font-mono text-[0.65rem] text-text-tertiary border-l-2 border-border pl-3 mb-10">
+          This profile aggregates publicly documented information and makes no unsubstantiated claims about motive or character.
+        </p>
+
         {/* Hero */}
         <div className="flex flex-col sm:flex-row gap-8 mb-12">
           {photoUrl ? (

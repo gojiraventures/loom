@@ -15,25 +15,50 @@ export function parseJsonResponse(response: LLMResponse): unknown {
 
   const text = response.text.trim();
 
-  // Strip markdown code fences: ```json ... ``` or ``` ... ```
-  const fenceMatch = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```\s*$/);
-  const candidate = fenceMatch ? fenceMatch[1].trim() : text;
+  // Attempt 1: bare JSON
+  try { return JSON.parse(text); } catch { /* continue */ }
 
-  try {
-    return JSON.parse(candidate);
-  } catch (err) {
-    // If the fence-stripped content also failed, try the raw text one more time
-    // (covers cases where the model emitted partial fences mid-text)
-    if (candidate !== text) {
-      try {
-        return JSON.parse(text);
-      } catch {
-        // fall through to the throw below
-      }
-    }
-    throw new Error(
-      `JSON parse failed: ${err instanceof Error ? err.message : String(err)}. ` +
-        `Response started with: ${text.slice(0, 120)}`,
-    );
+  // Attempt 2: extract content from a ```json ... ``` or ``` ... ``` fence
+  // (not anchored — handles preamble/postamble text around the fence)
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    const fenced = fenceMatch[1].trim();
+    try { return JSON.parse(fenced); } catch { /* continue */ }
   }
+
+  // Attempt 3: extract the first {...} or [...] block from anywhere in the text
+  const braceMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (braceMatch) {
+    try { return JSON.parse(braceMatch[1]); } catch { /* continue */ }
+  }
+
+  // Attempt 4: partial JSON repair — response was likely truncated before closing braces.
+  // Find the opening { or [ and try to close it.
+  const openBrace = text.indexOf('{');
+  const openBracket = text.indexOf('[');
+  const start = openBrace === -1 ? openBracket : openBracket === -1 ? openBrace : Math.min(openBrace, openBracket);
+  if (start !== -1) {
+    const partial = text.slice(start);
+    // Count unclosed braces/brackets and append closers
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    const closers: string[] = [];
+    for (const ch of partial) {
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') { depth++; closers.push('}'); }
+      else if (ch === '[') { depth++; closers.push(']'); }
+      else if (ch === '}' || ch === ']') { depth--; closers.pop(); }
+    }
+    const repaired = partial.trimEnd().replace(/[,\s]+$/, '') + closers.reverse().join('');
+    try { return JSON.parse(repaired); } catch { /* continue */ }
+  }
+
+  throw new Error(
+    `JSON parse failed — could not extract valid JSON. ` +
+      `Response started with: ${text.slice(0, 120)}`,
+  );
 }

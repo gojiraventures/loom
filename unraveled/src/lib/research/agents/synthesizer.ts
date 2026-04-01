@@ -204,7 +204,7 @@ export async function runSynthesis(
         systemPrompt: SYNTHESIZER_SYSTEM_PROMPT,
         userPrompt: buildSynthesizerPrompt(topic, findings, validations, convergenceAnalyses, debate),
         jsonMode: true,
-        maxTokens: 8192,
+        maxTokens: 16000,
         temperature: 0.60,
         sessionId,
       },

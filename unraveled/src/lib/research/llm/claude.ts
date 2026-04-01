@@ -38,9 +38,17 @@ export async function queryClaude(request: LLMRequest): Promise<LLMResponse> {
     try {
       parsed = JSON.parse(text);
     } catch {
-      const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (match) {
-        try { parsed = JSON.parse(match[1]); } catch { /* leave undefined */ }
+      // Try fence-stripped content
+      const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (fenceMatch) {
+        try { parsed = JSON.parse(fenceMatch[1].trim()); } catch { /* continue */ }
+      }
+      // Try extracting first {...} or [...] block
+      if (parsed === undefined) {
+        const braceMatch = text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+        if (braceMatch) {
+          try { parsed = JSON.parse(braceMatch[1]); } catch { /* leave undefined */ }
+        }
       }
     }
   }
