@@ -5,10 +5,12 @@
  * 1. Reset stale locks
  * 2. Get runnable pending jobs
  * 3. Claim each job atomically
- * 4. Fire /api/jobs/[id]/run for each claimed job (fire-and-forget)
+ * 4. Fire /api/jobs/[id]/run for each claimed job via after()
  *
- * Each run invocation gets its own 300s Vercel function budget.
+ * Uses after() so the run fetches are guaranteed to complete even after
+ * this route's response is sent (works in both local dev and Vercel prod).
  */
+import { after } from 'next/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { resetStaleJobLocks, getRunnableJobs, claimJob } from '@/lib/research/storage/jobs';
 import crypto from 'crypto';
@@ -16,7 +18,6 @@ import crypto from 'crypto';
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
-  // Vercel Cron sends Authorization header; allow direct calls for manual triggers too
   const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
@@ -41,12 +42,24 @@ export async function POST(req: NextRequest) {
     const claimed = await claimJob(job.id, workerId).catch(() => false);
     if (!claimed) continue;
 
-    // Fire-and-forget — each run gets its own Vercel function budget
-    fetch(`${origin}/api/jobs/${job.id}/run`, { method: 'POST' }).catch((err) => {
-      console.error(`[tick] failed to fire job ${job.id}:`, err);
+    const jobId = job.id;
+    const runUrl = `${origin}/api/jobs/${jobId}/run`;
+
+    // after() guarantees the fetch outlives this response — critical for local dev.
+    // In Vercel prod this also works: each fetch triggers a separate function invocation.
+    after(async () => {
+      try {
+        const res = await fetch(runUrl, { method: 'POST' });
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          console.error(`[tick] /run ${jobId} responded ${res.status}: ${body.slice(0, 200)}`);
+        }
+      } catch (err) {
+        console.error(`[tick] failed to fire job ${jobId}:`, err);
+      }
     });
 
-    fired.push(job.id);
+    fired.push(jobId);
   }
 
   return NextResponse.json({
@@ -58,7 +71,6 @@ export async function POST(req: NextRequest) {
   });
 }
 
-// Also support GET for Vercel Cron (Vercel sends GET to cron endpoints)
 export async function GET(req: NextRequest) {
   return POST(req);
 }
