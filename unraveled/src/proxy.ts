@@ -41,8 +41,8 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Logged-in users don't need the coming soon or login pages
-  if (user && PUBLIC_PATHS.has(pathname)) {
+  // Logged-in users don't need the login page
+  if (user && pathname === '/login') {
     return NextResponse.redirect(new URL('/browse', request.url));
   }
 
