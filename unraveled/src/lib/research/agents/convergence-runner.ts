@@ -1,4 +1,5 @@
 import { route } from '../llm/router';
+import { parseJsonResponse } from '../llm/parse';
 import { ConvergenceAnalysisSchema } from '../schemas';
 import { insertConvergenceAnalysis } from '../storage/convergence';
 import { patternMatcher, timelineAnalyst, geographicAnalyst } from './definitions';
@@ -104,7 +105,7 @@ async function runConvergenceAgent(
 
   let analysis: ConvergenceAnalysis;
   try {
-    const raw = response.parsed ?? JSON.parse(response.text);
+    const raw = parseJsonResponse(response);
     analysis = ConvergenceAnalysisSchema.parse(raw) as ConvergenceAnalysis;
   } catch (err) {
     return {

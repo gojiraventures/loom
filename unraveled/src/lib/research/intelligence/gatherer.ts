@@ -21,6 +21,7 @@ import { searchPodcasts } from '@/lib/external/podcasts';
 import { getWikipediaSummary } from '@/lib/external/wikipedia';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { route } from '@/lib/research/llm/router';
+import { parseJsonResponse } from '@/lib/research/llm/parse';
 
 export interface RabbitHole {
   name: string;
@@ -117,7 +118,7 @@ Rules:
       temperature: 0.3,
     }, 'intelligence-gatherer');
 
-    const raw = response.parsed ?? JSON.parse(response.text);
+    const raw = parseJsonResponse(response) as Record<string, unknown>;
     return {
       clusters: (raw.clusters ?? []) as DiscourseCluster[],
       rabbitHoles: (raw.rabbitHoles ?? []) as RabbitHole[],

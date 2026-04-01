@@ -1,4 +1,5 @@
 import { route } from '../llm/router';
+import { parseJsonResponse } from '../llm/parse';
 import { ValidationResultsSchema } from '../schemas';
 import { buildValidationPrompt } from '../prompt-builder';
 import { insertValidations } from '../storage/validations';
@@ -66,7 +67,7 @@ export async function runCrossValidation(
 
   let validations: ValidationResult[] = [];
   try {
-    const raw = response.parsed ?? JSON.parse(response.text);
+    const raw = parseJsonResponse(response);
     const parsed = ValidationResultsSchema.parse(raw);
     validations = parsed.validations;
   } catch (err) {

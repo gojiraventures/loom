@@ -1,4 +1,5 @@
 import { route } from '../llm/router';
+import { parseJsonResponse } from '../llm/parse';
 import { SynthesizedOutputSchema } from '../schemas';
 import type {
   AgentFinding,
@@ -217,7 +218,7 @@ export async function runSynthesis(
   }
 
   try {
-    const raw = response.parsed ?? JSON.parse(response.text);
+    const raw = parseJsonResponse(response);
     const output = SynthesizedOutputSchema.parse(raw) as SynthesizedOutput;
     return { output };
   } catch (err) {
