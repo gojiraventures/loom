@@ -29,18 +29,18 @@ export const AgentFindingSchema = z.object({
   ]).catch('comparative'),
   strength: z.enum(['strong', 'moderate', 'contested']).catch('moderate'),
   confidence: z.number().min(0).max(1),
-  sources: z.array(SourceReferenceSchema).min(1),
-  traditions: z.array(z.string()),
+  sources: z.array(SourceReferenceSchema).default([]),
+  traditions: z.array(z.string()).default([]),
   time_period: z.object({
     start_year: z.number().nullish(),
     end_year: z.number().nullish(),
     era: z.string(),
-  }).nullable(),
-  geographic_scope: z.array(z.string()),
+  }).nullable().default(null),
+  geographic_scope: z.array(z.string()).default([]),
   contradicts: z.array(z.string()).default([]),
   supports: z.array(z.string()).default([]),
-  open_questions: z.array(z.string()),
-  raw_excerpts: z.array(z.string()),
+  open_questions: z.array(z.string()).default([]),
+  raw_excerpts: z.array(z.string()).default([]),
 });
 
 export const AgentFindingsSchema = z.object({
