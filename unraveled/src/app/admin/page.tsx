@@ -3302,7 +3302,7 @@ function JobsTab() {
             const allComplete = allSessionJobs.every((j) => j.status === 'complete');
             // Detect sessions where agents + cross-val finished but downstream phases were never queued
             const missingDownstream = allComplete &&
-              !allSessionJobs.some((j) => ['convergence_analysis', 'adversarial_debate', 'synthesis_outline', 'synthesis_section', 'synthesis_assembly'].includes(j.job_type));
+              !allSessionJobs.some((j) => ['convergence_analysis', 'adversarial_debate', 'synthesis_outline', 'synthesis_section', 'synthesis_assembly', 'editor_pass'].includes(j.job_type));
 
             const borderColor = hasApproval
               ? 'border-gold/40'

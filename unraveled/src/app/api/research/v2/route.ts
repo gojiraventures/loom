@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
     );
 
     // ── Phase 7: Assembly (admin gate) ────────────────────────────────────────
-    await createJobs([{
+    const [assemblyJob] = await createJobs([{
       session_id: sessionId,
       topic: topicStr,
       job_type: 'synthesis_assembly',
@@ -200,8 +200,19 @@ export async function POST(req: NextRequest) {
       requires_approval: true,
     }]);
 
-    const totalJobs = agentJobs.length + 1 + 1 + 1 + 1 + 1 + sectionJobs.length + 1;
-    // agent_signals + agent_eval + cross_val + convergence + debate + outline + sections + assembly
+    // ── Phase 8: Editor pass (admin gate) ─────────────────────────────────────
+    await createJobs([{
+      session_id: sessionId,
+      topic: topicStr,
+      job_type: 'editor_pass',
+      params: { topic: topicStr, title: titleStr },
+      priority: 100,
+      run_after_job_ids: [assemblyJob.id],
+      requires_approval: true,
+    }]);
+
+    const totalJobs = agentJobs.length + 1 + 1 + 1 + 1 + 1 + sectionJobs.length + 2;
+    // agent_signals + agent_eval + cross_val + convergence + debate + outline + sections + assembly + editor
 
     return NextResponse.json({
       session_id: sessionId,

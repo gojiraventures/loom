@@ -6,6 +6,7 @@ import { handleDebate } from './handlers/debate';
 import { handleSynthesisOutline } from './handlers/synthesis-outline';
 import { handleSynthesisSection } from './handlers/synthesis-section';
 import { handleSynthesisAssembly } from './handlers/synthesis-assembly';
+import { handleEditorPass } from './handlers/editor-pass';
 import type { ResearchJob, JobType } from '@/lib/research/storage/jobs';
 
 type Handler = (job: ResearchJob) => Promise<Record<string, unknown>>;
@@ -19,6 +20,7 @@ const HANDLERS: Record<JobType, Handler> = {
   synthesis_outline: handleSynthesisOutline,
   synthesis_section: handleSynthesisSection,
   synthesis_assembly: handleSynthesisAssembly,
+  editor_pass: handleEditorPass,
 };
 
 export async function dispatch(job: ResearchJob): Promise<Record<string, unknown>> {

@@ -131,8 +131,9 @@ export async function POST(
   }
 
   // ── Assembly (admin gate) ──────────────────────────────────────────────────
+  let assemblyJobId: string | null = null;
   if (!existingTypes.has('synthesis_assembly')) {
-    await createJobs([{
+    const [job] = await createJobs([{
       session_id: sessionId,
       topic,
       job_type: 'synthesis_assembly',
@@ -141,7 +142,25 @@ export async function POST(
       run_after_job_ids: sectionJobIds,
       requires_approval: true,
     }]);
+    assemblyJobId = job.id;
     queued.push('synthesis_assembly');
+  } else {
+    assemblyJobId = existingJobs.find((j) => j.job_type === 'synthesis_assembly')?.id ?? null;
+  }
+
+  // ── Editor pass (admin gate) ───────────────────────────────────────────────
+  const assemblyDep = assemblyJobId ? [assemblyJobId] : [];
+  if (!existingTypes.has('editor_pass')) {
+    await createJobs([{
+      session_id: sessionId,
+      topic,
+      job_type: 'editor_pass',
+      params: { topic, title },
+      priority: 100,
+      run_after_job_ids: assemblyDep,
+      requires_approval: true,
+    }]);
+    queued.push('editor_pass');
   }
 
   if (queued.length === 0) {

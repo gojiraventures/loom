@@ -10,7 +10,8 @@ export type JobType =
   | 'adversarial_debate'
   | 'synthesis_outline'
   | 'synthesis_section'
-  | 'synthesis_assembly';
+  | 'synthesis_assembly'
+  | 'editor_pass';
 
 export interface ResearchJob {
   id: string;
