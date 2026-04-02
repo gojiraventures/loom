@@ -1347,6 +1347,11 @@ function ContentTab() {
               {/* People & Institutions */}
               {d.session_id && <DossierEntities sessionId={d.session_id} />}
 
+              {/* Visual Strategy */}
+              {typeof d.synthesized_output?.visual_strategy === 'string' && (
+                <VisualStrategy text={d.synthesized_output.visual_strategy} />
+              )}
+
               {/* Images */}
               <DossierImages topic={d.topic} title={d.title ?? d.topic} />
 
@@ -1658,6 +1663,56 @@ function DossierEntities({ sessionId }: { sessionId: string }) {
   );
 }
 
+// ── Visual Strategy Panel ─────────────────────────────────────────────────────
+
+function VisualStrategy({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="border-t border-border/40">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+      >
+        <span className="font-mono text-[9px] uppercase tracking-widest text-violet-400">
+          Visual Strategy — Hero Image Prompts
+        </span>
+        <span className="font-mono text-[9px] text-text-tertiary">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4">
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={copy}
+              className={`font-mono text-[8px] uppercase tracking-widest border px-2 py-1 rounded transition-colors ${
+                copied
+                  ? 'text-emerald-400 border-emerald-400/30'
+                  : 'text-text-tertiary border-border hover:text-violet-400 hover:border-violet-400/30'
+              }`}
+            >
+              {copied ? '✓ Copied' : 'Copy All'}
+            </button>
+          </div>
+          <pre className="text-[10px] text-text-secondary leading-relaxed whitespace-pre-wrap font-sans bg-ground-light/10 border border-border/30 rounded p-3 max-h-96 overflow-y-auto">
+            {text}
+          </pre>
+          <p className="font-mono text-[8px] text-text-tertiary/50 mt-2">
+            Paste into Grok Imagine or Gemini to generate images. All prompts are 16:9.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Dossier Images Panel ──────────────────────────────────────────────────────
 
 interface TopicImage {
@@ -1693,6 +1748,9 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchMsg, setSearchMsg] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     setLoading(true);
@@ -1738,6 +1796,33 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
       body: JSON.stringify({ id, ...patch }),
     });
     setImages((imgs) => imgs.map((img) => img.id === id ? { ...img, ...patch } : img));
+  };
+
+  const uploadFile = async (file: File) => {
+    setUploading(true);
+    setUploadMsg(`Uploading ${file.name}…`);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('topic', topic);
+      form.append('title', title);
+      const res = await fetch('/api/admin/images/upload', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setUploadMsg(`Uploaded — ${data.gemini_caption ?? 'Visual Curator reviewed'}`);
+      load();
+    } catch (err) {
+      setUploadMsg(`Upload failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) uploadFile(file);
   };
 
   const suggested = images.filter((i) => i.status === 'suggested');
@@ -1985,9 +2070,39 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
             </div>
           )}
 
+          {/* Upload your own image */}
+          <div
+            onDrop={onDrop}
+            onDragOver={(e) => e.preventDefault()}
+            className="border border-dashed border-border/40 hover:border-violet-400/40 transition-colors rounded p-4 text-center"
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/tiff"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); }}
+            />
+            <p className="font-mono text-[9px] text-text-tertiary mb-2">
+              Upload your own image — goes straight to Approved
+            </p>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="font-mono text-[9px] uppercase tracking-widest text-sky-400 border border-sky-400/30 px-3 py-1.5 rounded hover:bg-sky-400/10 transition-colors disabled:opacity-40"
+            >
+              {uploading ? 'Uploading…' : '↑ Choose File or Drag Here'}
+            </button>
+            {uploadMsg && (
+              <p className={`font-mono text-[8px] mt-2 ${uploadMsg.startsWith('Upload failed') ? 'text-red-400' : 'text-emerald-400'}`}>
+                {uploadMsg}
+              </p>
+            )}
+          </div>
+
           {!loading && images.length === 0 && !searching && (
             <p className="font-mono text-[10px] text-text-tertiary">
-              Click "Search Wikimedia Commons" to find openly licensed images for this topic.
+              Search sources above or upload your own image.
             </p>
           )}
         </div>
