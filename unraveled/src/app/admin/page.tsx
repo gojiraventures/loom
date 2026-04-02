@@ -833,9 +833,12 @@ function ContentTab() {
         (s: { status: string }) => s.status === 'complete',
       ) as { id: string; topic: string; created_at: string }[];
 
-      // Keep most-recent session per topic
+      // Keep most-recent session per topic (sort newest-first before iterating)
       const topicSessionMap: Record<string, string> = {};
-      for (const s of completeSessions) {
+      const sorted = [...completeSessions].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      for (const s of sorted) {
         if (!topicSessionMap[s.topic]) topicSessionMap[s.topic] = s.id;
       }
       const topics = Object.keys(topicSessionMap);
@@ -1395,12 +1398,23 @@ function DossierEntities({ sessionId }: { sessionId: string }) {
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch(`/api/admin/dossier/entities?session_id=${sessionId}`);
-    const data = await res.json();
-    setPeople((data.people ?? []).filter((p: EntityRecord) => p.status !== 'archived'));
-    setInstitutions((data.institutions ?? []).filter((i: EntityRecord) => i.status !== 'archived'));
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/admin/dossier/entities?session_id=${sessionId}`);
+      const data = await res.json();
+      setPeople((data.people ?? []).filter((p: EntityRecord) => p.status !== 'archived'));
+      setInstitutions((data.institutions ?? []).filter((i: EntityRecord) => i.status !== 'archived'));
+    } catch {
+      // leave empty — show empty state
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Auto-load when panel is opened
+  useEffect(() => {
+    if (open) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sessionId]);
 
   const promote = async (type: 'person' | 'institution', id: string) => {
     setStatuses((s) => ({ ...s, [id]: 'saving…' }));
