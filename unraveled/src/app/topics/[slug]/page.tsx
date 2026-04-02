@@ -58,18 +58,28 @@ export default async function TopicPage({
   // Fetch approved media (anchors + discovered) — ordered: anchors first, then by quality
   const mediaItems = await getTopicMedia(topic);
 
-  // Fetch approved images
+  // Fetch approved images + audio
   const { createServerSupabaseClient } = await import('@/lib/supabase');
   const supabase = createServerSupabaseClient();
-  const { data: topicImages } = await supabase
-    .from('topic_images')
-    .select('id, title, description, image_url, thumbnail_url, source_page_url, license, license_url, attribution, author, width, height, featured')
-    .eq('topic', topic)
-    .eq('status', 'approved')
-    .order('featured', { ascending: false })
-    .order('quality_score', { ascending: false })
-    .limit(12);
+
+  const [{ data: topicImages }, { data: dossierAudio }] = await Promise.all([
+    supabase
+      .from('topic_images')
+      .select('id, title, description, image_url, thumbnail_url, source_page_url, license, license_url, attribution, author, width, height, featured')
+      .eq('topic', topic)
+      .eq('status', 'approved')
+      .order('featured', { ascending: false })
+      .order('quality_score', { ascending: false })
+      .limit(12),
+    supabase
+      .from('topic_dossiers')
+      .select('audio_url')
+      .eq('topic', topic)
+      .single(),
+  ]);
+
   const approvedImages = topicImages ?? [];
+  const audioUrl = dossierAudio?.audio_url ?? null;
 
   const vizNarratives = getVizNarratives(slug);
 
@@ -108,6 +118,24 @@ export default async function TopicPage({
           </div>
         </div>
       </section>
+
+      {/* ── Podcast Audio ────────────────────────────────────────────────── */}
+      {audioUrl && (
+        <section className="border-b border-border bg-ground-light/20">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-5 flex items-center gap-4">
+            <div className="shrink-0">
+              <span className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Listen</span>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-gold">Audio Overview</span>
+            </div>
+            <audio
+              controls
+              src={audioUrl}
+              className="flex-1 h-9 accent-gold"
+              preload="metadata"
+            />
+          </div>
+        </section>
+      )}
 
       {/* ── Image Gallery ────────────────────────────────────────────────── */}
       {approvedImages.length > 0 && (

@@ -1355,6 +1355,9 @@ function ContentTab() {
                 <VisualStrategy text={d.synthesized_output.visual_strategy} />
               )}
 
+              {/* Podcast Audio */}
+              <DossierPodcast topic={d.topic} />
+
               {/* Images */}
               <DossierImages topic={d.topic} title={d.title ?? d.topic} />
 
@@ -1670,6 +1673,112 @@ function DossierEntities({ sessionId }: { sessionId: string }) {
                 ))}
               </div>
             </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Podcast Audio Panel ───────────────────────────────────────────────────────
+
+function DossierPodcast({ topic }: { topic: string }) {
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const load = async () => {
+    const res = await fetch(`/api/admin/audio?topic=${encodeURIComponent(topic)}`);
+    const data = await res.json();
+    setAudioUrl(data.audio_url ?? null);
+    setGeneratedAt(data.audio_generated_at ?? null);
+  };
+
+  useEffect(() => { if (open) load(); }, [open]);
+
+  const generate = async () => {
+    setGenerating(true);
+    setMsg('Writing script then generating audio — takes 60–120 seconds…');
+    try {
+      const res = await fetch('/api/admin/audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMsg(`Generated — ${data.wav_size_mb} MB WAV`);
+      setAudioUrl(data.audio_url);
+      setGeneratedAt(new Date().toISOString());
+    } catch (err) {
+      setMsg(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!confirm('Delete this podcast audio?')) return;
+    await fetch(`/api/admin/audio?topic=${encodeURIComponent(topic)}`, { method: 'DELETE' });
+    setAudioUrl(null);
+    setGeneratedAt(null);
+    setMsg('');
+  };
+
+  return (
+    <div className="border-t border-border/40">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+      >
+        <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">
+          Podcast Audio
+          {audioUrl && <span className="ml-2 text-emerald-400">● Ready</span>}
+        </span>
+        <span className="font-mono text-[9px] text-text-tertiary">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-3">
+          {audioUrl ? (
+            <div className="space-y-2">
+              <audio controls src={audioUrl} className="w-full h-10" />
+              {generatedAt && (
+                <p className="font-mono text-[8px] text-text-tertiary/50">
+                  Generated {new Date(generatedAt).toLocaleDateString()}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={generate}
+                  disabled={generating}
+                  className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-violet-400 hover:border-violet-400/30 transition-colors disabled:opacity-40"
+                >
+                  {generating ? 'Regenerating…' : '↻ Regenerate'}
+                </button>
+                <button
+                  onClick={remove}
+                  className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-red-400 hover:border-red-400/30 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={generate}
+              disabled={generating}
+              className="font-mono text-[9px] uppercase tracking-widest text-violet-400 border border-violet-400/30 px-3 py-1.5 rounded hover:bg-violet-400/10 transition-colors disabled:opacity-40"
+            >
+              {generating ? '⏳ Generating…' : '▶ Generate Podcast Audio'}
+            </button>
+          )}
+          {msg && (
+            <p className={`font-mono text-[8px] leading-relaxed ${msg.startsWith('Failed') ? 'text-red-400' : 'text-text-tertiary'}`}>
+              {msg}
+            </p>
           )}
         </div>
       )}
