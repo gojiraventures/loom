@@ -1677,6 +1677,13 @@ interface TopicImage {
   status: 'suggested' | 'approved' | 'rejected';
   featured: boolean;
   quality_score: number;
+  gemini_verdict: 'approve' | 'approve_with_tweaks' | 'reject' | null;
+  gemini_aesthetic_score: number | null;
+  gemini_literal: string | null;
+  gemini_alignment: string | null;
+  gemini_caption: string | null;
+  gemini_tweaks: string | null;
+  gemini_alternatives: string | null;
 }
 
 function DossierImages({ topic, title }: { topic: string; title: string }) {
@@ -1705,7 +1712,8 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setSearchMsg(`Found ${data.found} images across ${data.queries?.length ?? 0} queries`);
+      const rejectedNote = data.rejected > 0 ? `, ${data.rejected} auto-rejected by Visual Curator` : '';
+      setSearchMsg(`Found ${data.found} images across ${data.queries?.length ?? 0} queries${rejectedNote}`);
       load();
     } catch (err) {
       setSearchMsg(`Error: ${err instanceof Error ? err.message : String(err)}`);
@@ -1834,68 +1842,132 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
             </div>
           )}
 
-          {/* Suggested images */}
+          {/* Suggested images — Visual Curator verdicts */}
           {suggested.length > 0 && (
             <div>
               <div className="font-mono text-[9px] uppercase tracking-widest text-amber-400 mb-2">
-                Suggested ({suggested.length}) — review and approve
+                Suggested ({suggested.length}) — Visual Curator review
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {suggested.map((img) => (
-                  <div key={img.id} className="group relative border border-border/50 bg-ground-light/10 overflow-hidden hover:border-border transition-colors">
-                    <div className="aspect-[4/3] bg-ground-light/40 overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={img.thumbnail_url ?? img.image_url}
-                        alt={img.title}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                        loading="lazy"
-                      />
-                    </div>
-                    <div className="p-2">
-                      <div className="text-[10px] text-text-secondary leading-tight line-clamp-2 mb-1">{img.title}</div>
-                      <div className={`font-mono text-[8px] ${licenseColor(img.license)}`}>{img.license ?? 'Unknown license'}</div>
-                      <div className="font-mono text-[8px] text-text-tertiary line-clamp-1">{img.author ?? ''}</div>
-                      {img.width && img.height && (
-                        <div className="font-mono text-[7px] text-text-tertiary/60">{img.width}×{img.height}</div>
-                      )}
-                    </div>
-                    <div className="px-2 pb-2 flex gap-1 flex-wrap">
-                      <button
-                        onClick={() => update(img.id, { status: 'approved' })}
-                        className="font-mono text-[7px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-1.5 py-0.5 rounded hover:bg-emerald-400/10 transition-colors"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => update(img.id, { status: 'approved', featured: true })}
-                        className="font-mono text-[7px] uppercase tracking-widest text-gold border border-gold/30 px-1.5 py-0.5 rounded hover:bg-gold/10 transition-colors"
-                      >
-                        Feature
-                      </button>
-                      <button
-                        onClick={() => update(img.id, { status: 'rejected' })}
-                        className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5 rounded hover:text-red-400 hover:border-red-400/30 transition-colors"
-                      >
-                        ✕
-                      </button>
-                      {img.source_page_url && (
-                        <a
-                          href={img.source_page_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-[7px] uppercase tracking-widest text-sky-400/60 border border-sky-400/20 px-1.5 py-0.5 rounded hover:text-sky-400 transition-colors"
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {suggested.map((img) => {
+                  const verdictColor =
+                    img.gemini_verdict === 'approve' ? 'text-emerald-400 border-emerald-400/30' :
+                    img.gemini_verdict === 'approve_with_tweaks' ? 'text-amber-400 border-amber-400/30' :
+                    'text-text-tertiary border-border';
+                  const verdictLabel =
+                    img.gemini_verdict === 'approve' ? '✓ Approve' :
+                    img.gemini_verdict === 'approve_with_tweaks' ? '~ Tweaks' :
+                    img.gemini_verdict ? '✗ Queried' : null;
+
+                  return (
+                    <div key={img.id} className="border border-border/50 bg-ground-light/10 overflow-hidden hover:border-border/80 transition-colors">
+                      {/* Image */}
+                      <div className="aspect-video bg-ground-light/40 overflow-hidden relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={img.thumbnail_url ?? img.image_url}
+                          alt={img.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        {/* Verdict badge */}
+                        {verdictLabel && (
+                          <div className={`absolute top-1.5 right-1.5 font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 bg-ground/80 backdrop-blur-sm ${verdictColor}`}>
+                            {verdictLabel}
+                          </div>
+                        )}
+                        {/* Score badge */}
+                        {img.gemini_aesthetic_score !== null && (
+                          <div className="absolute top-1.5 left-1.5 font-mono text-[7px] bg-ground/80 backdrop-blur-sm border border-border/60 px-1.5 py-0.5 text-text-secondary">
+                            {img.gemini_aesthetic_score}/10
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Curator analysis */}
+                      <div className="p-2.5 space-y-1.5">
+                        <div className="text-[10px] text-text-secondary leading-tight line-clamp-1 font-medium">{img.title}</div>
+
+                        {/* Literal description */}
+                        {img.gemini_literal && (
+                          <p className="text-[9px] text-text-tertiary leading-snug line-clamp-2">
+                            <span className="font-mono text-[8px] text-text-tertiary/50 uppercase tracking-widest mr-1">Shows:</span>
+                            {img.gemini_literal}
+                          </p>
+                        )}
+
+                        {/* Alignment */}
+                        {img.gemini_alignment && (
+                          <p className="text-[9px] text-text-secondary leading-snug line-clamp-2">
+                            <span className="font-mono text-[8px] text-text-tertiary/50 uppercase tracking-widest mr-1">Fit:</span>
+                            {img.gemini_alignment}
+                          </p>
+                        )}
+
+                        {/* Suggested caption */}
+                        {img.gemini_caption && (
+                          <p className="text-[9px] text-sky-400/80 leading-snug line-clamp-2 italic">
+                            &ldquo;{img.gemini_caption}&rdquo;
+                          </p>
+                        )}
+
+                        {/* Tweaks note */}
+                        {img.gemini_tweaks && (
+                          <p className="text-[9px] text-amber-400/80 leading-snug line-clamp-2">
+                            <span className="font-mono text-[8px] uppercase tracking-widest mr-1">Tweak:</span>
+                            {img.gemini_tweaks}
+                          </p>
+                        )}
+
+                        {/* License + author */}
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <span className={`font-mono text-[8px] ${licenseColor(img.license)}`}>{img.license ?? 'Unknown license'}</span>
+                          {img.author && <span className="font-mono text-[8px] text-text-tertiary/60 line-clamp-1">{img.author}</span>}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="px-2.5 pb-2.5 flex gap-1.5 flex-wrap border-t border-border/30 pt-2">
+                        <button
+                          onClick={() => update(img.id, { status: 'approved' })}
+                          className="font-mono text-[7px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-1.5 py-0.5 rounded hover:bg-emerald-400/10 transition-colors"
                         >
-                          →
-                        </a>
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => update(img.id, { status: 'approved', featured: true })}
+                          className="font-mono text-[7px] uppercase tracking-widest text-gold border border-gold/30 px-1.5 py-0.5 rounded hover:bg-gold/10 transition-colors"
+                        >
+                          ★ Feature
+                        </button>
+                        <button
+                          onClick={() => update(img.id, { status: 'rejected' })}
+                          className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5 rounded hover:text-red-400 hover:border-red-400/30 transition-colors"
+                        >
+                          ✕
+                        </button>
+                        {img.source_page_url && (
+                          <a
+                            href={img.source_page_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-[7px] uppercase tracking-widest text-sky-400/60 border border-sky-400/20 px-1.5 py-0.5 rounded hover:text-sky-400 transition-colors ml-auto"
+                          >
+                            Commons →
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Alternatives (for borderline images) */}
+                      {img.gemini_alternatives && (
+                        <div className="px-2.5 pb-2 border-t border-border/20">
+                          <p className="font-mono text-[7px] text-text-tertiary/50 uppercase tracking-widest mt-1.5 mb-0.5">Alternatives</p>
+                          <p className="text-[9px] text-text-tertiary/70 leading-snug">{img.gemini_alternatives}</p>
+                        </div>
                       )}
                     </div>
-                    {/* Attribution tooltip on hover */}
-                    <div className="hidden group-hover:block absolute bottom-0 left-0 right-0 bg-ground/90 px-2 py-1">
-                      <p className="font-mono text-[7px] text-text-tertiary leading-tight line-clamp-2">{img.attribution}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

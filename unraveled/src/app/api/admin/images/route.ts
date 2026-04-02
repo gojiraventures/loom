@@ -91,22 +91,31 @@ Return ONLY: ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`
     return NextResponse.json({ ok: true, found: 0, message: 'No images found for this topic' });
   }
 
-  // Gemini vision evaluation: score relevance, auto-reject junk
+  // Visual Curator (Gemini vision): structured verdict + auto-reject junk
   const evaluated = await evaluateImagesForTopic(deduped, topic, title).catch(() =>
-    // If Gemini eval fails entirely, fall back to all images as suggested
-    deduped.map((img) => ({ ...img, gemini_score: null, gemini_reason: null, gemini_rejected: false }))
+    deduped.map((img) => ({
+      ...img,
+      gemini_verdict: null,
+      gemini_aesthetic_score: null,
+      gemini_literal: null,
+      gemini_alignment: null,
+      gemini_caption: null,
+      gemini_tweaks: null,
+      gemini_alternatives: null,
+      gemini_rejected: false,
+    }))
   );
 
   const approved = evaluated.filter((img) => !img.gemini_rejected);
   const rejected = evaluated.filter((img) => img.gemini_rejected);
 
-  // Upsert into topic_images (skip on conflict = don't overwrite approved images)
+  // Upsert into topic_images (skip on conflict = don't overwrite admin-approved images)
   const rows = evaluated.map((img) => ({
     topic,
     source: 'wikimedia',
     search_query: img.search_query,
     title: img.title,
-    description: img.description ?? img.gemini_reason,
+    description: img.description ?? img.gemini_literal,
     image_url: img.image_url,
     thumbnail_url: img.thumbnail_url,
     source_page_url: img.source_page_url,
@@ -120,6 +129,13 @@ Return ONLY: ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`
     mime_type: img.mime_type,
     quality_score: img.quality_score,
     status: img.gemini_rejected ? 'rejected' : 'suggested',
+    gemini_verdict: img.gemini_verdict,
+    gemini_aesthetic_score: img.gemini_aesthetic_score,
+    gemini_literal: img.gemini_literal,
+    gemini_alignment: img.gemini_alignment,
+    gemini_caption: img.gemini_caption,
+    gemini_tweaks: img.gemini_tweaks,
+    gemini_alternatives: img.gemini_alternatives,
     updated_at: new Date().toISOString(),
   }));
 
