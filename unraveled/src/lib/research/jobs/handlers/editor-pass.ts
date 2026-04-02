@@ -1,6 +1,8 @@
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { queryClaude } from '@/lib/research/llm/claude';
 import { parseJsonResponse } from '@/lib/research/llm/parse';
+import { getFindingsBySession } from '@/lib/research/storage/findings';
+import { extractAndQueueEntities } from '@/lib/research/entity-extractor';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SynthesizedOutput, JawDropLayer } from '@/lib/research/types';
 
@@ -134,10 +136,27 @@ export async function handleEditorPass(job: ResearchJob): Promise<Record<string,
 
   if (updateError) throw new Error(`Failed to update dossier: ${updateError.message}`);
 
+  // ── Entity extraction (best-effort, non-fatal) ─────────────────────────────
+  let extractionResult = null;
+  try {
+    const findings = await getFindingsBySession(job.session_id);
+    extractionResult = await extractAndQueueEntities(job.session_id, topic, revised, findings);
+  } catch (err) {
+    console.error('[editor-pass] Entity extraction failed (non-fatal):', err);
+  }
+
   return {
     topic,
     sections_edited: ['executive_summary', 'advocate_case', 'skeptic_case', 'jaw_drop_layers', 'open_questions'],
     input_tokens: response.inputTokens,
     output_tokens: response.outputTokens,
+    entities: extractionResult
+      ? {
+          created_people: extractionResult.created_people,
+          linked_people: extractionResult.linked_people,
+          created_institutions: extractionResult.created_institutions,
+          linked_institutions: extractionResult.linked_institutions,
+        }
+      : null,
   };
 }

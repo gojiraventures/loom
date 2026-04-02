@@ -33,6 +33,7 @@ interface Dossier {
   summary: string | null;
   synthesized_output: Record<string, unknown> | null;
   last_researched_at: string | null;
+  session_id?: string;
 }
 
 interface Session {
@@ -825,19 +826,29 @@ function ContentTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch all dossiers (published and unpublished)
+      // Fetch all sessions; build topic → most-recent session_id map
       const res = await fetch('/api/admin/sessions');
       const sessData = await res.json();
-      // Get unique topics from sessions, then fetch their dossiers
-      const topics = [...new Set<string>((sessData.sessions ?? [])
-        .filter((s: { status: string }) => s.status === 'complete')
-        .map((s: { topic: string }) => s.topic))];
+      const completeSessions = (sessData.sessions ?? []).filter(
+        (s: { status: string }) => s.status === 'complete',
+      ) as { id: string; topic: string; created_at: string }[];
+
+      // Keep most-recent session per topic
+      const topicSessionMap: Record<string, string> = {};
+      for (const s of completeSessions) {
+        if (!topicSessionMap[s.topic]) topicSessionMap[s.topic] = s.id;
+      }
+      const topics = Object.keys(topicSessionMap);
 
       const results = await Promise.all(
         topics.map((t) =>
           fetch(`/api/admin/dossier?topic=${encodeURIComponent(t)}`)
             .then((r) => r.json())
-            .then((d) => d.dossier as Dossier | null)
+            .then((d) => {
+              const dossier = d.dossier as Dossier | null;
+              if (dossier) dossier.session_id = topicSessionMap[t];
+              return dossier;
+            })
             .catch(() => null)
         )
       );
@@ -1333,6 +1344,9 @@ function ContentTab() {
                   )}
                 </div>
               )}
+              {/* People & Institutions */}
+              {d.session_id && <DossierEntities sessionId={d.session_id} />}
+
               {isPreview && !output && (
                 <div className="border-t border-border px-4 py-3 text-sm text-text-tertiary">
                   No synthesized output found for this topic.
@@ -1342,6 +1356,301 @@ function ContentTab() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── Dossier Entities Panel ────────────────────────────────────────────────────
+
+interface EntityRecord {
+  id: string;
+  full_name?: string;
+  name?: string;
+  slug: string | null;
+  status: string;
+  credibility_tier?: string;
+  institution_type?: string;
+  short_bio: string | null;
+  topic_role: string | null;
+  topic_context: string | null;
+  source: 'extracted' | 'linked';
+  extraction_notes?: string | null;
+}
+
+function DossierEntities({ sessionId }: { sessionId: string }) {
+  const [open, setOpen] = useState(false);
+  const [people, setPeople] = useState<EntityRecord[]>([]);
+  const [institutions, setInstitutions] = useState<EntityRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [statuses, setStatuses] = useState<Record<string, string>>({});
+  const [researchStatus, setResearchStatus] = useState<Record<string, string>>({});
+
+  const load = async () => {
+    setLoading(true);
+    const res = await fetch(`/api/admin/dossier/entities?session_id=${sessionId}`);
+    const data = await res.json();
+    setPeople((data.people ?? []).filter((p: EntityRecord) => p.status !== 'archived'));
+    setInstitutions((data.institutions ?? []).filter((i: EntityRecord) => i.status !== 'archived'));
+    setLoading(false);
+  };
+
+  const promote = async (type: 'person' | 'institution', id: string) => {
+    setStatuses((s) => ({ ...s, [id]: 'saving…' }));
+    const res = await fetch('/api/admin/dossier/entities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, id, action: 'draft' }),
+    });
+    if (res.ok) {
+      setStatuses((s) => ({ ...s, [id]: 'draft ✓' }));
+      load();
+    } else {
+      setStatuses((s) => ({ ...s, [id]: 'error' }));
+    }
+  };
+
+  const skip = async (type: 'person' | 'institution', id: string) => {
+    await fetch('/api/admin/dossier/entities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, id, action: 'skip' }),
+    });
+    if (type === 'person') setPeople((p) => p.filter((x) => x.id !== id));
+    else setInstitutions((i) => i.filter((x) => x.id !== id));
+  };
+
+  const researchAndAdd = async (type: 'person' | 'institution', entity: EntityRecord) => {
+    const label = entity.full_name ?? entity.name ?? '';
+    setResearchStatus((s) => ({ ...s, [entity.id]: 'researching…' }));
+    try {
+      const resRoute = type === 'person' ? '/api/admin/people/research' : '/api/admin/institutions/research';
+      const saveRoute = type === 'person' ? '/api/admin/people' : '/api/admin/institutions';
+      const res = await fetch(resRoute, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: label, description: entity.topic_context ?? '' }),
+      });
+      if (!res.ok) throw new Error('Research failed');
+      const data = await res.json();
+      // Save as draft
+      const payload = type === 'person'
+        ? { person: { ...data.person, status: 'draft' }, bio_sections: data.bio_sections ?? [], suggested_relationships: data.suggested_relationships ?? [], suggested_books: data.suggested_books ?? [] }
+        : { institution: { ...data.institution, status: 'draft' }, bio_sections: data.bio_sections ?? [], suggested_relationships: data.suggested_relationships ?? [] };
+      await fetch(saveRoute, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      setResearchStatus((s) => ({ ...s, [entity.id]: 'added as draft ✓' }));
+      load();
+    } catch {
+      setResearchStatus((s) => ({ ...s, [entity.id]: 'failed' }));
+    }
+  };
+
+  const statusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      needs_review: 'text-amber-400 border-amber-400/30',
+      draft: 'text-sky-400 border-sky-400/30',
+      published: 'text-emerald-400 border-emerald-400/30',
+    };
+    return (
+      <span className={`font-mono text-[8px] uppercase tracking-widest border px-1.5 py-0.5 rounded ${colors[status] ?? 'text-text-tertiary border-border'}`}>
+        {status.replace('_', ' ')}
+      </span>
+    );
+  };
+
+  const total = people.length + institutions.length;
+
+  return (
+    <div className="border-t border-border/40">
+      <button
+        onClick={() => { setOpen(!open); if (!open && people.length === 0 && institutions.length === 0) load(); }}
+        className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+      >
+        <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">
+          People & Institutions
+          {total > 0 && <span className="ml-2 text-violet-400">({total})</span>}
+        </span>
+        <span className="font-mono text-[9px] text-text-tertiary">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-4">
+          {loading && <p className="font-mono text-[10px] text-text-tertiary">Loading…</p>}
+
+          {!loading && total === 0 && (
+            <div className="flex items-center gap-3">
+              <p className="font-mono text-[10px] text-text-tertiary">
+                No entities extracted yet. Run the editor pass to auto-extract.
+              </p>
+              <button
+                onClick={load}
+                className="font-mono text-[9px] text-text-tertiary border border-border px-2 py-1 rounded hover:text-text-secondary transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
+          )}
+
+          {/* People */}
+          {people.length > 0 && (
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-widest text-violet-400 mb-2">
+                People ({people.length})
+              </div>
+              <div className="space-y-2">
+                {people.map((p) => (
+                  <div key={p.id} className="flex items-start gap-3 p-2.5 border border-border/50 bg-ground-light/20">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-text-primary font-medium">{p.full_name}</span>
+                        {statusBadge(p.status)}
+                        {p.credibility_tier && (
+                          <span className="font-mono text-[8px] text-text-tertiary uppercase tracking-wider">
+                            {p.credibility_tier.replace('_', ' ')}
+                          </span>
+                        )}
+                      </div>
+                      {p.topic_role && (
+                        <div className="font-mono text-[9px] text-gold mt-0.5">{p.topic_role}</div>
+                      )}
+                      {p.short_bio && (
+                        <div className="text-xs text-text-tertiary mt-0.5 leading-relaxed line-clamp-2">{p.short_bio}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                      {p.status === 'published' && p.slug && (
+                        <a
+                          href={`/people/${p.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[8px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-2 py-1 rounded hover:bg-emerald-400/10 transition-colors"
+                        >
+                          View →
+                        </a>
+                      )}
+                      {p.status === 'needs_review' && (
+                        <>
+                          <button
+                            onClick={() => researchAndAdd('person', p)}
+                            disabled={!!researchStatus[p.id] && !researchStatus[p.id].includes('failed')}
+                            className="font-mono text-[8px] uppercase tracking-widest text-violet-400 border border-violet-400/30 px-2 py-1 rounded hover:bg-violet-400/10 transition-colors disabled:opacity-40"
+                          >
+                            {researchStatus[p.id] ?? 'Research & Add'}
+                          </button>
+                          <button
+                            onClick={() => promote('person', p.id)}
+                            disabled={statuses[p.id] === 'saving…'}
+                            className="font-mono text-[8px] uppercase tracking-widest text-sky-400 border border-sky-400/30 px-2 py-1 rounded hover:bg-sky-400/10 transition-colors disabled:opacity-40"
+                          >
+                            {statuses[p.id] ?? 'To Draft'}
+                          </button>
+                        </>
+                      )}
+                      {p.status === 'draft' && p.slug && (
+                        <a
+                          href={`/people/${p.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[8px] uppercase tracking-widest text-sky-400 border border-sky-400/30 px-2 py-1 rounded hover:bg-sky-400/10 transition-colors"
+                        >
+                          Edit →
+                        </a>
+                      )}
+                      <button
+                        onClick={() => skip('person', p.id)}
+                        className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-red-400 hover:border-red-400/30 transition-colors"
+                      >
+                        Skip
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Institutions */}
+          {institutions.length > 0 && (
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-widest text-violet-400 mb-2">
+                Institutions ({institutions.length})
+              </div>
+              <div className="space-y-2">
+                {institutions.map((inst) => (
+                  <div key={inst.id} className="flex items-start gap-3 p-2.5 border border-border/50 bg-ground-light/20">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-text-primary font-medium">{inst.name}</span>
+                        {statusBadge(inst.status)}
+                        {inst.institution_type && (
+                          <span className="font-mono text-[8px] text-text-tertiary uppercase tracking-wider">
+                            {inst.institution_type.replace('_', ' ')}
+                          </span>
+                        )}
+                      </div>
+                      {inst.topic_role && (
+                        <div className="font-mono text-[9px] text-gold mt-0.5">{inst.topic_role}</div>
+                      )}
+                      {inst.short_bio && (
+                        <div className="text-xs text-text-tertiary mt-0.5 leading-relaxed line-clamp-2">{inst.short_bio}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                      {inst.status === 'published' && inst.slug && (
+                        <a
+                          href={`/institutions/${inst.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[8px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-2 py-1 rounded hover:bg-emerald-400/10 transition-colors"
+                        >
+                          View →
+                        </a>
+                      )}
+                      {inst.status === 'needs_review' && (
+                        <>
+                          <button
+                            onClick={() => researchAndAdd('institution', inst)}
+                            disabled={!!researchStatus[inst.id] && !researchStatus[inst.id].includes('failed')}
+                            className="font-mono text-[8px] uppercase tracking-widest text-violet-400 border border-violet-400/30 px-2 py-1 rounded hover:bg-violet-400/10 transition-colors disabled:opacity-40"
+                          >
+                            {researchStatus[inst.id] ?? 'Research & Add'}
+                          </button>
+                          <button
+                            onClick={() => promote('institution', inst.id)}
+                            disabled={statuses[inst.id] === 'saving…'}
+                            className="font-mono text-[8px] uppercase tracking-widest text-sky-400 border border-sky-400/30 px-2 py-1 rounded hover:bg-sky-400/10 transition-colors disabled:opacity-40"
+                          >
+                            {statuses[inst.id] ?? 'To Draft'}
+                          </button>
+                        </>
+                      )}
+                      {inst.status === 'draft' && inst.slug && (
+                        <a
+                          href={`/institutions/${inst.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[8px] uppercase tracking-widest text-sky-400 border border-sky-400/30 px-2 py-1 rounded hover:bg-sky-400/10 transition-colors"
+                        >
+                          Edit →
+                        </a>
+                      )}
+                      <button
+                        onClick={() => skip('institution', inst.id)}
+                        className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-red-400 hover:border-red-400/30 transition-colors"
+                      >
+                        Skip
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
