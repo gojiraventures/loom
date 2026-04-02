@@ -1,23 +1,26 @@
 /**
  * GET  /api/admin/images?topic=...
- *   Returns all images for a topic grouped by status.
+ *   Returns all non-rejected images for a topic, sorted by featured + quality.
  *
  * POST /api/admin/images
  *   Body: { topic, title }
- *   Searches Wikimedia Commons using Claude-generated queries and stores results.
+ *   Searches Wikimedia Commons, Met Museum, and Cleveland Museum of Art.
+ *   Claude generates source-targeted queries. Visual Curator (Gemini) evaluates
+ *   all candidates before storage — junk auto-rejected.
  *
  * PATCH /api/admin/images
  *   Body: { id, status?, featured?, sort_order? }
- *   Approve, reject, or feature an image.
  *
  * DELETE /api/admin/images?id=...
- *   Remove an image record.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { queryClaude } from '@/lib/research/llm/claude';
 import { searchWikimediaImages } from '@/lib/external/wikimedia-images';
+import { searchMetMuseumImages } from '@/lib/external/met-museum-images';
+import { searchClevelandMuseumImages } from '@/lib/external/cleveland-museum-images';
 import { evaluateImagesForTopic } from '@/lib/external/gemini-image-eval';
+import type { WikimediaImage } from '@/lib/external/wikimedia-images';
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
@@ -40,55 +43,76 @@ export async function GET(req: NextRequest) {
 
 // ── POST ──────────────────────────────────────────────────────────────────────
 
+interface QuerySet {
+  wikimedia: string[];
+  museum: string[];
+}
+
 export async function POST(req: NextRequest) {
   const { topic, title } = await req.json() as { topic: string; title: string };
   if (!topic || !title) return NextResponse.json({ error: 'topic and title required' }, { status: 400 });
 
   const supabase = createServerSupabaseClient();
 
-  // Claude generates targeted Wikimedia Commons search queries
+  // Claude generates two sets of queries: Commons-style and museum collection-style
   const queryResponse = await queryClaude({
     provider: 'claude',
-    systemPrompt: `You generate Wikimedia Commons image search queries for a research article. Return ONLY valid JSON — an array of 6 strings, each a targeted search query that will find high-quality, relevant, openly licensed images on Wikimedia Commons. Queries should target: archaeological sites, artifacts, maps, historical illustrations, geographic features, and cultural symbols related to the topic. Avoid generic terms. Be specific to maximize relevant results.`,
+    systemPrompt: `You generate image search queries for a research article across two types of sources:
+1. Wikimedia Commons: broad documentary queries — archaeological sites, maps, geographic features, historical photographs, diagrams, cultural symbols.
+2. Museum collections (Met Museum, Cleveland Museum of Art): artifact and art queries — ancient sculptures, pottery, paintings, reliefs, ceremonial objects, illustrated manuscripts.
+
+Return ONLY valid JSON in this exact shape:
+{ "wikimedia": ["q1","q2","q3","q4"], "museum": ["q1","q2","q3","q4"] }
+
+Each array must have exactly 4 strings. Be specific and varied — each query should target a different visual aspect of the topic.`,
     userPrompt: `Article topic: "${topic}"
 Article title: "${title}"
 
-Generate 6 targeted Wikimedia Commons search queries. Each should find different aspects of the topic.
+Generate 4 Wikimedia queries and 4 museum collection queries.
 
-Return ONLY: ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`,
+Return ONLY: { "wikimedia": [...], "museum": [...] }`,
     jsonMode: true,
     maxTokens: 512,
     temperature: 0.3,
   });
 
-  let queries: string[] = [];
+  let querySet: QuerySet = { wikimedia: [], museum: [] };
   try {
-    const parsed = JSON.parse(queryResponse.text);
-    queries = Array.isArray(parsed) ? parsed : Object.values(parsed)[0] as string[];
+    const parsed = JSON.parse(queryResponse.text) as QuerySet;
+    querySet.wikimedia = Array.isArray(parsed.wikimedia) ? parsed.wikimedia : [topic];
+    querySet.museum = Array.isArray(parsed.museum) ? parsed.museum : [topic];
   } catch {
-    // Fallback: use topic words as queries
-    queries = [topic, title].slice(0, 2);
+    querySet = { wikimedia: [topic, title], museum: [topic] };
   }
 
-  // Search Wikimedia Commons for each query and collect results
-  const allImages = await Promise.all(
-    queries.map((q) => searchWikimediaImages(q, 12).catch(() => []))
-  );
+  // Fan out to all three sources in parallel
+  const [wikimediaResults, metResults, clevelandResults] = await Promise.all([
+    Promise.all(
+      querySet.wikimedia.map((q) => searchWikimediaImages(q, 10).catch(() => [] as WikimediaImage[]))
+    ).then((res) => res.flatMap((imgs, i) => imgs.map((img) => ({ ...img, search_query: querySet.wikimedia[i], _source: 'wikimedia' })))),
 
-  // Flatten, deduplicate by image_url, keep top 40 by quality
+    Promise.all(
+      querySet.museum.map((q) => searchMetMuseumImages(q, 8).catch(() => []))
+    ).then((res) => res.flatMap((imgs) => imgs.map((img) => ({ ...img, _source: 'met_museum' })))),
+
+    Promise.all(
+      querySet.museum.map((q) => searchClevelandMuseumImages(q, 8).catch(() => []))
+    ).then((res) => res.flatMap((imgs) => imgs.map((img) => ({ ...img, _source: 'cleveland_museum' })))),
+  ]);
+
+  // Deduplicate by image_url across all sources, keep top 48 by quality
   const seen = new Set<string>();
-  const deduped = allImages
-    .flatMap((imgs, qi) => imgs.map((img) => ({ ...img, search_query: queries[qi] })))
+  const deduped = [...wikimediaResults, ...metResults, ...clevelandResults]
     .filter((img) => {
-      if (seen.has(img.image_url)) return false;
+      if (!img.image_url || seen.has(img.image_url)) return false;
       seen.add(img.image_url);
       return true;
     })
     .sort((a, b) => b.quality_score - a.quality_score)
-    .slice(0, 40);
+    .slice(0, 48);
 
   if (deduped.length === 0) {
-    return NextResponse.json({ ok: true, found: 0, message: 'No images found for this topic' });
+    return NextResponse.json({ ok: true, found: 0, message: 'No images found across any source' });
   }
 
   // Visual Curator (Gemini vision): structured verdict + auto-reject junk
@@ -106,38 +130,41 @@ Return ONLY: ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`
     }))
   );
 
-  const approved = evaluated.filter((img) => !img.gemini_rejected);
+  const passed = evaluated.filter((img) => !img.gemini_rejected);
   const rejected = evaluated.filter((img) => img.gemini_rejected);
 
-  // Upsert into topic_images (skip on conflict = don't overwrite admin-approved images)
-  const rows = evaluated.map((img) => ({
-    topic,
-    source: 'wikimedia',
-    search_query: img.search_query,
-    title: img.title,
-    description: img.description ?? img.gemini_literal,
-    image_url: img.image_url,
-    thumbnail_url: img.thumbnail_url,
-    source_page_url: img.source_page_url,
-    license: img.license,
-    license_url: img.license_url,
-    attribution: img.attribution,
-    author: img.author,
-    date_created: img.date_created,
-    width: img.width,
-    height: img.height,
-    mime_type: img.mime_type,
-    quality_score: img.quality_score,
-    status: img.gemini_rejected ? 'rejected' : 'suggested',
-    gemini_verdict: img.gemini_verdict,
-    gemini_aesthetic_score: img.gemini_aesthetic_score,
-    gemini_literal: img.gemini_literal,
-    gemini_alignment: img.gemini_alignment,
-    gemini_caption: img.gemini_caption,
-    gemini_tweaks: img.gemini_tweaks,
-    gemini_alternatives: img.gemini_alternatives,
-    updated_at: new Date().toISOString(),
-  }));
+  // Upsert (skip on conflict = don't overwrite admin decisions)
+  const rows = evaluated.map((img) => {
+    const source = (img as typeof img & { _source?: string })._source ?? 'wikimedia';
+    return {
+      topic,
+      source,
+      search_query: img.search_query ?? null,
+      title: img.title,
+      description: img.description ?? img.gemini_literal,
+      image_url: img.image_url,
+      thumbnail_url: img.thumbnail_url,
+      source_page_url: img.source_page_url,
+      license: img.license,
+      license_url: img.license_url,
+      attribution: img.attribution,
+      author: img.author,
+      date_created: img.date_created,
+      width: img.width || null,
+      height: img.height || null,
+      mime_type: img.mime_type,
+      quality_score: img.quality_score,
+      status: img.gemini_rejected ? 'rejected' : 'suggested',
+      gemini_verdict: img.gemini_verdict,
+      gemini_aesthetic_score: img.gemini_aesthetic_score,
+      gemini_literal: img.gemini_literal,
+      gemini_alignment: img.gemini_alignment,
+      gemini_caption: img.gemini_caption,
+      gemini_tweaks: img.gemini_tweaks,
+      gemini_alternatives: img.gemini_alternatives,
+      updated_at: new Date().toISOString(),
+    };
+  });
 
   const { error } = await supabase
     .from('topic_images')
@@ -145,11 +172,18 @@ Return ONLY: ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const sourceCounts = {
+    wikimedia: evaluated.filter((i) => (i as typeof i & { _source?: string })._source === 'wikimedia' && !i.gemini_rejected).length,
+    met_museum: evaluated.filter((i) => (i as typeof i & { _source?: string })._source === 'met_museum' && !i.gemini_rejected).length,
+    cleveland_museum: evaluated.filter((i) => (i as typeof i & { _source?: string })._source === 'cleveland_museum' && !i.gemini_rejected).length,
+  };
+
   return NextResponse.json({
     ok: true,
-    found: approved.length,
+    found: passed.length,
     rejected: rejected.length,
-    queries,
+    sources: sourceCounts,
+    queries: querySet,
   });
 }
 

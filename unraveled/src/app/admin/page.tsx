@@ -1663,6 +1663,7 @@ function DossierEntities({ sessionId }: { sessionId: string }) {
 interface TopicImage {
   id: string;
   topic: string;
+  source: string;
   title: string;
   description: string | null;
   image_url: string;
@@ -1712,8 +1713,13 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      const rejectedNote = data.rejected > 0 ? `, ${data.rejected} auto-rejected by Visual Curator` : '';
-      setSearchMsg(`Found ${data.found} images across ${data.queries?.length ?? 0} queries${rejectedNote}`);
+      const parts = [];
+      if (data.sources?.wikimedia) parts.push(`${data.sources.wikimedia} Wikimedia`);
+      if (data.sources?.met_museum) parts.push(`${data.sources.met_museum} Met`);
+      if (data.sources?.cleveland_museum) parts.push(`${data.sources.cleveland_museum} Cleveland`);
+      const sourceStr = parts.length ? ` (${parts.join(', ')})` : '';
+      const rejectedNote = data.rejected > 0 ? ` — ${data.rejected} auto-rejected` : '';
+      setSearchMsg(`Found ${data.found} images${sourceStr}${rejectedNote}`);
       load();
     } catch (err) {
       setSearchMsg(`Error: ${err instanceof Error ? err.message : String(err)}`);
@@ -1811,6 +1817,7 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
                       <div className="text-[10px] text-text-secondary leading-tight line-clamp-2 mb-1">{img.title}</div>
                       <div className={`font-mono text-[8px] ${licenseColor(img.license)}`}>{img.license ?? 'Unknown license'}</div>
                       <div className="font-mono text-[8px] text-text-tertiary line-clamp-1">{img.author ?? ''}</div>
+                      <div className="font-mono text-[7px] text-text-tertiary/40 uppercase tracking-widest mt-0.5">{img.source.replace('_', ' ')}</div>
                     </div>
                     <div className="px-2 pb-2 flex gap-1 flex-wrap">
                       <button
