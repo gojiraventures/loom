@@ -1347,6 +1347,9 @@ function ContentTab() {
               {/* People & Institutions */}
               {d.session_id && <DossierEntities sessionId={d.session_id} />}
 
+              {/* Images */}
+              <DossierImages topic={d.topic} title={d.title ?? d.topic} />
+
               {isPreview && !output && (
                 <div className="border-t border-border px-4 py-3 text-sm text-text-tertiary">
                   No synthesized output found for this topic.
@@ -1648,6 +1651,259 @@ function DossierEntities({ sessionId }: { sessionId: string }) {
                 ))}
               </div>
             </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Dossier Images Panel ──────────────────────────────────────────────────────
+
+interface TopicImage {
+  id: string;
+  topic: string;
+  title: string;
+  description: string | null;
+  image_url: string;
+  thumbnail_url: string | null;
+  source_page_url: string | null;
+  license: string | null;
+  license_url: string | null;
+  attribution: string;
+  author: string | null;
+  width: number | null;
+  height: number | null;
+  status: 'suggested' | 'approved' | 'rejected';
+  featured: boolean;
+  quality_score: number;
+}
+
+function DossierImages({ topic, title }: { topic: string; title: string }) {
+  const [open, setOpen] = useState(false);
+  const [images, setImages] = useState<TopicImage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [searchMsg, setSearchMsg] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    const res = await fetch(`/api/admin/images?topic=${encodeURIComponent(topic)}`);
+    const data = await res.json();
+    setImages(data.images ?? []);
+    setLoading(false);
+  };
+
+  const search = async () => {
+    setSearching(true);
+    setSearchMsg('Generating queries and searching Wikimedia Commons…');
+    try {
+      const res = await fetch('/api/admin/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, title }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSearchMsg(`Found ${data.found} images across ${data.queries?.length ?? 0} queries`);
+      load();
+    } catch (err) {
+      setSearchMsg(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const update = async (id: string, patch: Partial<Pick<TopicImage, 'status' | 'featured'>>) => {
+    await fetch('/api/admin/images', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...patch }),
+    });
+    setImages((imgs) => imgs.map((img) => img.id === id ? { ...img, ...patch } : img));
+  };
+
+  const suggested = images.filter((i) => i.status === 'suggested');
+  const approved = images.filter((i) => i.status === 'approved');
+
+  const licenseColor = (license: string | null) => {
+    if (!license) return 'text-text-tertiary';
+    const l = license.toLowerCase();
+    if (l.includes('public domain') || l.includes('cc0')) return 'text-emerald-400';
+    if (l.includes('cc by')) return 'text-sky-400';
+    return 'text-amber-400';
+  };
+
+  return (
+    <div className="border-t border-border/40">
+      <button
+        onClick={() => { setOpen(!open); if (!open && images.length === 0) load(); }}
+        className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+      >
+        <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">
+          Images
+          {approved.length > 0 && <span className="ml-2 text-emerald-400">({approved.length} approved)</span>}
+          {suggested.length > 0 && <span className="ml-2 text-amber-400">({suggested.length} suggested)</span>}
+        </span>
+        <span className="font-mono text-[9px] text-text-tertiary">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-4">
+          {/* Controls */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={search}
+              disabled={searching}
+              className="font-mono text-[9px] uppercase tracking-widest text-violet-400 border border-violet-400/30 px-3 py-1.5 rounded hover:bg-violet-400/10 transition-colors disabled:opacity-40"
+            >
+              {searching ? 'Searching…' : images.length > 0 ? '↻ Re-search Wikimedia' : '⌕ Search Wikimedia Commons'}
+            </button>
+            {images.length > 0 && (
+              <button
+                onClick={load}
+                className="font-mono text-[9px] text-text-tertiary border border-border px-2 py-1 rounded hover:text-text-secondary transition-colors"
+              >
+                Refresh
+              </button>
+            )}
+            {searchMsg && (
+              <span className={`font-mono text-[9px] ${searchMsg.startsWith('Error') ? 'text-red-400' : 'text-text-tertiary'}`}>
+                {searchMsg}
+              </span>
+            )}
+          </div>
+
+          {loading && <p className="font-mono text-[10px] text-text-tertiary">Loading…</p>}
+
+          {/* Approved images */}
+          {approved.length > 0 && (
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-widest text-emerald-400 mb-2">
+                Approved ({approved.length})
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {approved.map((img) => (
+                  <div key={img.id} className="group relative border border-emerald-400/30 bg-ground-light/20 overflow-hidden">
+                    {img.featured && (
+                      <div className="absolute top-1 left-1 z-10 font-mono text-[7px] uppercase tracking-widest bg-gold text-ground px-1 py-0.5">
+                        Featured
+                      </div>
+                    )}
+                    <div className="aspect-[4/3] bg-ground-light/40 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.thumbnail_url ?? img.image_url}
+                        alt={img.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="p-2">
+                      <div className="text-[10px] text-text-secondary leading-tight line-clamp-2 mb-1">{img.title}</div>
+                      <div className={`font-mono text-[8px] ${licenseColor(img.license)}`}>{img.license ?? 'Unknown license'}</div>
+                      <div className="font-mono text-[8px] text-text-tertiary line-clamp-1">{img.author ?? ''}</div>
+                    </div>
+                    <div className="px-2 pb-2 flex gap-1 flex-wrap">
+                      <button
+                        onClick={() => update(img.id, { featured: !img.featured })}
+                        className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 rounded transition-colors ${img.featured ? 'text-gold border-gold/30 bg-gold/5' : 'text-text-tertiary border-border hover:text-gold'}`}
+                      >
+                        {img.featured ? '★ Featured' : '☆ Feature'}
+                      </button>
+                      <button
+                        onClick={() => update(img.id, { status: 'rejected' })}
+                        className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5 rounded hover:text-red-400 hover:border-red-400/30 transition-colors"
+                      >
+                        Remove
+                      </button>
+                      {img.source_page_url && (
+                        <a
+                          href={img.source_page_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[7px] uppercase tracking-widest text-sky-400/60 border border-sky-400/20 px-1.5 py-0.5 rounded hover:text-sky-400 transition-colors"
+                        >
+                          Source →
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Suggested images */}
+          {suggested.length > 0 && (
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-widest text-amber-400 mb-2">
+                Suggested ({suggested.length}) — review and approve
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {suggested.map((img) => (
+                  <div key={img.id} className="group relative border border-border/50 bg-ground-light/10 overflow-hidden hover:border-border transition-colors">
+                    <div className="aspect-[4/3] bg-ground-light/40 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.thumbnail_url ?? img.image_url}
+                        alt={img.title}
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="p-2">
+                      <div className="text-[10px] text-text-secondary leading-tight line-clamp-2 mb-1">{img.title}</div>
+                      <div className={`font-mono text-[8px] ${licenseColor(img.license)}`}>{img.license ?? 'Unknown license'}</div>
+                      <div className="font-mono text-[8px] text-text-tertiary line-clamp-1">{img.author ?? ''}</div>
+                      {img.width && img.height && (
+                        <div className="font-mono text-[7px] text-text-tertiary/60">{img.width}×{img.height}</div>
+                      )}
+                    </div>
+                    <div className="px-2 pb-2 flex gap-1 flex-wrap">
+                      <button
+                        onClick={() => update(img.id, { status: 'approved' })}
+                        className="font-mono text-[7px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-1.5 py-0.5 rounded hover:bg-emerald-400/10 transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => update(img.id, { status: 'approved', featured: true })}
+                        className="font-mono text-[7px] uppercase tracking-widest text-gold border border-gold/30 px-1.5 py-0.5 rounded hover:bg-gold/10 transition-colors"
+                      >
+                        Feature
+                      </button>
+                      <button
+                        onClick={() => update(img.id, { status: 'rejected' })}
+                        className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5 rounded hover:text-red-400 hover:border-red-400/30 transition-colors"
+                      >
+                        ✕
+                      </button>
+                      {img.source_page_url && (
+                        <a
+                          href={img.source_page_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[7px] uppercase tracking-widest text-sky-400/60 border border-sky-400/20 px-1.5 py-0.5 rounded hover:text-sky-400 transition-colors"
+                        >
+                          →
+                        </a>
+                      )}
+                    </div>
+                    {/* Attribution tooltip on hover */}
+                    <div className="hidden group-hover:block absolute bottom-0 left-0 right-0 bg-ground/90 px-2 py-1">
+                      <p className="font-mono text-[7px] text-text-tertiary leading-tight line-clamp-2">{img.attribution}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!loading && images.length === 0 && !searching && (
+            <p className="font-mono text-[10px] text-text-tertiary">
+              Click "Search Wikimedia Commons" to find openly licensed images for this topic.
+            </p>
           )}
         </div>
       )}

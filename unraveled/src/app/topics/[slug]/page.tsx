@@ -58,6 +58,19 @@ export default async function TopicPage({
   // Fetch approved media (anchors + discovered) — ordered: anchors first, then by quality
   const mediaItems = await getTopicMedia(topic);
 
+  // Fetch approved images
+  const { createServerSupabaseClient } = await import('@/lib/supabase');
+  const supabase = createServerSupabaseClient();
+  const { data: topicImages } = await supabase
+    .from('topic_images')
+    .select('id, title, description, image_url, thumbnail_url, source_page_url, license, license_url, attribution, author, width, height, featured')
+    .eq('topic', topic)
+    .eq('status', 'approved')
+    .order('featured', { ascending: false })
+    .order('quality_score', { ascending: false })
+    .limit(12);
+  const approvedImages = topicImages ?? [];
+
   const vizNarratives = getVizNarratives(slug);
 
   return (
@@ -95,6 +108,53 @@ export default async function TopicPage({
           </div>
         </div>
       </section>
+
+      {/* ── Image Gallery ────────────────────────────────────────────────── */}
+      {approvedImages.length > 0 && (
+        <section className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-10 pb-10">
+            <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
+              Primary Sources
+            </span>
+            <div className={`mt-4 grid gap-3 ${approvedImages.length === 1 ? 'grid-cols-1 max-w-2xl' : approvedImages.length === 2 ? 'grid-cols-2' : approvedImages.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+              {approvedImages.map((img) => (
+                <a
+                  key={img.id}
+                  href={img.source_page_url ?? img.image_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative block overflow-hidden border border-border hover:border-border/80 transition-colors"
+                >
+                  {img.featured && (
+                    <div className="absolute top-2 left-2 z-10 font-mono text-[8px] uppercase tracking-widest bg-gold text-ground px-1.5 py-0.5">
+                      Primary
+                    </div>
+                  )}
+                  <div className={`bg-ground-light/30 overflow-hidden ${approvedImages.length === 1 ? 'aspect-[16/7]' : 'aspect-[4/3]'}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.thumbnail_url ?? img.image_url}
+                      alt={img.title}
+                      className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.02] transition-all duration-300"
+                    />
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-ground/90 to-transparent px-3 py-3">
+                    <p className="text-xs text-text-secondary leading-tight line-clamp-1">{img.title}</p>
+                    <p className="font-mono text-[8px] text-text-tertiary mt-0.5">
+                      {img.author ? `${img.author} · ` : ''}{img.license ?? 'Wikimedia Commons'}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+            {approvedImages.length > 1 && (
+              <p className="font-mono text-[8px] text-text-tertiary/60 mt-3">
+                Images sourced from Wikimedia Commons under open licenses. Click any image for full attribution and source.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── World Map ─────────────────────────────────────────────────────── */}
       {vizNarratives.length > 0 && (
