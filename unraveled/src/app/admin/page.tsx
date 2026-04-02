@@ -1719,6 +1719,7 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
       if (data.sources?.cleveland_museum) parts.push(`${data.sources.cleveland_museum} Cleveland`);
       if (data.sources?.loc) parts.push(`${data.sources.loc} LOC`);
       if (data.sources?.smithsonian) parts.push(`${data.sources.smithsonian} SI`);
+      if (data.sources?.david_rumsey) parts.push(`${data.sources.david_rumsey} Rumsey`);
       const sourceStr = parts.length ? ` (${parts.join(', ')})` : '';
       const rejectedNote = data.rejected > 0 ? ` — ${data.rejected} auto-rejected` : '';
       setSearchMsg(`Found ${data.found} images${sourceStr}${rejectedNote}`);
@@ -1929,8 +1930,11 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
                         )}
 
                         {/* License + author */}
-                        <div className="flex items-center gap-2 pt-0.5">
+                        <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                           <span className={`font-mono text-[8px] ${licenseColor(img.license)}`}>{img.license ?? 'Unknown license'}</span>
+                          {img.license?.toLowerCase().includes('nc') && (
+                            <span className="font-mono text-[7px] uppercase tracking-widest text-orange-400 border border-orange-400/30 px-1 py-0.5">⚠ NC</span>
+                          )}
                           {img.author && <span className="font-mono text-[8px] text-text-tertiary/60 line-clamp-1">{img.author}</span>}
                         </div>
                       </div>

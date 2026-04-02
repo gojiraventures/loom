@@ -21,6 +21,7 @@ import { searchMetMuseumImages } from '@/lib/external/met-museum-images';
 import { searchClevelandMuseumImages } from '@/lib/external/cleveland-museum-images';
 import { searchLocImages } from '@/lib/external/loc-images';
 import { searchSmithsonianImages } from '@/lib/external/smithsonian-images';
+import { searchDavidRumseyImages } from '@/lib/external/david-rumsey-images';
 import { evaluateImagesForTopic } from '@/lib/external/gemini-image-eval';
 import type { WikimediaImage } from '@/lib/external/wikimedia-images';
 
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
 interface QuerySet {
   wikimedia: string[];
   museum: string[];
-  archival: string[];
+  map: string[];
 }
 
 export async function POST(req: NextRequest) {
@@ -57,37 +58,47 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServerSupabaseClient();
 
-  // Claude generates three sets of queries targeted at each source type
+  // Claude generates three sets of queries targeted at each source type.
+  // IMPORTANT: museum and map queries must be SHORT direct keywords (1–3 words).
+  // Museum collection search engines (Met, SI, Cleveland) return far more results
+  // from "dragon" or "flood myth" than from compound descriptive phrases.
   const queryResponse = await queryClaude({
     provider: 'claude',
-    systemPrompt: `You generate image search queries for a research article across three source types:
-1. wikimedia: Documentary/encyclopedic — archaeological sites, maps, geographic features, historical photos, diagrams, cultural symbols, scientific illustrations.
-2. museum: Artifact/art — ancient sculptures, pottery, paintings, reliefs, ceremonial objects, illustrated manuscripts, iconography. (Used for Met Museum, Cleveland Museum of Art, Smithsonian)
-3. archival: Library/archival — vintage engravings, historical prints, old maps, illustrated books, lithographs. (Used for Library of Congress)
+    systemPrompt: `You generate image search queries for a research article across three source types.
 
-Return ONLY valid JSON: { "wikimedia": ["q1","q2","q3"], "museum": ["q1","q2","q3"], "archival": ["q1","q2","q3"] }
-Each array must have exactly 3 strings. Be specific — each query targets a different visual aspect.`,
+CRITICAL RULE for "museum" and "map" queries: use SHORT, DIRECT keywords (1–3 words max).
+Museum collection search engines return far more results from "dragon" than "ancient Chinese dragon deity bronze sculpture".
+Bad: "Mesopotamian flood narrative cuneiform tablet relief"
+Good: "flood myth", "deluge tablet", "Noah ark"
+
+1. wikimedia: 4 documentary queries — sites, maps, photos, diagrams. Can be 2–5 words.
+2. museum: 4 SHORT artifact/art keywords — sculptures, pottery, paintings, iconography. 1–3 words each.
+3. map: 4 SHORT historical map keywords — for David Rumsey map archive. 1–3 words each. Think: "dragon vein", "ancient flood", "ley line", "world map", "sacred geometry".
+
+Return ONLY valid JSON: { "wikimedia": ["q1","q2","q3","q4"], "museum": ["q1","q2","q3","q4"], "map": ["q1","q2","q3","q4"] }`,
     userPrompt: `Article topic: "${topic}"
 Article title: "${title}"
 
-Return ONLY: { "wikimedia": [...], "museum": [...], "archival": [...] }`,
+Generate search queries. Museum and map queries must be SHORT (1–3 words).
+
+Return ONLY: { "wikimedia": [...], "museum": [...], "map": [...] }`,
     jsonMode: true,
     maxTokens: 512,
     temperature: 0.3,
   });
 
-  let querySet: QuerySet = { wikimedia: [], museum: [], archival: [] };
+  let querySet: QuerySet = { wikimedia: [], museum: [], map: [] };
   try {
-    const parsed = JSON.parse(queryResponse.text) as QuerySet;
-    querySet.wikimedia = Array.isArray(parsed.wikimedia) ? parsed.wikimedia : [topic];
-    querySet.museum = Array.isArray(parsed.museum) ? parsed.museum : [topic];
-    querySet.archival = Array.isArray(parsed.archival) ? parsed.archival : [topic];
+    const parsed = JSON.parse(queryResponse.text) as Record<string, unknown>;
+    querySet.wikimedia = Array.isArray(parsed.wikimedia) ? parsed.wikimedia as string[] : [topic];
+    querySet.museum = Array.isArray(parsed.museum) ? parsed.museum as string[] : [topic];
+    querySet.map = Array.isArray(parsed.map) ? parsed.map as string[] : [topic];
   } catch {
-    querySet = { wikimedia: [topic, title], museum: [topic], archival: [topic] };
+    querySet = { wikimedia: [topic, title], museum: [topic], map: [topic] };
   }
 
   // Fan out to all five sources in parallel
-  const [wikimediaResults, metResults, clevelandResults, locResults, smithsonianResults] = await Promise.all([
+  const [wikimediaResults, metResults, clevelandResults, locResults, smithsonianResults, rumseyResults] = await Promise.all([
     Promise.all(
       querySet.wikimedia.map((q) => searchWikimediaImages(q, 10).catch(() => [] as WikimediaImage[]))
     ).then((res) => res.flatMap((imgs, i) => imgs.map((img) => ({ ...img, search_query: querySet.wikimedia[i], _source: 'wikimedia' })))),
@@ -101,17 +112,21 @@ Return ONLY: { "wikimedia": [...], "museum": [...], "archival": [...] }`,
     ).then((res) => res.flatMap((imgs) => imgs.map((img) => ({ ...img, _source: 'cleveland_museum' })))),
 
     Promise.all(
-      querySet.archival.map((q) => searchLocImages(q, 8).catch(() => []))
+      querySet.map.map((q) => searchLocImages(q, 6).catch(() => []))
     ).then((res) => res.flatMap((imgs) => imgs.map((img) => ({ ...img, _source: 'loc' })))),
 
     Promise.all(
-      querySet.archival.map((q) => searchSmithsonianImages(q, 8).catch(() => []))
+      querySet.museum.map((q) => searchSmithsonianImages(q, 6).catch(() => []))
     ).then((res) => res.flatMap((imgs) => imgs.map((img) => ({ ...img, _source: 'smithsonian' })))),
+
+    Promise.all(
+      querySet.map.map((q) => searchDavidRumseyImages(q, 6).catch(() => []))
+    ).then((res) => res.flatMap((imgs) => imgs.map((img) => ({ ...img, _source: 'david_rumsey' })))),
   ]);
 
   // Deduplicate by image_url across all sources, keep top 60 by quality
   const seen = new Set<string>();
-  const deduped = [...wikimediaResults, ...metResults, ...clevelandResults, ...locResults, ...smithsonianResults]
+  const deduped = [...wikimediaResults, ...metResults, ...clevelandResults, ...locResults, ...smithsonianResults, ...rumseyResults]
     .filter((img) => {
       if (!img.image_url || seen.has(img.image_url)) return false;
       seen.add(img.image_url);
@@ -187,6 +202,7 @@ Return ONLY: { "wikimedia": [...], "museum": [...], "archival": [...] }`,
     cleveland_museum: passedImages.filter((i) => getSource(i) === 'cleveland_museum').length,
     loc: passedImages.filter((i) => getSource(i) === 'loc').length,
     smithsonian: passedImages.filter((i) => getSource(i) === 'smithsonian').length,
+    david_rumsey: passedImages.filter((i) => getSource(i) === 'david_rumsey').length,
   };
 
   return NextResponse.json({
