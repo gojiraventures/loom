@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { queryClaude } from '@/lib/research/llm/claude';
 import { searchWikimediaImages } from '@/lib/external/wikimedia-images';
+import { evaluateImagesForTopic } from '@/lib/external/gemini-image-eval';
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
@@ -90,13 +91,22 @@ Return ONLY: ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`
     return NextResponse.json({ ok: true, found: 0, message: 'No images found for this topic' });
   }
 
+  // Gemini vision evaluation: score relevance, auto-reject junk
+  const evaluated = await evaluateImagesForTopic(deduped, topic, title).catch(() =>
+    // If Gemini eval fails entirely, fall back to all images as suggested
+    deduped.map((img) => ({ ...img, gemini_score: null, gemini_reason: null, gemini_rejected: false }))
+  );
+
+  const approved = evaluated.filter((img) => !img.gemini_rejected);
+  const rejected = evaluated.filter((img) => img.gemini_rejected);
+
   // Upsert into topic_images (skip on conflict = don't overwrite approved images)
-  const rows = deduped.map((img) => ({
+  const rows = evaluated.map((img) => ({
     topic,
     source: 'wikimedia',
     search_query: img.search_query,
     title: img.title,
-    description: img.description,
+    description: img.description ?? img.gemini_reason,
     image_url: img.image_url,
     thumbnail_url: img.thumbnail_url,
     source_page_url: img.source_page_url,
@@ -109,7 +119,7 @@ Return ONLY: ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`
     height: img.height,
     mime_type: img.mime_type,
     quality_score: img.quality_score,
-    status: 'suggested',
+    status: img.gemini_rejected ? 'rejected' : 'suggested',
     updated_at: new Date().toISOString(),
   }));
 
@@ -119,7 +129,12 @@ Return ONLY: ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6"]`
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, found: deduped.length, queries });
+  return NextResponse.json({
+    ok: true,
+    found: approved.length,
+    rejected: rejected.length,
+    queries,
+  });
 }
 
 // ── PATCH ─────────────────────────────────────────────────────────────────────
