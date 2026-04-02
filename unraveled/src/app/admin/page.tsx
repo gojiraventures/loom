@@ -1717,6 +1717,8 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
       if (data.sources?.wikimedia) parts.push(`${data.sources.wikimedia} Wikimedia`);
       if (data.sources?.met_museum) parts.push(`${data.sources.met_museum} Met`);
       if (data.sources?.cleveland_museum) parts.push(`${data.sources.cleveland_museum} Cleveland`);
+      if (data.sources?.loc) parts.push(`${data.sources.loc} LOC`);
+      if (data.sources?.smithsonian) parts.push(`${data.sources.smithsonian} SI`);
       const sourceStr = parts.length ? ` (${parts.join(', ')})` : '';
       const rejectedNote = data.rejected > 0 ? ` — ${data.rejected} auto-rejected` : '';
       setSearchMsg(`Found ${data.found} images${sourceStr}${rejectedNote}`);
