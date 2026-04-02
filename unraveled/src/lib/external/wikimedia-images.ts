@@ -147,6 +147,9 @@ export async function searchWikimediaImages(
     if (info.width < 400 || info.height < 300) continue;
 
     const license = info.extmetadata?.LicenseShortName?.value ?? null;
+
+    // Skip NonCommercial licenses — incompatible with a monetized site
+    if (license && license.toLowerCase().includes('nc')) continue;
     const licenseUrl = info.extmetadata?.LicenseUrl?.value ?? null;
     const rawDesc = info.extmetadata?.ImageDescription?.value ?? null;
     const rawArtist = info.extmetadata?.Artist?.value ?? null;
