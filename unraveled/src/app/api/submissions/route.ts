@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { queryAnthropic } from '@/lib/ai';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,20 +20,36 @@ interface ModerationResult {
 
 async function moderate(content: string): Promise<ModerationResult> {
   try {
-    const result = await queryAnthropic(
-      `Classify this user-submitted text for a research platform. Is it clean or does it contain hate speech, threats, slurs, obscenities, harassment, or clearly abusive content?
+    const res = await fetch('https://api.openai.com/v1/moderations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY!}`,
+      },
+      body: JSON.stringify({ input: content.slice(0, 2000) }),
+    });
 
-Text: "${content.slice(0, 500)}"
+    if (!res.ok) return { flagged: false, reason: null };
 
-Return ONLY valid JSON:
-{
-  "flagged": true or false,
-  "reason": "one sentence reason if flagged, null if clean"
-}`,
-      'You are a content moderation classifier. Return ONLY valid JSON, no prose.'
-    );
-    const cleaned = result.content.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
-    return JSON.parse(cleaned) as ModerationResult;
+    const data = await res.json() as {
+      results: {
+        flagged: boolean;
+        categories: Record<string, boolean>;
+      }[];
+    };
+
+    const result = data.results?.[0];
+    if (!result) return { flagged: false, reason: null };
+
+    if (!result.flagged) return { flagged: false, reason: null };
+
+    // Build a human-readable reason from which categories fired
+    const fired = Object.entries(result.categories)
+      .filter(([, v]) => v)
+      .map(([k]) => k.replace(/\//g, ' / '));
+    const reason = `Flagged for: ${fired.join(', ')}`;
+
+    return { flagged: true, reason };
   } catch {
     return { flagged: false, reason: null };
   }
