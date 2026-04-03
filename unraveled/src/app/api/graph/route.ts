@@ -112,11 +112,6 @@ export async function GET() {
     })),
   ];
 
-  // Only return nodes that appear in edges OR are highly connected
-  const connectedIds = new Set(edges.flatMap((e) => [e.source, e.target]));
-  const filteredNodes = nodes.filter(
-    (n) => connectedIds.has(n.id) || n.connection_count > 0
-  );
-
-  return NextResponse.json({ nodes: filteredNodes, edges });
+  // Return all published nodes — isolates are still useful to see in the graph
+  return NextResponse.json({ nodes, edges });
 }
