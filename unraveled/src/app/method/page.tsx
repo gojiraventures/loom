@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 
-export const metadata = undefined; // client component — set in head via title tag
-
 const PIPELINE_STEPS = [
   {
     number: '01',
