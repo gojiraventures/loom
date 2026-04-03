@@ -94,14 +94,14 @@ export function NarrativeTimeline({ narratives }: { narratives: VizNarrative[] }
                 <g key={ep.year}>
                   <line
                     x1={x} y1={TOP_OFFSET - 8} x2={x} y2={AXIS_Y}
-                    stroke="rgba(255,255,255,0.05)"
+                    stroke="rgba(255,255,255,0.12)"
                     strokeWidth={0.5}
                   />
                   <text
-                    x={x} y={AXIS_Y + 16}
+                    x={x} y={AXIS_Y + 18}
                     textAnchor="middle"
-                    fill="rgba(255,255,255,0.25)"
-                    fontSize={8}
+                    fill="rgba(255,255,255,0.55)"
+                    fontSize={11}
                     fontFamily="'IBM Plex Mono', monospace"
                     letterSpacing={1}
                   >
@@ -114,8 +114,8 @@ export function NarrativeTimeline({ narratives }: { narratives: VizNarrative[] }
             {/* Axis line */}
             <line
               x1={0} y1={AXIS_Y} x2={SVG_W} y2={AXIS_Y}
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth={0.5}
+              stroke="rgba(255,255,255,0.25)"
+              strokeWidth={1}
             />
 
             {/* Events */}
@@ -135,8 +135,8 @@ export function NarrativeTimeline({ narratives }: { narratives: VizNarrative[] }
                   {/* Vertical drop to axis */}
                   <line
                     x1={x} y1={cy + 5} x2={x} y2={AXIS_Y}
-                    stroke={isSelected ? col : 'rgba(255,255,255,0.08)'}
-                    strokeWidth={0.5}
+                    stroke={isSelected ? col : 'rgba(255,255,255,0.20)'}
+                    strokeWidth={isSelected ? 1 : 0.5}
                     strokeDasharray="2,3"
                   />
 
@@ -152,8 +152,8 @@ export function NarrativeTimeline({ narratives }: { narratives: VizNarrative[] }
                   <text
                     x={x} y={cy - 9}
                     textAnchor="middle"
-                    fill={isSelected ? col : 'rgba(255,255,255,0.4)'}
-                    fontSize={7.5}
+                    fill={isSelected ? col : 'rgba(255,255,255,0.65)'}
+                    fontSize={10}
                     fontFamily="'IBM Plex Mono', monospace"
                     fontWeight={isSelected ? '600' : '400'}
                   >
@@ -205,12 +205,12 @@ export function NarrativeTimeline({ narratives }: { narratives: VizNarrative[] }
         {Object.entries(TYPE_COLORS).filter(([t]) => t !== 'geological').map(([type, color]) => (
           <div key={type} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full" style={{ background: color }} />
-            <span className="font-mono text-[9px] tracking-wider uppercase text-text-tertiary">
+            <span className="font-mono text-[11px] tracking-wider uppercase text-text-secondary">
               {type.replace('_', ' ')}
             </span>
           </div>
         ))}
-        <span className="font-mono text-[9px] text-text-tertiary ml-auto">
+        <span className="font-mono text-[11px] text-text-secondary ml-auto">
           Click any marker to expand
         </span>
       </div>

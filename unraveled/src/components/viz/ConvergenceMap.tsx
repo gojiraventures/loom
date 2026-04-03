@@ -84,7 +84,7 @@ function MapCanvas({
       ctx.clearRect(0, 0, MAP_W, MAP_H);
 
       // Grid lines
-      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.07)';
       ctx.lineWidth = 0.5;
       for (let i = 0; i <= 12; i++) {
         const x = (i / 12) * MAP_W;
@@ -96,14 +96,14 @@ function MapCanvas({
       }
 
       // Equator
-      ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
       ctx.beginPath(); ctx.moveTo(0, MAP_H / 2); ctx.lineTo(MAP_W, MAP_H / 2); ctx.stroke();
 
       // Land dots
       LAND_POINTS.forEach(p => {
         ctx.beginPath();
         ctx.arc(p.x, p.y, 1.2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,0.09)';
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
         ctx.fill();
       });
 
@@ -191,10 +191,10 @@ function MapCanvas({
           ctx.fill();
           ctx.stroke();
           ctx.fillStyle = col;
-          ctx.font = `600 11px 'IBM Plex Mono', monospace`;
+          ctx.font = `600 13px 'IBM Plex Mono', monospace`;
           ctx.fillText(n.title, lx, ly);
-          ctx.fillStyle = 'rgba(255,255,255,0.45)';
-          ctx.font = `400 9px 'IBM Plex Mono', monospace`;
+          ctx.fillStyle = 'rgba(255,255,255,0.65)';
+          ctx.font = `400 11px 'IBM Plex Mono', monospace`;
           const yearStr = n.year < 0 ? `${Math.abs(n.year)} BCE` : `${n.year} CE`;
           ctx.fillText(`${n.tradition} · ${yearStr}`, lx, ly + 15);
         }
@@ -202,8 +202,8 @@ function MapCanvas({
 
       // Year watermark
       const yearText = currentYear < 0 ? `${Math.abs(currentYear)} BCE` : `${currentYear} CE`;
-      ctx.fillStyle = 'rgba(255,255,255,0.04)';
-      ctx.font = `700 52px 'IBM Plex Mono', monospace`;
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.font = `700 72px 'IBM Plex Mono', monospace`;
       ctx.textAlign = 'right';
       ctx.fillText(yearText, MAP_W - 20, MAP_H - 18);
 
@@ -301,7 +301,7 @@ export function ConvergenceMap({ narratives }: { narratives: VizNarrative[] }) {
       <div className="border border-t-0 border-border bg-ground-light/30 px-5 py-4 space-y-4">
         {/* Time scrubber */}
         <div className="flex items-center gap-4">
-          <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-text-tertiary shrink-0">
+          <span className="font-mono text-[11px] tracking-[0.15em] uppercase text-text-secondary shrink-0">
             Year
           </span>
           <input
@@ -329,7 +329,7 @@ export function ConvergenceMap({ narratives }: { narratives: VizNarrative[] }) {
               <button
                 key={type}
                 onClick={() => setFilter(f => ({ ...f, [type]: !f[type] }))}
-                className="flex items-center gap-1.5 font-mono text-[9px] tracking-[0.15em] uppercase px-2.5 py-1 border transition-all"
+                className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.1em] uppercase px-3 py-1.5 border transition-all"
                 style={{
                   borderColor: filter[type] ? color : 'rgba(255,255,255,0.08)',
                   color: filter[type] ? color : 'rgba(255,255,255,0.25)',
@@ -341,7 +341,7 @@ export function ConvergenceMap({ narratives }: { narratives: VizNarrative[] }) {
               </button>
             ))}
           </div>
-          <span className="font-mono text-[9px] text-text-tertiary">
+          <span className="font-mono text-[11px] text-text-secondary">
             {visibleCount} narrative{visibleCount !== 1 ? 's' : ''} visible
           </span>
         </div>

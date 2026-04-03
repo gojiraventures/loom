@@ -180,15 +180,15 @@ export default function RelationshipGraph({ centerPersonId, centerPersonName, re
                 x1={s.x} y1={s.y} x2={t.x} y2={t.y}
                 stroke={color}
                 strokeWidth={isHovered ? 2 : 1}
-                strokeOpacity={isHovered ? 0.8 : 0.35}
+                strokeOpacity={isHovered ? 1 : 0.55}
                 markerEnd={!e.bidirectional ? 'url(#arrow)' : undefined}
               />
               {/* Edge label */}
               {isHovered && (
                 <text
                   x={(s.x + t.x) / 2} y={(s.y + t.y) / 2 - 6}
-                  textAnchor="middle" fontSize={9}
-                  fill={color} opacity={0.9}
+                  textAnchor="middle" fontSize={11}
+                  fill={color} opacity={1}
                   className="font-mono pointer-events-none"
                 >
                   {e.type.replace(/_/g, ' ')}
@@ -220,9 +220,9 @@ export default function RelationshipGraph({ centerPersonId, centerPersonName, re
               />
               <text
                 textAnchor="middle"
-                dy={r + 14}
-                fontSize={10}
-                fill={isHov ? '#e8e4dd' : '#9b9589'}
+                dy={r + 16}
+                fontSize={12}
+                fill={isHov ? '#f0ede8' : '#c4bdb6'}
                 className="pointer-events-none select-none"
                 style={{ fontFamily: 'var(--font-mono, monospace)' }}
               >
@@ -231,9 +231,9 @@ export default function RelationshipGraph({ centerPersonId, centerPersonName, re
               {isHov && (
                 <text
                   textAnchor="middle"
-                  dy={r + 26}
-                  fontSize={8}
-                  fill="#6b6560"
+                  dy={r + 30}
+                  fontSize={11}
+                  fill="#9b9589"
                   className="pointer-events-none select-none"
                 >
                   {n.name.split(' ').slice(0, -1).join(' ')}
@@ -247,7 +247,7 @@ export default function RelationshipGraph({ centerPersonId, centerPersonName, re
       {/* Legend */}
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
         {Array.from(new Set(edges.map((e) => e.type))).map((type) => (
-          <span key={type} className="flex items-center gap-1.5 font-mono text-[9px] text-text-tertiary">
+          <span key={type} className="flex items-center gap-1.5 font-mono text-[11px] text-text-secondary">
             <span
               className="w-2 h-2 rounded-full inline-block"
               style={{ backgroundColor: REL_COLORS[type] ?? REL_COLORS.default }}
