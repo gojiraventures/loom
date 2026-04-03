@@ -203,27 +203,51 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6. Auto-link institutional affiliations
+    // 6. Auto-link institutional affiliations (create institution draft if not found)
     const affiliations = Array.isArray(p.suggested_institutional_affiliations)
       ? p.suggested_institutional_affiliations
       : [];
     for (const aff of affiliations as Record<string, unknown>[]) {
       if (!aff.institution_name) continue;
-      const { data: inst } = await supabase
+
+      // Try to find existing institution by name
+      let { data: inst } = await supabase
         .from('institutions')
         .select('id')
         .ilike('name', `%${aff.institution_name}%`)
         .limit(1)
         .maybeSingle();
+
+      // Auto-create as draft if not found
+      if (!inst) {
+        const instSlug = (aff.institution_name as string)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+        const { data: created } = await supabase
+          .from('institutions')
+          .insert({
+            slug: instSlug,
+            name: aff.institution_name as string,
+            institution_type: (aff.institution_type as string) ?? 'other',
+            status: 'draft',
+            short_bio: (aff.description as string) ?? null,
+          })
+          .select('id')
+          .single()
+          .then((r) => r, () => ({ data: null }));
+        inst = created;
+      }
+
       if (inst) {
         await supabase.from('people_institutions').upsert({
           person_id: saved.id,
           institution_id: inst.id,
           relationship: (aff.relationship as string) ?? 'member',
-          role_title: aff.role_title as string | null ?? null,
-          description: aff.description as string | null ?? null,
-          start_year: aff.start_year as string | null ?? null,
-          end_year: aff.end_year as string | null ?? null,
+          role_title: (aff.role_title as string) ?? null,
+          description: (aff.description as string) ?? null,
+          start_year: (aff.start_year as string) ?? null,
+          end_year: (aff.end_year as string) ?? null,
           covert: (aff.covert as boolean) ?? false,
           declassified: false,
           membership_status: (aff.membership_status as string) ?? 'unknown',

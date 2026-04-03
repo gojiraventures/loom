@@ -9,6 +9,8 @@ import { SharedElementsGrid } from '@/components/viz/SharedElementsGrid';
 import { TraditionNetwork } from '@/components/viz/TraditionNetwork';
 import { getDossier } from '@/lib/research/storage/dossiers';
 import { slugToTopic } from '@/lib/topics';
+import { LLMPerspectives } from '@/components/LLMPerspectives';
+import type { LLMPerspective } from '@/components/LLMPerspectives';
 import { FLOOD_NARRATIVES } from '@/lib/viz/topics/flood';
 import { getTopicMedia } from '@/lib/research/intelligence/gatherer';
 import { MediaSection } from '@/components/media/MediaSection';
@@ -62,7 +64,7 @@ export default async function TopicPage({
   const { createServerSupabaseClient } = await import('@/lib/supabase');
   const supabase = createServerSupabaseClient();
 
-  const [{ data: topicImages }, { data: dossierAudio }] = await Promise.all([
+  const [{ data: topicImages }, { data: dossierMeta }] = await Promise.all([
     supabase
       .from('topic_images')
       .select('id, title, description, image_url, thumbnail_url, cropped_url, source_page_url, license, license_url, attribution, author, width, height, featured, hero_position, gemini_caption')
@@ -73,7 +75,7 @@ export default async function TopicPage({
       .limit(12),
     supabase
       .from('topic_dossiers')
-      .select('audio_url')
+      .select('audio_url, llm_perspectives')
       .eq('topic', topic)
       .single(),
   ]);
@@ -84,7 +86,8 @@ export default async function TopicPage({
   const galleryImages = heroImage
     ? approvedImages.filter((i) => i.id !== heroImage.id)
     : [];
-  const audioUrl = dossierAudio?.audio_url ?? null;
+  const audioUrl = dossierMeta?.audio_url ?? null;
+  const llmPerspectives = (dossierMeta?.llm_perspectives ?? null) as LLMPerspective[] | null;
 
   const vizNarratives = getVizNarratives(slug);
 
@@ -556,6 +559,11 @@ export default async function TopicPage({
           </div>
         </div>
       </section>
+
+      {/* ── LLM Perspectives ────────────────────────────────────────────── */}
+      {llmPerspectives && llmPerspectives.length > 0 && (
+        <LLMPerspectives perspectives={llmPerspectives} />
+      )}
 
       {/* ── Remaining images — small grid before sources ─────────────────── */}
       {galleryImages.length > 3 && (

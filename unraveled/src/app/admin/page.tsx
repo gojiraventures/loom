@@ -35,6 +35,7 @@ interface Dossier {
   summary: string | null;
   synthesized_output: Record<string, unknown> | null;
   last_researched_at: string | null;
+  llm_perspectives: unknown[] | null;
   session_id?: string;
 }
 
@@ -814,6 +815,7 @@ function ContentTab() {
   const [deepDiveStatus, setDeepDiveStatus] = useState<Record<string, string>>({});
   const [resynthStatus, setResynthStatus] = useState<Record<string, string>>({});
   const [featureStatus, setFeatureStatus] = useState<Record<string, string>>({});
+  const [llmStatus, setLlmStatus] = useState<Record<string, string>>({});
 
   const toggleFeature = async (topic: string, currentlyFeatured: boolean) => {
     const next = !currentlyFeatured;
@@ -829,6 +831,27 @@ function ContentTab() {
       load();
     } catch {
       setFeatureStatus((s) => ({ ...s, [topic]: 'error' }));
+    }
+  };
+
+  const generateLLMPerspectives = async (d: Dossier) => {
+    setLlmStatus((s) => ({ ...s, [d.topic]: 'generating…' }));
+    try {
+      const output = d.synthesized_output as Record<string, unknown> | null;
+      const res = await fetch('/api/reports/llm-perspectives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: d.topic,
+          title: d.title,
+          summary: (output?.executive_summary as string)?.slice(0, 300) ?? d.summary ?? '',
+        }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      setLlmStatus((s) => ({ ...s, [d.topic]: 'done ✓' }));
+      load();
+    } catch {
+      setLlmStatus((s) => ({ ...s, [d.topic]: 'error' }));
     }
   };
 
@@ -1146,6 +1169,26 @@ function ContentTab() {
                 {featureStatus[d.topic] && (
                   <span className={`font-mono text-[9px] ${featureStatus[d.topic] === 'error' ? 'text-red-400' : 'text-amber-400'}`}>
                     {featureStatus[d.topic]}
+                  </span>
+                )}
+                <button
+                  onClick={() => generateLLMPerspectives(d)}
+                  disabled={llmStatus[d.topic] === 'generating…'}
+                  className={`font-mono text-[9px] uppercase tracking-widest border px-3 py-1 rounded transition-colors disabled:opacity-40 ${
+                    d.llm_perspectives
+                      ? 'text-sky-400 border-sky-400/30 hover:bg-sky-400/10'
+                      : 'text-violet-400 border-violet-400/30 hover:bg-violet-400/10'
+                  }`}
+                >
+                  {llmStatus[d.topic] === 'generating…'
+                    ? 'Querying AIs…'
+                    : d.llm_perspectives
+                    ? '↺ Re-run AI Check'
+                    : '◈ Generate AI Check'}
+                </button>
+                {llmStatus[d.topic] && llmStatus[d.topic] !== 'generating…' && (
+                  <span className={`font-mono text-[9px] ${llmStatus[d.topic] === 'error' ? 'text-red-400' : 'text-violet-400'}`}>
+                    {llmStatus[d.topic]}
                   </span>
                 )}
                 {statusMsg && (
@@ -4847,9 +4890,246 @@ function JobsTab() {
   );
 }
 
+// ── Inbox Tab ─────────────────────────────────────────────────────────────────
+
+type SubmissionStatus = 'pending' | 'backlogged' | 'actioned' | 'dismissed';
+type SubmissionType = 'person' | 'institution' | 'research';
+
+interface Submission {
+  id: string;
+  submission_type: SubmissionType;
+  content: string;
+  email: string | null;
+  status: SubmissionStatus;
+  notes: string | null;
+  created_at: string;
+  actioned_at: string | null;
+}
+
+const SUBMISSION_TYPE_LABELS: Record<SubmissionType, { label: string; color: string }> = {
+  person:      { label: 'Person',      color: 'text-sky-400 border-sky-400/30' },
+  institution: { label: 'Institution', color: 'text-violet-400 border-violet-400/30' },
+  research:    { label: 'Research',    color: 'text-amber-400 border-amber-400/30' },
+};
+
+const INBOX_FILTER_LABELS: Record<SubmissionStatus | 'all', string> = {
+  all:        'All',
+  pending:    'Pending',
+  backlogged: 'Backlogged',
+  actioned:   'Actioned',
+  dismissed:  'Dismissed',
+};
+
+function InboxTab() {
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<SubmissionStatus | 'all'>('pending');
+  const [actionStatus, setActionStatus] = useState<Record<string, string>>({});
+  const [editingNote, setEditingNote] = useState<string | null>(null);
+  const [noteValues, setNoteValues] = useState<Record<string, string>>({});
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/submissions?status=${filter}`);
+      const data = await res.json() as { submissions: Submission[] };
+      setSubmissions(data.submissions ?? []);
+    } catch { /* empty */ } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const setStatus = async (id: string, status: SubmissionStatus) => {
+    setActionStatus((s) => ({ ...s, [id]: status }));
+    await fetch('/api/submissions', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    });
+    load();
+  };
+
+  const saveNote = async (id: string) => {
+    await fetch('/api/submissions', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, notes: noteValues[id] ?? '' }),
+    });
+    setEditingNote(null);
+    load();
+  };
+
+  const del = async (id: string) => {
+    await fetch(`/api/submissions?id=${id}`, { method: 'DELETE' });
+    load();
+  };
+
+  const pending = submissions.filter((s) => s.status === 'pending').length;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="font-mono text-[11px] uppercase tracking-widest text-text-secondary">
+            Community Submissions
+          </h2>
+          {pending > 0 && filter !== 'pending' && (
+            <span className="font-mono text-[9px] bg-gold/20 text-gold border border-gold/30 px-1.5 py-0.5 rounded">
+              {pending} pending
+            </span>
+          )}
+        </div>
+        <button
+          onClick={load}
+          className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-text-secondary border border-border px-2 py-1 rounded transition-colors"
+        >
+          ↺ Refresh
+        </button>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-1 border-b border-border pb-0">
+        {(Object.entries(INBOX_FILTER_LABELS) as [SubmissionStatus | 'all', string][]).map(([f, label]) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border-b-2 transition-colors ${
+              filter === f
+                ? 'border-gold text-gold'
+                : 'border-transparent text-text-tertiary hover:text-text-secondary'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p className="font-mono text-[9px] text-text-tertiary animate-pulse">Loading…</p>
+      ) : submissions.length === 0 ? (
+        <p className="font-mono text-[9px] text-text-tertiary">
+          {filter === 'pending' ? 'No pending submissions.' : `No ${filter} submissions.`}
+        </p>
+      ) : (
+        <div className="space-y-px">
+          {submissions.map((s) => {
+            const typeConfig = SUBMISSION_TYPE_LABELS[s.submission_type];
+            const isEditingNote = editingNote === s.id;
+            return (
+              <div key={s.id} className="border border-border bg-ground-light/20 p-4">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`font-mono text-[8px] uppercase tracking-widest border px-1.5 py-0.5 rounded ${typeConfig.color}`}>
+                      {typeConfig.label}
+                    </span>
+                    <span className="font-mono text-[8px] text-text-tertiary">
+                      {new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {s.email && (
+                      <span className="font-mono text-[8px] text-text-tertiary">· {s.email}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => del(s.id)}
+                    className="font-mono text-[8px] text-red-400/50 hover:text-red-400 transition-colors shrink-0"
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                {/* Content */}
+                <p className="text-sm text-text-secondary leading-relaxed mb-3">{s.content}</p>
+
+                {/* Note */}
+                {isEditingNote ? (
+                  <div className="mb-3 flex gap-2">
+                    <input
+                      type="text"
+                      value={noteValues[s.id] ?? s.notes ?? ''}
+                      onChange={(e) => setNoteValues((n) => ({ ...n, [s.id]: e.target.value }))}
+                      placeholder="Add a note…"
+                      className="flex-1 bg-ground border border-border px-2 py-1 text-xs font-mono text-text-primary focus:outline-none focus:border-gold/40"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => saveNote(s.id)}
+                      className="font-mono text-[8px] uppercase text-gold border border-gold/30 px-2 py-1 hover:bg-gold/5"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setEditingNote(null)}
+                      className="font-mono text-[8px] uppercase text-text-tertiary border border-border px-2 py-1"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : s.notes ? (
+                  <p
+                    className="font-mono text-[9px] text-text-tertiary italic mb-3 cursor-pointer hover:text-text-secondary"
+                    onClick={() => { setEditingNote(s.id); setNoteValues((n) => ({ ...n, [s.id]: s.notes ?? '' })); }}
+                  >
+                    Note: {s.notes}
+                  </p>
+                ) : null}
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {s.status !== 'actioned' && (
+                    <button
+                      onClick={() => setStatus(s.id, 'actioned')}
+                      className="font-mono text-[8px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/10 px-2 py-1 transition-colors"
+                    >
+                      ✓ Actioned
+                    </button>
+                  )}
+                  {s.status !== 'backlogged' && (
+                    <button
+                      onClick={() => setStatus(s.id, 'backlogged')}
+                      className="font-mono text-[8px] uppercase tracking-widest text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 px-2 py-1 transition-colors"
+                    >
+                      → Backlog
+                    </button>
+                  )}
+                  {s.status !== 'dismissed' && (
+                    <button
+                      onClick={() => setStatus(s.id, 'dismissed')}
+                      className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border hover:border-red-400/30 hover:text-red-400 px-2 py-1 transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  )}
+                  {s.status !== 'pending' && (
+                    <button
+                      onClick={() => setStatus(s.id, 'pending')}
+                      className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border hover:text-text-secondary px-2 py-1 transition-colors"
+                    >
+                      ↺ Reopen
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setEditingNote(s.id); setNoteValues((n) => ({ ...n, [s.id]: s.notes ?? '' })); }}
+                    className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border hover:text-text-secondary px-2 py-1 transition-colors"
+                  >
+                    + Note
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Admin Page ────────────────────────────────────────────────────────────────
 
 const TABS = [
+  { id: 'inbox', label: 'Inbox' },
   { id: 'backlog', label: 'Backlog' },
   { id: 'jobs', label: 'Jobs' },
   { id: 'launch', label: 'Launch Research' },
@@ -4911,6 +5191,7 @@ export default function AdminPage() {
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-10">
+        {tab === 'inbox' && <InboxTab />}
         {tab === 'backlog' && <BacklogTab />}
         {tab === 'jobs' && <JobsTab />}
         {tab === 'launch' && <LaunchTab />}

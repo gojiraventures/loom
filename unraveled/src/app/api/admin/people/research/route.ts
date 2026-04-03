@@ -1,7 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryAnthropic, queryPerplexity } from '@/lib/ai';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
+
+// ── Wikipedia REST API helper ──────────────────────────────────────────────────
+
+async function fetchWikipedia(name: string): Promise<string> {
+  const ua = 'UnraveledTruth/1.0 (research pipeline; contact@unraveledtruth.com)';
+
+  // Try direct slug first, fallback to search
+  const directSlug = name.trim().replace(/\s+/g, '_');
+  let title = directSlug;
+
+  const directRes = await fetch(
+    `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(directSlug)}`,
+    { headers: { 'User-Agent': ua }, next: { revalidate: 0 } }
+  );
+
+  if (!directRes.ok) {
+    // Search for the page
+    const searchRes = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&srlimit=1&origin=*`,
+      { headers: { 'User-Agent': ua }, next: { revalidate: 0 } }
+    );
+    if (!searchRes.ok) return '';
+    const sd = await searchRes.json() as { query?: { search?: { title: string }[] } };
+    const first = sd?.query?.search?.[0];
+    if (!first) return '';
+    title = first.title;
+  }
+
+  const summaryRes = await fetch(
+    `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, '_'))}`,
+    { headers: { 'User-Agent': ua }, next: { revalidate: 0 } }
+  );
+  if (!summaryRes.ok) return '';
+  const data = await summaryRes.json() as Record<string, unknown>;
+
+  const lines: string[] = [`--- WIKIPEDIA: ${title} ---`];
+  if (data.description) lines.push(`Description: ${data.description}`);
+  if (data.extract) lines.push(data.extract as string);
+  const wikiUrl = (data.content_urls as Record<string, Record<string, string>> | undefined)?.desktop?.page;
+  if (wikiUrl) lines.push(`Wikipedia URL: ${wikiUrl}`);
+  return lines.join('\n');
+}
 
 const SYSTEM = `You are a researcher building dossiers on public figures for an evidence-index platform called UnraveledTruth.
 Given a person's name and any research notes, return a structured JSON object with everything you know.
@@ -128,20 +170,67 @@ export async function POST(req: NextRequest) {
     ? ` (context: ${description.trim()})`
     : '';
 
-  // 1. Web research via Perplexity
-  let perplexityNotes = '';
+  const mainQuery = `Research ${name}${disambig} and extract the following structured information:
+
+1. BIOGRAPHY: Full legal name, birth date and place, nationality, current residence.
+
+2. EDUCATION: Every educational institution attended — school/university name, degree earned, field of study, and year of graduation. Include doctoral advisors if applicable.
+
+3. CAREER HISTORY: Every employer or organisation they have been associated with — institution name, role/title, start year, end year. Include think tanks, government agencies, private companies, and advisory roles.
+
+4. NAMED RELATIONSHIPS: Specific named individuals they have worked with, studied under, mentored, collaborated with, funded by, or are publicly associated with. Give names and the nature of the connection.
+
+5. KEY CLAIMS AND CONTROVERSIES: Their most notable public claims, theories, or controversies, with years and sources.
+
+Be specific. Use full institution names. Cite sources where possible.`;
+
+  const grokQuery = `Search grokipedia.com for "${name}"${disambig}. ` +
+    `Retrieve all content from their Grokipedia profile page — background, associations, claimed positions, funding sources, controversies, and any connections to other individuals or organisations documented there. ` +
+    `Include the Grokipedia URL if you find one.`;
+
+  // 1. Fetch all sources in parallel: Perplexity web search, Wikipedia, Grokipedia
+  const [perplexityResult, wikipediaResult, grokResult] = await Promise.allSettled([
+    queryPerplexity(mainQuery),
+    fetchWikipedia(name.trim()),
+    queryPerplexity(grokQuery),
+  ]);
+
+  const perplexityNotes = perplexityResult.status === 'fulfilled'
+    ? perplexityResult.value.content
+    : 'No web research available.';
+
+  const wikiSummary = wikipediaResult.status === 'fulfilled' && wikipediaResult.value
+    ? '\n\n' + wikipediaResult.value
+    : '';
+
+  const grokNotes = grokResult.status === 'fulfilled' && grokResult.value.content
+    ? '\n\n--- GROKIPEDIA ---\n' + grokResult.value.content
+    : '';
+
+  // 1b. Wikipedia reference deep-dive — extract footnote sources for validation
+  let wikiRefNotes = '';
   try {
-    const perp = await queryPerplexity(
-      `Who is ${name}${disambig}? Provide biographical details: full name, birth date and place, nationality, education (institutions and degrees), career history, notable claims or discoveries, public controversies, current occupation, and any significant publications or media appearances. Be specific and cite sources where possible.`
-    );
-    perplexityNotes = perp.content;
+    // Pull wiki slug from API result or from perplexity notes
+    const wikiSlugMatch =
+      (wikiSummary + perplexityNotes).match(/wikipedia\.org\/wiki\/([^\s"')#]+)/i);
+    if (wikiSlugMatch) {
+      const wikiRef = await queryPerplexity(
+        `Look at the Wikipedia article for ${name} at https://en.wikipedia.org/wiki/${wikiSlugMatch[1]}. ` +
+        `List every reference and footnote cited in that article. For each include: ` +
+        `author(s), title, publication/outlet, year, and URL if available. ` +
+        `Focus on references that document their education, employment, key claims, or notable relationships.`
+      );
+      wikiRefNotes = '\n\n--- WIKIPEDIA REFERENCE SOURCES ---\n' + wikiRef.content;
+    }
   } catch {
-    perplexityNotes = 'No additional web research available.';
+    // non-fatal
   }
+
+  const allNotes = perplexityNotes + wikiSummary + grokNotes + wikiRefNotes;
 
   // 2. Structure with Claude
   const { content } = await queryAnthropic(
-    SCHEMA_PROMPT(name.trim(), perplexityNotes, extraContext),
+    SCHEMA_PROMPT(name.trim(), allNotes, extraContext),
     SYSTEM
   );
 
@@ -158,5 +247,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ person: parsed, perplexity_notes: perplexityNotes });
+  return NextResponse.json({
+    person: parsed,
+    perplexity_notes: perplexityNotes,
+    wikipedia_notes: wikiSummary.trim(),
+    grokipedia_notes: grokNotes.trim(),
+    wikipedia_refs: wikiRefNotes.trim(),
+  });
 }

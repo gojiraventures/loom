@@ -201,16 +201,28 @@ const FORMS = {
 
 function SubmissionCard({ formKey }: { formKey: FormKey }) {
   const [value, setValue] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
 
   const form = FORMS[formKey];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!value.trim()) return;
-    setSubmitted(true);
-    setValue('');
-    setTimeout(() => setSubmitted(false), 3000);
+    if (!value.trim() || state === 'loading') return;
+    setState('loading');
+    try {
+      const res = await fetch('/api/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_type: formKey, content: value.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      setState('done');
+      setValue('');
+      setTimeout(() => setState('idle'), 4000);
+    } catch {
+      setState('error');
+      setTimeout(() => setState('idle'), 3000);
+    }
   };
 
   const icons: Record<FormKey, React.ReactNode> = {
@@ -247,9 +259,10 @@ function SubmissionCard({ formKey }: { formKey: FormKey }) {
         />
         <button
           type="submit"
-          className="font-mono text-[0.6rem] tracking-[0.08em] uppercase px-5 py-2 border border-border text-text-secondary hover:border-[rgba(200,149,108,0.4)] hover:text-gold transition-colors"
+          disabled={state === 'loading'}
+          className="font-mono text-[0.6rem] tracking-[0.08em] uppercase px-5 py-2 border border-border text-text-secondary hover:border-[rgba(200,149,108,0.4)] hover:text-gold transition-colors disabled:opacity-50"
         >
-          {submitted ? 'Received ✓' : form.cta}
+          {state === 'loading' ? 'Sending…' : state === 'done' ? 'Received ✓' : state === 'error' ? 'Failed — try again' : form.cta}
         </button>
       </form>
     </div>
