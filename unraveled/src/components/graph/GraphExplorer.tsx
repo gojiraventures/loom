@@ -96,11 +96,11 @@ function nodeRadius(n: GraphNode): number {
 
 // ── Force simulation ──────────────────────────────────────────────────────────
 function runForce(nodes: GraphNode[], edges: GraphEdge[], cx: number, cy: number, w: number, h: number) {
-  const REPEL = 4800, IDEAL = 170, DAMP = 0.72, PAD = 80;
+  const REPEL = 18000, IDEAL = 300, DAMP = 0.68, PAD = 100;
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-  for (let iter = 0; iter < 140; iter++) {
-    const alpha = Math.pow(1 - iter / 140, 1.5);
+  for (let iter = 0; iter < 200; iter++) {
+    const alpha = Math.pow(1 - iter / 200, 1.5);
 
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
