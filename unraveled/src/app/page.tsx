@@ -431,6 +431,7 @@ export default async function HomePage() {
           {/* Graph preview */}
           <div className="border border-border overflow-hidden">
             <div
+              data-dark
               className="relative h-[380px] bg-ground-light/40"
               style={{
                 background: 'radial-gradient(ellipse at 40% 40%, rgba(200,149,108,0.04) 0%, transparent 50%), radial-gradient(ellipse at 70% 60%, rgba(106,173,173,0.03) 0%, transparent 50%), var(--color-ground-light)',

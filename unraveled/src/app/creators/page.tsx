@@ -271,10 +271,10 @@ export default function CreatorsPage() {
               to hear about it.
             </p>
             <a
-              href="mailto:creators@unraveledtruth.com"
+              href="mailto:team@unraveledtruth.com"
               className="text-gold hover:text-gold/80 transition-colors border-b border-gold/30 hover:border-gold/60 pb-px"
             >
-              creators@unraveledtruth.com
+              team@unraveledtruth.com
             </a>
           </section>
 
