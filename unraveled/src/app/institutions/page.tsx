@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic';
 
 import { listInstitutions } from '@/lib/institutions';
 import Link from 'next/link';
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 
 const TYPE_COLORS: Record<string, string> = {
   museum: 'text-sky-400 border-sky-400/30 bg-sky-400/5',
@@ -30,12 +32,13 @@ export default async function InstitutionsPage() {
   const institutions = all.filter((i) => i.status === 'published');
 
   return (
-    <div className="min-h-screen bg-ground text-text-primary">
-      <div className="max-w-5xl mx-auto px-6 py-16">
+    <div className="min-h-screen bg-ground text-text-primary flex flex-col">
+      <Header />
+      <div className="max-w-5xl mx-auto px-6 py-12 flex-1">
 
         <div className="mb-4">
-          <a href="/" className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
-            ← Home
+          <a href="/people" className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
+            ← Dossiers
           </a>
         </div>
 
@@ -132,6 +135,7 @@ export default async function InstitutionsPage() {
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

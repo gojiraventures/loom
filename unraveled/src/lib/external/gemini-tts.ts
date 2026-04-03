@@ -5,8 +5,8 @@
  * Step 2: Gemini 2.5 Flash TTS converts it to audio with two distinct voices.
  *
  * Voices:
- *   Host    → Zephyr (bright, authoritative female)
- *   Co-Host → Puck   (upbeat, curious male)
+ *   Host    → Algieba   (warm, authoritative)
+ *   Co-Host → Sadaltager (measured, analytical)
  *
  * Output: raw WAV buffer (24 kHz, 16-bit mono PCM with RIFF header).
  *         Upload to Supabase Storage and serve the public URL.
@@ -109,11 +109,11 @@ async function callGeminiTTS(script: string): Promise<Buffer> {
           speakerVoiceConfigs: [
             {
               speaker: 'Host',
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Algieba' } },
             },
             {
               speaker: 'Co-Host',
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } },
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Sadaltager' } },
             },
           ],
         },

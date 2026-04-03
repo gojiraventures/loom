@@ -9,13 +9,17 @@ import {
   getPersonSocials,
   getPersonBooks,
   getPersonInstitutions,
+  getPersonDiscourse,
 } from '@/lib/people';
 import RelationshipGraph from '@/components/people/RelationshipGraph';
+import { PublicDiscourseSection } from '@/components/PublicDiscourseSection';
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 
 const TIER_LABELS: Record<string, string> = {
   academic: 'Academic', journalist: 'Journalist', independent_researcher: 'Independent Researcher',
   whistleblower: 'Whistleblower', public_figure: 'Public Figure', historical_figure: 'Historical Figure',
-  witness: 'Witness', controversial: 'Controversial', unclassified: 'Unclassified',
+  witness: 'Witness', unclassified: 'Unclassified',
 };
 
 const TIER_COLORS: Record<string, string> = {
@@ -26,7 +30,6 @@ const TIER_COLORS: Record<string, string> = {
   public_figure: 'text-violet-400 border-violet-400/30',
   historical_figure: 'text-text-tertiary border-border',
   witness: 'text-pink-400 border-pink-400/30',
-  controversial: 'text-red-400 border-red-400/30',
   unclassified: 'text-text-tertiary border-border',
 };
 
@@ -49,7 +52,7 @@ interface Props {
 export default async function PersonPage({ params }: Props) {
   const { slug } = await params;
 
-  const [person, bioSections, connections, media, socials, books, affiliations] = await Promise.all([
+  const [person, bioSections, connections, media, socials, books, affiliations, discourse] = await Promise.all([
     getPersonBySlug(slug),
     getPersonBySlug(slug).then((p) => p ? getBioSections(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonConnections(p.id) : []),
@@ -57,6 +60,7 @@ export default async function PersonPage({ params }: Props) {
     getPersonBySlug(slug).then((p) => p ? getPersonSocials(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonBooks(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonInstitutions(p.id) : []),
+    getPersonBySlug(slug).then((p) => p ? getPersonDiscourse(p.id) : []),
   ]);
 
   if (!person || person.status !== 'published') notFound();
@@ -66,13 +70,14 @@ export default async function PersonPage({ params }: Props) {
     : person.photo_url;
 
   return (
-    <div className="min-h-screen bg-ground text-text-primary">
-      <div className="max-w-4xl mx-auto px-6 py-16">
+    <div className="min-h-screen bg-ground text-text-primary flex flex-col">
+      <Header />
+      <div className="max-w-4xl mx-auto px-6 py-12 flex-1">
 
         {/* Breadcrumb */}
         <div className="mb-10">
           <a href="/people" className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
-            ← People
+            ← Dossiers
           </a>
         </div>
 
@@ -194,6 +199,9 @@ export default async function PersonPage({ params }: Props) {
                 />
               </section>
             ))}
+
+            {/* Public Discourse */}
+            <PublicDiscourseSection entries={discourse} subjectLabel="Their response" />
 
             {/* Media */}
             {media.length > 0 && (
@@ -434,6 +442,7 @@ export default async function PersonPage({ params }: Props) {
         )}
 
       </div>
+      <Footer />
     </div>
   );
 }

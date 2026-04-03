@@ -6,9 +6,19 @@
  * POST /api/admin/dossier/entities
  *   Body: { type: 'person'|'institution', id: string, action: 'draft'|'skip' }
  *   Promotes a needs_review entity to draft, or archives it.
+ *
+ * PUT /api/admin/dossier/entities
+ *   Body: { session_id: string, topic: string }
+ *   Runs entity extraction immediately for the given session (useful for sessions that
+ *   pre-date the editor_pass job or where extraction failed silently).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { extractAndQueueEntities } from '@/lib/research/entity-extractor';
+import { getFindingsBySession } from '@/lib/research/storage/findings';
+import type { SynthesizedOutput } from '@/lib/research/types';
+
+export const maxDuration = 120;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -105,4 +115,46 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, status: newStatus });
+}
+
+// ── PUT: trigger extraction on demand ─────────────────────────────────────────
+
+export async function PUT(req: NextRequest) {
+  const body = await req.json() as { session_id: string; topic: string };
+  const { session_id, topic } = body;
+  if (!session_id || !topic) {
+    return NextResponse.json({ error: 'session_id and topic required' }, { status: 400 });
+  }
+
+  const supabase = createServerSupabaseClient();
+
+  const { data: dossier, error: dossierErr } = await supabase
+    .from('topic_dossiers')
+    .select('synthesized_output')
+    .eq('topic', topic)
+    .single();
+
+  if (dossierErr || !dossier?.synthesized_output) {
+    return NextResponse.json({ error: 'No synthesized_output found — run assembly first' }, { status: 404 });
+  }
+
+  const output = dossier.synthesized_output as SynthesizedOutput;
+
+  let findings: Awaited<ReturnType<typeof getFindingsBySession>> = [];
+  try {
+    findings = await getFindingsBySession(session_id);
+  } catch {
+    // non-fatal — extract without findings context
+  }
+
+  const result = await extractAndQueueEntities(session_id, topic, output, findings);
+
+  return NextResponse.json({
+    ok: true,
+    created_people: result.created_people,
+    linked_people: result.linked_people,
+    created_institutions: result.created_institutions,
+    linked_institutions: result.linked_institutions,
+    errors: result.errors,
+  });
 }

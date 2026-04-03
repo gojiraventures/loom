@@ -8,28 +8,14 @@ import {
   getInstitutionEvents,
   getInstitutionDepartments,
   getPeopleAtInstitution,
+  getInstitutionDiscourse,
 } from '@/lib/institutions';
+import { PublicDiscourseSection } from '@/components/PublicDiscourseSection';
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 
-const TYPE_COLORS: Record<string, string> = {
-  museum: 'text-sky-400 border-sky-400/30',
-  university: 'text-violet-400 border-violet-400/30',
-  intelligence: 'text-red-400 border-red-400/30',
-  secret_society: 'text-amber-400 border-amber-400/30',
-  government_agency: 'text-orange-400 border-orange-400/30',
-  military: 'text-red-400 border-red-400/30',
-  religious: 'text-purple-400 border-purple-400/30',
-  think_tank: 'text-emerald-400 border-emerald-400/30',
-  research_institute: 'text-teal-400 border-teal-400/30',
-};
-
-const TIER_COLORS: Record<string, string> = {
-  open: 'text-emerald-400 border-emerald-400/30',
-  standard: 'text-text-tertiary border-border',
-  opaque: 'text-amber-400 border-amber-400/30',
-  classified: 'text-red-400 border-red-400/30',
-  defunct_classified: 'text-orange-400 border-orange-400/30',
-};
-
+// All institution_type and transparency_tier badges use identical neutral styling.
+// Editorial weight belongs in public_discourse entries, not badge colors.
 const DEFAULT_BADGE = 'text-text-tertiary border-border';
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -65,13 +51,14 @@ interface Props {
 export default async function InstitutionPage({ params }: Props) {
   const { slug } = await params;
 
-  const [institution, bioSections, connections, events, departments, people] = await Promise.all([
+  const [institution, bioSections, connections, events, departments, people, discourse] = await Promise.all([
     getInstitutionBySlug(slug),
     getInstitutionBySlug(slug).then((i) => i ? getBioSections(i.id) : []),
     getInstitutionBySlug(slug).then((i) => i ? getInstitutionConnections(i.id) : []),
     getInstitutionBySlug(slug).then((i) => i ? getInstitutionEvents(i.id) : []),
     getInstitutionBySlug(slug).then((i) => i ? getInstitutionDepartments(i.id) : []),
     getInstitutionBySlug(slug).then((i) => i ? getPeopleAtInstitution(i.id) : []),
+    getInstitutionBySlug(slug).then((i) => i ? getInstitutionDiscourse(i.id) : []),
   ]);
 
   if (!institution || institution.status !== 'published') notFound();
@@ -85,13 +72,14 @@ export default async function InstitutionPage({ params }: Props) {
     .join(', ');
 
   return (
-    <div className="min-h-screen bg-ground text-text-primary">
-      <div className="max-w-4xl mx-auto px-6 py-16">
+    <div className="min-h-screen bg-ground text-text-primary flex flex-col">
+      <Header />
+      <div className="max-w-4xl mx-auto px-6 py-12 flex-1">
 
         {/* Breadcrumb */}
         <div className="mb-10">
-          <a href="/institutions" className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
-            ← Institutions
+          <a href="/people" className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
+            ← Dossiers
           </a>
         </div>
 
@@ -129,12 +117,12 @@ export default async function InstitutionPage({ params }: Props) {
 
             <div className="flex flex-wrap gap-2 mb-4">
               {institution.institution_type && (
-                <span className={`font-mono text-[8px] uppercase tracking-widest border px-2 py-0.5 rounded ${TYPE_COLORS[institution.institution_type] ?? DEFAULT_BADGE}`}>
+                <span className={`font-mono text-[8px] uppercase tracking-widest border px-2 py-0.5 rounded ${DEFAULT_BADGE}`}>
                   {institution.institution_type.replace(/_/g, ' ')}
                 </span>
               )}
               {institution.transparency_tier && (
-                <span className={`font-mono text-[8px] uppercase tracking-widest border px-2 py-0.5 rounded ${TIER_COLORS[institution.transparency_tier] ?? DEFAULT_BADGE}`}>
+                <span className={`font-mono text-[8px] uppercase tracking-widest border px-2 py-0.5 rounded ${DEFAULT_BADGE}`}>
                   {institution.transparency_tier.replace(/_/g, ' ')}
                 </span>
               )}
@@ -220,6 +208,9 @@ export default async function InstitutionPage({ params }: Props) {
                 />
               </section>
             ))}
+
+            {/* Public Discourse */}
+            <PublicDiscourseSection entries={discourse} subjectLabel="Institution's response" />
 
             {/* Events / Programs */}
             {events.length > 0 && (
@@ -456,6 +447,7 @@ export default async function InstitutionPage({ params }: Props) {
         )}
 
       </div>
+      <Footer />
     </div>
   );
 }

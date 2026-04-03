@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,7 +18,6 @@ interface GraphNode {
   year: number | null;
   died_year: number | null;
   connection_count: number;
-  // simulation state
   x: number; y: number; vx: number; vy: number;
   fx?: number | null; fy?: number | null;
 }
@@ -39,47 +38,43 @@ interface GraphEdge {
 // ── Colour maps ───────────────────────────────────────────────────────────────
 
 const PERSON_COLORS: Record<string, string> = {
-  academic: '#38bdf8',
-  journalist: '#fbbf24',
-  whistleblower: '#fb923c',
-  public_figure: '#a78bfa',
-  controversial: '#f87171',
-  historical_figure: '#94a3b8',
-  independent_researcher: '#34d399',
-  witness: '#f472b6',
-  default: '#94a3b8',
+  academic:              '#3D8A8D',
+  journalist:            '#D4B483',
+  whistleblower:         '#C07050',
+  public_figure:         '#A8A49A',
+  historical_figure:     '#8A7BA8',
+  independent_researcher:'#4A9E6A',
+  witness:               '#C07898',
+  default:               '#7A746E',
 };
 
 const INST_COLORS: Record<string, string> = {
-  intelligence: '#f87171',
-  secret_society: '#d4af37',
-  government_agency: '#60a5fa',
-  university: '#34d399',
-  museum: '#a78bfa',
-  military: '#fb923c',
-  religious: '#f472b6',
-  think_tank: '#38bdf8',
-  research_institute: '#34d399',
-  default: '#94a3b8',
+  intelligence:      '#8B4A4A',
+  secret_society:    '#9E8560',
+  government_agency: '#A05040',
+  university:        '#2A5C5E',
+  museum:            '#4A7A7C',
+  military:          '#7A5A3A',
+  religious:         '#8A6A9A',
+  think_tank:        '#4A6A8A',
+  research_institute:'#4A7A6A',
+  default:           '#5A5450',
 };
 
+// Edges: most are neutral; only funding/employment/opposition get color
 const EDGE_COLORS: Record<string, string> = {
-  funded: '#f59e0b',
-  investigated: '#d4af37',
-  colleague: '#60a5fa',
-  collaborator: '#34d399',
-  mentor: '#a78bfa',
-  endorsed: '#34d399',
-  criticized: '#f87171',
-  debated: '#fb923c',
-  affiliated: '#94a3b8',
-  front_for: '#f87171',
-  succeeded: '#94a3b8',
-  member: '#d4af37',
-  employee: '#60a5fa',
-  director: '#a78bfa',
-  founder: '#fbbf24',
-  default: '#4b5563',
+  funded:       '#D4B483',
+  founder:      '#D4B483',
+  member:       '#9E8560',
+  affiliated:   '#9E8560',
+  employee:     '#3D8A8D',
+  director:     '#3D8A8D',
+  colleague:    '#3D8A8D',
+  collaborator: '#3D8A8D',
+  criticized:   '#8B4A4A',
+  front_for:    '#8B4A4A',
+  debated:      '#A05040',
+  default:      '#3A3530',
 };
 
 function nodeColor(n: GraphNode): string {
@@ -89,29 +84,24 @@ function nodeColor(n: GraphNode): string {
 function edgeColor(e: GraphEdge): string {
   return EDGE_COLORS[e.type] ?? EDGE_COLORS.default;
 }
+
+// Size by connection count (radius in SVG units)
 function nodeRadius(n: GraphNode): number {
-  const base = n.type === 'institution' ? 20 : 16;
-  return base + Math.min(n.connection_count * 1.5, 12);
+  const c = n.connection_count;
+  if (c <= 2)  return 16;
+  if (c <= 5)  return 22;
+  if (c <= 10) return 28;
+  return 34;
 }
 
-// ── Hexagon path helper ───────────────────────────────────────────────────────
-function hexPath(cx: number, cy: number, r: number): string {
-  const pts = Array.from({ length: 6 }, (_, i) => {
-    const a = (Math.PI / 3) * i - Math.PI / 6;
-    return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
-  });
-  return `M${pts.join('L')}Z`;
-}
-
-// ── Force simulation (web mode) ───────────────────────────────────────────────
+// ── Force simulation ──────────────────────────────────────────────────────────
 function runForce(nodes: GraphNode[], edges: GraphEdge[], cx: number, cy: number, w: number, h: number) {
-  const REPEL = 4500, IDEAL = 160, DAMP = 0.72, PAD = 70;
+  const REPEL = 4800, IDEAL = 170, DAMP = 0.72, PAD = 80;
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-  for (let iter = 0; iter < 120; iter++) {
-    const alpha = Math.pow(1 - iter / 120, 1.5);
+  for (let iter = 0; iter < 140; iter++) {
+    const alpha = Math.pow(1 - iter / 140, 1.5);
 
-    // Repulsion
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const a = nodes[i], b = nodes[j];
@@ -123,7 +113,6 @@ function runForce(nodes: GraphNode[], edges: GraphEdge[], cx: number, cy: number
       }
     }
 
-    // Edge attraction
     edges.forEach(({ source, target, strength }) => {
       const s = nodeMap.get(source), t = nodeMap.get(target);
       if (!s || !t) return;
@@ -134,12 +123,10 @@ function runForce(nodes: GraphNode[], edges: GraphEdge[], cx: number, cy: number
       if (!t.fx) { t.vx -= dx * f; t.vy -= dy * f; }
     });
 
-    // Weak center gravity
     nodes.forEach((n) => {
       if (n.fx == null) { n.vx += (cx - n.x) * 0.012 * alpha; n.vy += (cy - n.y) * 0.012 * alpha; }
     });
 
-    // Integrate
     nodes.forEach((n) => {
       n.vx *= DAMP; n.vy *= DAMP;
       if (n.fx != null) { n.x = n.fx; } else { n.x = Math.max(PAD, Math.min(w - PAD, n.x + n.vx)); }
@@ -149,13 +136,7 @@ function runForce(nodes: GraphNode[], edges: GraphEdge[], cx: number, cy: number
 }
 
 // ── Timeline layout ───────────────────────────────────────────────────────────
-function applyTimelineLayout(
-  nodes: GraphNode[],
-  edges: GraphEdge[],
-  w: number,
-  h: number,
-): { minYear: number; maxYear: number } {
-  // Gather all years
+function applyTimelineLayout(nodes: GraphNode[], edges: GraphEdge[], w: number, h: number): { minYear: number; maxYear: number } {
   const years: number[] = [];
   nodes.forEach((n) => { if (n.year) years.push(n.year); if (n.died_year) years.push(n.died_year); });
   edges.forEach((e) => { if (e.start_year) years.push(e.start_year); if (e.end_year) years.push(e.end_year); });
@@ -164,46 +145,40 @@ function applyTimelineLayout(
   const minYear = Math.max(Math.min(...years) - 30, 1400);
   const maxYear = Math.min(Math.max(...years) + 10, 2030);
   const span = maxYear - minYear || 1;
-  const PADX = 100, PADY = 80;
-  const usableW = w - PADX * 2;
+  const PADX = 120, usableW = w - PADX * 2;
+  const instY = h * 0.28, personY = h * 0.72;
 
-  // Institution band: top third, Person band: bottom half, Others: middle
-  const instY = h * 0.28;
-  const personY = h * 0.72;
-
-  // Sort by year within each band to spread x
-  const insts = nodes.filter((n) => n.type === 'institution');
-  const people = nodes.filter((n) => n.type === 'person');
-
-  // Assign x from year, spread duplicates
   const assignPositions = (group: GraphNode[], baseY: number) => {
     group.sort((a, b) => (a.year ?? 1900) - (b.year ?? 1900));
     const xCounts: Record<number, number> = {};
     group.forEach((n) => {
       const yr = n.year ?? Math.round((minYear + maxYear) / 2);
       const rawX = PADX + ((yr - minYear) / span) * usableW;
-      const slot = Math.round(rawX / 40); // bucket
+      const slot = Math.round(rawX / 44);
       xCounts[slot] = (xCounts[slot] ?? 0) + 1;
-      const spread = (xCounts[slot] - 1) * 42;
+      const spread = (xCounts[slot] - 1) * 44;
       n.fx = Math.max(PADX, Math.min(w - PADX, rawX + (spread % 2 === 0 ? spread / 2 : -(spread + 1) / 2)));
-      n.fy = baseY + ((xCounts[slot] - 1) % 3) * 48 - 48;
+      n.fy = baseY + ((xCounts[slot] - 1) % 3) * 52 - 52;
       n.x = n.fx; n.y = n.fy;
     });
   };
 
-  assignPositions(insts, instY);
-  assignPositions(people, personY);
+  assignPositions(nodes.filter((n) => n.type === 'institution'), instY);
+  assignPositions(nodes.filter((n) => n.type === 'person'), personY);
 
-  // Nodes with no year go to center of their band
   nodes.forEach((n) => {
     if (n.fx == null) {
-      n.fx = w / 2;
-      n.fy = n.type === 'institution' ? instY : personY;
+      n.fx = w / 2; n.fy = n.type === 'institution' ? instY : personY;
       n.x = n.fx; n.y = n.fy;
     }
   });
 
   return { minYear, maxYear };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function truncate(s: string, max: number) {
+  return s.length > max ? s.slice(0, max - 1) + '…' : s;
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -216,6 +191,8 @@ interface FilterState {
 
 export default function GraphExplorer() {
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [dims, setDims] = useState({ w: 1200, h: 700 });
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
@@ -238,6 +215,13 @@ export default function GraphExplorer() {
   const [timelineRange, setTimelineRange] = useState<{ min: number; max: number }>({ min: 1400, max: 2030 });
   const [showFilters, setShowFilters] = useState(false);
 
+  // Legend category filters (highlight specific subtypes)
+  const [highlightedSubtypes, setHighlightedSubtypes] = useState<Set<string>>(new Set());
+
+  // Search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/graph')
@@ -255,11 +239,6 @@ export default function GraphExplorer() {
         setNodes(initialized);
         setEdges(rawEdges);
         setLoading(false);
-
-        // Pre-gather all rel types for filter menu
-        const relTypes = new Set<string>((rawEdges as GraphEdge[]).map((e) => e.type));
-        setFilters((f) => ({ ...f, relTypes: new Set() })); // start with all
-        void relTypes;
       })
       .catch(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -267,23 +246,24 @@ export default function GraphExplorer() {
 
   // ── Responsive dims ────────────────────────────────────────────────────────
   useEffect(() => {
-    const el = svgRef.current?.parentElement;
+    const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
       const w = el.clientWidth;
-      const h = Math.max(window.innerHeight - 200, 500);
+      const h = Math.max(el.clientHeight || window.innerHeight - 56, 500);
       setDims({ w, h });
     });
     ro.observe(el);
-    setDims({ w: el.clientWidth, h: Math.max(window.innerHeight - 200, 500) });
+    const w = el.clientWidth;
+    const h = Math.max(el.clientHeight || window.innerHeight - 56, 500);
+    setDims({ w, h });
     return () => ro.disconnect();
   }, []);
 
-  // ── Re-layout when mode changes ────────────────────────────────────────────
+  // ── Re-layout when mode/dims change ───────────────────────────────────────
   useEffect(() => {
     if (nodes.length === 0) return;
     const { w, h } = dims;
-
     if (mode === 'timeline') {
       const updated = nodes.map((n) => ({ ...n, fx: null, fy: null, vx: 0, vy: 0 }));
       const { minYear, maxYear } = applyTimelineLayout(updated, edges, w, h);
@@ -298,7 +278,7 @@ export default function GraphExplorer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, dims]);
 
-  // ── Derived: filtered nodes + edges ───────────────────────────────────────
+  // ── Derived ────────────────────────────────────────────────────────────────
   const visibleNodes = nodes.filter((n) => filters.entityTypes.has(n.type));
   const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
 
@@ -315,14 +295,29 @@ export default function GraphExplorer() {
 
   const allRelTypes = Array.from(new Set(edges.map((e) => e.type))).sort();
 
-  // ── Connections for selected node ─────────────────────────────────────────
+  const connectedToSelected = useMemo(() => {
+    if (selected.size === 0) return new Set<string>();
+    const connected = new Set<string>();
+    edges.forEach((e) => {
+      if (selected.has(e.source)) connected.add(e.target);
+      if (selected.has(e.target)) connected.add(e.source);
+    });
+    return connected;
+  }, [selected, edges]);
+
   const panelConnections = panel ? edges.filter(
     (e) => e.source === panel.id || e.target === panel.id
   ).map((e) => {
     const otherId = e.source === panel.id ? e.target : e.source;
-    const other = nodes.find((n) => n.id === otherId);
-    return { edge: e, other };
+    return { edge: e, other: nodes.find((n) => n.id === otherId) };
   }) : [];
+
+  // Search results
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return nodes.filter((n) => n.name.toLowerCase().includes(q)).slice(0, 8);
+  }, [nodes, searchQuery]);
 
   // ── Pan / Zoom ─────────────────────────────────────────────────────────────
   const onWheel = useCallback((ev: React.WheelEvent) => {
@@ -335,11 +330,7 @@ export default function GraphExplorer() {
     setView((v) => {
       const newScale = Math.max(0.2, Math.min(4, v.scale * factor));
       const scaleChange = newScale / v.scale;
-      return {
-        scale: newScale,
-        x: mouseX - scaleChange * (mouseX - v.x),
-        y: mouseY - scaleChange * (mouseY - v.y),
-      };
+      return { scale: newScale, x: mouseX - scaleChange * (mouseX - v.x), y: mouseY - scaleChange * (mouseY - v.y) };
     });
   }, []);
 
@@ -351,31 +342,37 @@ export default function GraphExplorer() {
 
   const onPointerMove = useCallback((ev: React.PointerEvent) => {
     if (!dragging.current) return;
-    const dx = ev.clientX - dragging.current.startX;
-    const dy = ev.clientY - dragging.current.startY;
-    setView((v) => ({ ...v, x: dragging.current!.startVx + dx, y: dragging.current!.startVy + dy }));
+    setView((v) => ({ ...v, x: dragging.current!.startVx + ev.clientX - dragging.current!.startX, y: dragging.current!.startVy + ev.clientY - dragging.current!.startY }));
   }, []);
 
   const onPointerUp = useCallback(() => { dragging.current = null; }, []);
+
+  // ── Center on a node ───────────────────────────────────────────────────────
+  const centerOnNode = useCallback((n: GraphNode) => {
+    const { w, h } = dims;
+    setView({ x: w / 2 - n.x, y: h / 2 - n.y, scale: 1.4 });
+  }, [dims]);
 
   // ── Node interaction ───────────────────────────────────────────────────────
   const onNodeClick = useCallback((ev: React.MouseEvent, node: GraphNode) => {
     ev.stopPropagation();
     if (ev.shiftKey) {
-      setSelected((s) => {
-        const next = new Set(s);
-        next.has(node.id) ? next.delete(node.id) : next.add(node.id);
-        return next;
-      });
+      setSelected((s) => { const next = new Set(s); next.has(node.id) ? next.delete(node.id) : next.add(node.id); return next; });
     } else {
       setSelected(new Set([node.id]));
       setPanel(node);
     }
   }, []);
 
-  const onSvgClick = useCallback(() => {
-    setSelected(new Set());
-    setPanel(null);
+  const onSvgClick = useCallback(() => { setSelected(new Set()); setPanel(null); }, []);
+
+  // ── Toggle legend subtype highlight ──────────────────────────────────────
+  const toggleSubtype = useCallback((subtype: string) => {
+    setHighlightedSubtypes((s) => {
+      const next = new Set(s);
+      next.has(subtype) ? next.delete(subtype) : next.add(subtype);
+      return next;
+    });
   }, []);
 
   // ── Render edge ───────────────────────────────────────────────────────────
@@ -384,59 +381,50 @@ export default function GraphExplorer() {
     const t = nodes.find((n) => n.id === e.target);
     if (!s || !t) return null;
 
-    const isHighlit = selected.size === 0 || selected.has(e.source) || selected.has(e.target);
+    const isConnectedToSelected = selected.size > 0 && (selected.has(e.source) || selected.has(e.target));
+    const isHighlit = selected.size === 0 || isConnectedToSelected;
     const color = edgeColor(e);
-    const opacity = isHighlit ? (selected.size > 0 ? 0.85 : 0.45) : 0.08;
+    const opacity = isHighlit ? (selected.size > 0 ? 0.85 : 0.4) : 0.06;
+    const thickness = isConnectedToSelected
+      ? Math.max(1.5, e.strength * 0.8)
+      : Math.max(0.8, e.strength * 0.5);
 
     const dx = t.x - s.x, dy = t.y - s.y;
     const mx = (s.x + t.x) / 2, my = (s.y + t.y) / 2;
-
-    // Arc curve: perpendicular offset based on edge kind
-    const perpScale = e.edge_kind === 'pi' ? 0.35 : 0.2;
-    const cx = mx - dy * perpScale, cy = my + dx * perpScale;
+    const perpScale = e.edge_kind === 'pi' ? 0.3 : 0.18;
+    const qx = mx - dy * perpScale, qy = my + dx * perpScale;
 
     const showYear = mode === 'timeline' && (e.start_year || e.end_year);
-    const yearLabel = e.start_year === e.end_year
-      ? `${e.start_year}`
-      : `${e.start_year ?? '?'}–${e.end_year ?? ''}`;
+    const yearLabel = e.start_year === e.end_year ? `${e.start_year}` : `${e.start_year ?? '?'}–${e.end_year ?? ''}`;
+    const showTypeLabel = (hovered === e.source || hovered === e.target) && isHighlit;
 
     return (
       <g key={`e-${e.id}-${idx}`} opacity={opacity}>
         <path
-          d={`M${s.x},${s.y} Q${cx},${cy} ${t.x},${t.y}`}
+          d={`M${s.x},${s.y} Q${qx},${qy} ${t.x},${t.y}`}
           fill="none"
           stroke={color}
-          strokeWidth={isHighlit ? Math.max(1, e.strength * 0.6) : 0.8}
-          strokeDasharray={e.covert || e.membership_status === 'assumed' ? '5,4' : undefined}
+          strokeWidth={thickness}
+          strokeDasharray={e.covert || e.membership_status === 'assumed' ? '6,4' : undefined}
           strokeOpacity={0.9}
         />
-        {/* Arrowhead */}
-        <circle cx={(cx + t.x) / 2} cy={(cy + t.y) / 2} r={1.5} fill={color} opacity={0.6} />
-        {/* Year label on timeline */}
+        {/* Year label with background pill */}
         {showYear && isHighlit && (
-          <text
-            x={cx} y={cy - 5}
-            textAnchor="middle"
-            fontSize={8}
-            fill={color}
-            opacity={0.8}
-            className="pointer-events-none select-none font-mono"
-          >
-            {yearLabel}
-          </text>
+          <g>
+            <rect x={qx - 22} y={qy - 19} width={44} height={16} rx={3} ry={3} fill="#0d0c0a" opacity={0.75} />
+            <text x={qx} y={qy - 7} textAnchor="middle" fontSize={12} fill="#A8A49A" className="pointer-events-none select-none font-mono">
+              {yearLabel}
+            </text>
+          </g>
         )}
-        {/* Hover label */}
-        {(hovered === e.source || hovered === e.target) && (
-          <text
-            x={cx} y={cy - 7}
-            textAnchor="middle"
-            fontSize={9}
-            fill={color}
-            opacity={0.95}
-            className="pointer-events-none select-none"
-          >
-            {e.type.replace(/_/g, ' ')}
-          </text>
+        {/* Hover: relationship type label */}
+        {showTypeLabel && (
+          <g>
+            <rect x={qx - 30} y={qy - 20} width={60} height={14} rx={3} ry={3} fill="#0d0c0a" opacity={0.8} />
+            <text x={qx} y={qy - 10} textAnchor="middle" fontSize={11} fill="#A8A49A" opacity={0.95} className="pointer-events-none select-none">
+              {e.type.replace(/_/g, ' ')}
+            </text>
+          </g>
         )}
       </g>
     );
@@ -448,11 +436,21 @@ export default function GraphExplorer() {
     const color = nodeColor(n);
     const isSelected = selected.has(n.id);
     const isHov = hovered === n.id;
-    const dimmed = selected.size > 0 && !isSelected && !edges.some(
-      (e) => (e.source === n.id || e.target === n.id) && (selected.has(e.source) || selected.has(e.target))
-    );
 
-    const isPanel = panel?.id === n.id;
+    const dimmedBySelection = selected.size > 0 && !isSelected && !connectedToSelected.has(n.id);
+    const dimmedByLegend = highlightedSubtypes.size > 0 && !highlightedSubtypes.has(n.subtype ?? 'default');
+    const dimmed = dimmedBySelection || dimmedByLegend;
+    const opacity = dimmed ? 0.25 : 1;
+
+    const borderColor = isSelected ? color : (isHov ? color + 'CC' : color + '80');
+    const borderWidth = isSelected ? 3 : isHov ? 2 : 1.5;
+    const fillColor = color + '18'; // ~10% opacity fill
+
+    const label = truncate(n.name, 24);
+    const subLabel = n.subtype ? n.subtype.replace(/_/g, ' ') : null;
+
+    // Glow filter id per node (unique enough based on color)
+    const glowId = `glow-${n.id.slice(0, 8)}`;
 
     return (
       <g
@@ -460,66 +458,89 @@ export default function GraphExplorer() {
         data-node="1"
         transform={`translate(${n.x},${n.y})`}
         style={{ cursor: 'pointer' }}
-        opacity={dimmed ? 0.15 : 1}
+        opacity={opacity}
         onMouseEnter={() => setHovered(n.id)}
         onMouseLeave={() => setHovered(null)}
         onClick={(ev) => onNodeClick(ev, n)}
       >
+        {isSelected && (
+          <defs>
+            <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor={color} floodOpacity="0.25" />
+            </filter>
+          </defs>
+        )}
+
         {n.type === 'institution' ? (
-          <path
-            d={hexPath(0, 0, r)}
-            fill="#0f0e0c"
-            stroke={isSelected || isPanel ? '#d4af37' : color}
-            strokeWidth={isSelected || isPanel ? 2.5 : isHov ? 1.5 : 1}
-            opacity={0.95}
+          // Rounded square (squircle) for institutions
+          <rect
+            x={-r * 0.85}
+            y={-r * 0.85}
+            width={r * 1.7}
+            height={r * 1.7}
+            rx={r * 0.28}
+            ry={r * 0.28}
+            fill={fillColor}
+            stroke={borderColor}
+            strokeWidth={borderWidth}
+            filter={isSelected ? `url(#${glowId})` : undefined}
           />
         ) : (
+          // Circle for people
           <circle
             r={r}
-            fill="#0f0e0c"
-            stroke={isSelected || isPanel ? '#d4af37' : color}
-            strokeWidth={isSelected || isPanel ? 2.5 : isHov ? 1.5 : 1}
-            opacity={0.95}
+            fill={fillColor}
+            stroke={borderColor}
+            strokeWidth={borderWidth}
+            filter={isSelected ? `url(#${glowId})` : undefined}
           />
         )}
 
-        {/* Color fill dot */}
-        <circle r={r * 0.35} fill={color} opacity={0.55} />
+        {/* Center dot */}
+        <circle r={r * 0.22} fill={color} opacity={isSelected ? 0.9 : 0.6} />
 
-        {/* Name label */}
+        {/* Name label — always visible */}
         <text
-          y={r + 12}
+          y={r + 16}
           textAnchor="middle"
-          fontSize={9}
-          fill={isHov || isSelected ? '#e8e4dd' : '#6b6560'}
+          fontSize={14}
+          fill="#F5F0E8"
+          fontWeight={400}
           className="pointer-events-none select-none"
-          style={{ fontFamily: 'var(--font-mono, monospace)' }}
+          style={{ fontFamily: 'var(--font-sans, sans-serif)' }}
         >
-          {n.name.split(' ').slice(-1)[0]}
+          {label}
         </text>
-        {(isHov || isSelected) && (
+
+        {/* Subtype label */}
+        {subLabel && (
           <text
-            y={r + 23}
+            y={r + 30}
             textAnchor="middle"
-            fontSize={7.5}
-            fill="#4b4540"
+            fontSize={12}
+            fill="#A8A49A"
+            fontWeight={300}
             className="pointer-events-none select-none"
+            style={{ fontFamily: 'var(--font-mono, monospace)' }}
           >
-            {n.name.split(' ').slice(0, -1).join(' ')}
+            {subLabel}
           </text>
         )}
 
         {/* Year badge in timeline mode */}
         {mode === 'timeline' && n.year && (
-          <text
-            y={-r - 5}
-            textAnchor="middle"
-            fontSize={7}
-            fill="#6b6560"
-            className="pointer-events-none select-none font-mono"
-          >
-            {n.year}
-          </text>
+          <g>
+            <rect x={-18} y={-r - 20} width={36} height={14} rx={3} ry={3} fill="#0d0c0a" opacity={0.7} />
+            <text
+              y={-r - 9}
+              textAnchor="middle"
+              fontSize={12}
+              fill="#A8A49A"
+              className="pointer-events-none select-none font-mono"
+            >
+              {n.year}
+            </text>
+          </g>
         )}
       </g>
     );
@@ -529,17 +550,19 @@ export default function GraphExplorer() {
 
   return (
     <div className="flex flex-col h-full">
+
       {/* ── Toolbar ───────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-ground flex-shrink-0 flex-wrap">
+
         {/* Mode toggle */}
-        <div className="flex gap-1 border border-border rounded p-0.5">
+        <div className="flex gap-0.5 border border-border rounded p-0.5">
           {(['web', 'timeline'] as const).map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
-              className={`font-mono text-[8px] uppercase tracking-widest px-3 py-1 rounded transition-colors ${mode === m ? 'bg-gold/10 text-gold' : 'text-text-tertiary hover:text-text-secondary'}`}
+              className={`font-mono text-[10px] uppercase tracking-widest px-3 py-1 rounded transition-colors ${mode === m ? 'bg-gold/10 text-gold' : 'text-text-tertiary hover:text-text-secondary'}`}
             >
-              {m === 'web' ? '⬡ Web' : '⌛ Timeline'}
+              {m === 'web' ? '○ Web' : '≡ Timeline'}
             </button>
           ))}
         </div>
@@ -554,9 +577,9 @@ export default function GraphExplorer() {
                 next.has(t) ? next.delete(t) : next.add(t);
                 return { ...f, entityTypes: next };
               })}
-              className={`font-mono text-[8px] uppercase tracking-widest px-2.5 py-1 border rounded transition-colors ${filters.entityTypes.has(t) ? 'border-gold/40 text-gold' : 'border-border text-text-tertiary'}`}
+              className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 border rounded transition-colors ${filters.entityTypes.has(t) ? 'border-gold/40 text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
             >
-              {t === 'person' ? '○ People' : '⬡ Institutions'}
+              {t === 'person' ? '○ People' : '□ Institutions'}
             </button>
           ))}
         </div>
@@ -564,13 +587,48 @@ export default function GraphExplorer() {
         {/* Filters toggle */}
         <button
           onClick={() => setShowFilters((v) => !v)}
-          className={`font-mono text-[8px] uppercase tracking-widest px-2.5 py-1 border rounded transition-colors ${showFilters ? 'border-gold/40 text-gold' : 'border-border text-text-tertiary'}`}
+          className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 border rounded transition-colors ${showFilters ? 'border-gold/40 text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
         >
           ≡ Filter
         </button>
 
+        {/* Search */}
+        <div className="relative flex-1 max-w-[240px]">
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder="Search entities…"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+            onFocus={() => setSearchOpen(true)}
+            onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
+            className="w-full font-mono text-[11px] bg-ground-light border border-border px-3 py-1.5 text-text-secondary placeholder-text-tertiary focus:outline-none focus:border-gold/40 rounded"
+          />
+          {searchOpen && searchResults.length > 0 && (
+            <div className="absolute top-full mt-1 left-0 right-0 bg-ground border border-border shadow-lg z-50 rounded overflow-hidden">
+              {searchResults.map((n) => (
+                <button
+                  key={n.id}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-ground-light/60 text-left transition-colors"
+                  onClick={() => {
+                    setPanel(n);
+                    setSelected(new Set([n.id]));
+                    centerOnNode(n);
+                    setSearchQuery('');
+                    setSearchOpen(false);
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: nodeColor(n) }} />
+                  <span className="font-mono text-[11px] text-text-secondary">{n.name}</span>
+                  <span className="font-mono text-[9px] text-text-tertiary ml-auto">{n.subtype?.replace(/_/g, ' ')}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Stats */}
-        <div className="ml-auto font-mono text-[8px] text-text-tertiary">
+        <div className="ml-auto font-mono text-[11px] text-text-tertiary shrink-0">
           {visibleNodes.length} nodes · {visibleEdges.length} edges
         </div>
 
@@ -580,10 +638,10 @@ export default function GraphExplorer() {
             <button
               key={label}
               onClick={() => {
-                if (delta === 0) { setView({ x: 0, y: 0, scale: 1 }); }
+                if (delta === 0) setView({ x: 0, y: 0, scale: 1 });
                 else setView((v) => ({ ...v, scale: Math.max(0.2, Math.min(4, v.scale * delta)) }));
               }}
-              className="font-mono text-[10px] text-text-tertiary border border-border w-6 h-6 rounded hover:text-gold hover:border-gold/30 transition-colors flex items-center justify-center"
+              className="font-mono text-[11px] text-text-tertiary border border-border w-7 h-7 rounded hover:text-gold hover:border-gold/30 transition-colors flex items-center justify-center"
             >
               {label}
             </button>
@@ -593,9 +651,9 @@ export default function GraphExplorer() {
 
       {/* ── Filter bar ────────────────────────────────────────────────────── */}
       {showFilters && (
-        <div className="px-4 py-3 border-b border-border bg-ground-light flex flex-wrap gap-4 items-start flex-shrink-0">
+        <div className="px-4 py-3 border-b border-border bg-ground-light flex flex-wrap gap-5 items-start flex-shrink-0">
           <div>
-            <p className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary mb-1.5">Relationship types</p>
+            <p className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-2">Relationship type</p>
             <div className="flex flex-wrap gap-1">
               {allRelTypes.map((t) => (
                 <button
@@ -605,25 +663,21 @@ export default function GraphExplorer() {
                     next.has(t) ? next.delete(t) : next.add(t);
                     return { ...f, relTypes: next };
                   })}
-                  className={`font-mono text-[7px] uppercase tracking-widest px-1.5 py-0.5 border rounded transition-colors ${filters.relTypes.has(t) ? 'text-gold border-gold/40' : 'text-text-tertiary border-border hover:text-text-secondary'}`}
-                  style={{ borderColor: filters.relTypes.has(t) ? undefined : edgeColor({ type: t } as GraphEdge) + '44' }}
+                  className={`font-mono text-[10px] px-2 py-0.5 border rounded transition-colors ${filters.relTypes.has(t) ? 'text-gold border-gold/40' : 'text-text-tertiary border-border hover:text-text-secondary'}`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full inline-block mr-1" style={{ backgroundColor: edgeColor({ type: t } as GraphEdge) }} />
                   {t.replace(/_/g, ' ')}
                 </button>
               ))}
               {filters.relTypes.size > 0 && (
-                <button
-                  onClick={() => setFilters((f) => ({ ...f, relTypes: new Set() }))}
-                  className="font-mono text-[7px] text-text-tertiary hover:text-gold transition-colors ml-1"
-                >
+                <button onClick={() => setFilters((f) => ({ ...f, relTypes: new Set() }))} className="font-mono text-[10px] text-text-tertiary hover:text-gold transition-colors ml-1">
                   clear
                 </button>
               )}
             </div>
           </div>
           <div>
-            <p className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary mb-1.5">Membership status</p>
+            <p className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-2">Confirmation</p>
             <div className="flex gap-1">
               {['confirmed', 'assumed', 'unknown'].map((s) => (
                 <button
@@ -633,7 +687,7 @@ export default function GraphExplorer() {
                     next.has(s) ? next.delete(s) : next.add(s);
                     return { ...f, membershipStatus: next };
                   })}
-                  className={`font-mono text-[7px] uppercase tracking-widest px-1.5 py-0.5 border rounded transition-colors ${filters.membershipStatus.has(s) ? 'text-gold border-gold/40' : 'text-text-tertiary border-border'}`}
+                  className={`font-mono text-[10px] px-2 py-0.5 border rounded transition-colors ${filters.membershipStatus.has(s) ? 'text-gold border-gold/40' : 'text-text-tertiary border-border hover:text-text-secondary'}`}
                 >
                   {s}
                 </button>
@@ -645,47 +699,25 @@ export default function GraphExplorer() {
 
       {/* ── Timeline year slider ───────────────────────────────────────────── */}
       {mode === 'timeline' && (
-        <div className="px-6 py-2 border-b border-border bg-ground flex items-center gap-4 flex-shrink-0">
-          <span className="font-mono text-[8px] text-text-tertiary w-10">{yearRange[0]}</span>
-          <div className="flex-1 relative h-4">
+        <div className="px-6 py-2.5 border-b border-border bg-ground flex items-center gap-4 flex-shrink-0">
+          <span className="font-mono text-[11px] text-text-secondary w-12">{yearRange[0]}</span>
+          <div className="flex-1 relative h-5">
             <div className="absolute top-1/2 left-0 right-0 h-px bg-border -translate-y-1/2" />
-            <input
-              type="range"
-              min={timelineRange.min}
-              max={timelineRange.max}
-              value={yearRange[0]}
+            <input type="range" min={timelineRange.min} max={timelineRange.max} value={yearRange[0]}
               onChange={(e) => setYearRange([Math.min(+e.target.value, yearRange[1] - 10), yearRange[1]])}
-              className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
-              style={{ zIndex: 2 }}
-            />
-            <input
-              type="range"
-              min={timelineRange.min}
-              max={timelineRange.max}
-              value={yearRange[1]}
+              className="absolute inset-0 w-full opacity-0 cursor-pointer h-full" style={{ zIndex: 2 }} />
+            <input type="range" min={timelineRange.min} max={timelineRange.max} value={yearRange[1]}
               onChange={(e) => setYearRange([yearRange[0], Math.max(+e.target.value, yearRange[0] + 10)])}
-              className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
-              style={{ zIndex: 2 }}
-            />
-            {/* Visual track */}
-            <div
-              className="absolute top-1/2 h-0.5 bg-gold/40 -translate-y-1/2"
-              style={{
-                left: `${((yearRange[0] - timelineRange.min) / (timelineRange.max - timelineRange.min)) * 100}%`,
-                right: `${100 - ((yearRange[1] - timelineRange.min) / (timelineRange.max - timelineRange.min)) * 100}%`,
-              }}
-            />
-            <div
-              className="absolute top-1/2 w-2 h-2 rounded-full bg-gold border border-gold/60 -translate-y-1/2 -translate-x-1/2"
-              style={{ left: `${((yearRange[0] - timelineRange.min) / (timelineRange.max - timelineRange.min)) * 100}%`, zIndex: 3 }}
-            />
-            <div
-              className="absolute top-1/2 w-2 h-2 rounded-full bg-gold border border-gold/60 -translate-y-1/2 -translate-x-1/2"
-              style={{ left: `${((yearRange[1] - timelineRange.min) / (timelineRange.max - timelineRange.min)) * 100}%`, zIndex: 3 }}
-            />
+              className="absolute inset-0 w-full opacity-0 cursor-pointer h-full" style={{ zIndex: 2 }} />
+            <div className="absolute top-1/2 h-0.5 bg-gold/40 -translate-y-1/2"
+              style={{ left: `${((yearRange[0] - timelineRange.min) / (timelineRange.max - timelineRange.min)) * 100}%`, right: `${100 - ((yearRange[1] - timelineRange.min) / (timelineRange.max - timelineRange.min)) * 100}%` }} />
+            {[yearRange[0], yearRange[1]].map((yr) => (
+              <div key={yr} className="absolute top-1/2 w-2.5 h-2.5 rounded-full bg-gold border border-gold/60 -translate-y-1/2 -translate-x-1/2"
+                style={{ left: `${((yr - timelineRange.min) / (timelineRange.max - timelineRange.min)) * 100}%`, zIndex: 3 }} />
+            ))}
           </div>
-          <span className="font-mono text-[8px] text-text-tertiary w-10 text-right">{yearRange[1]}</span>
-          <span className="font-mono text-[8px] text-text-tertiary">
+          <span className="font-mono text-[11px] text-text-secondary w-12 text-right">{yearRange[1]}</span>
+          <span className="font-mono text-[11px] text-text-tertiary shrink-0">
             {yearRange[1] - yearRange[0]}yr window
           </span>
         </div>
@@ -693,36 +725,35 @@ export default function GraphExplorer() {
 
       {/* ── Canvas + Panel ─────────────────────────────────────────────────── */}
       <div className="flex flex-1 min-h-0 relative">
+
         {/* SVG graph */}
-        <div className="flex-1 relative overflow-hidden" style={{ background: '#0a0907' }}>
+        <div ref={containerRef} className="flex-1 relative overflow-hidden" style={{ background: '#09080a' }}>
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <p className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary animate-pulse">
-                Building graph…
-              </p>
+              <p className="font-mono text-[11px] uppercase tracking-widest text-text-tertiary animate-pulse">Building graph…</p>
+            </div>
+          )}
+          {!loading && visibleNodes.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="font-mono text-[11px] text-text-tertiary">No entities match this filter. Try broadening your selection.</p>
             </div>
           )}
 
           {/* Timeline axis */}
           {mode === 'timeline' && !loading && (
-            <svg
-              className="absolute bottom-0 left-0 right-0 pointer-events-none"
-              width={w} height={40}
-              style={{ transform: `translateX(${view.x}px) scaleX(${view.scale})`, transformOrigin: '0 0' }}
-            >
+            <svg className="absolute bottom-0 left-0 right-0 pointer-events-none" width={w} height={44}
+              style={{ transform: `translateX(${view.x}px) scaleX(${view.scale})`, transformOrigin: '0 0' }}>
+              <line x1={0} y1={0} x2={w} y2={0} stroke="#2a2622" strokeWidth={1} />
               {Array.from({ length: Math.ceil((timelineRange.max - timelineRange.min) / 100) + 1 }, (_, i) => {
                 const yr = timelineRange.min + i * 100;
-                const x = 100 + ((yr - timelineRange.min) / (timelineRange.max - timelineRange.min)) * (w - 200);
+                const x = 120 + ((yr - timelineRange.min) / (timelineRange.max - timelineRange.min)) * (w - 240);
                 return (
                   <g key={yr}>
-                    <line x1={x} y1={0} x2={x} y2={6} stroke="#2a2620" strokeWidth={1} />
-                    <text x={x} y={18} textAnchor="middle" fontSize={8} fill="#3d3830" className="font-mono">
-                      {yr}
-                    </text>
+                    <line x1={x} y1={0} x2={x} y2={8} stroke="#3a3630" strokeWidth={1} />
+                    <text x={x} y={24} textAnchor="middle" fontSize={12} fill="#A8A49A" className="font-mono">{yr}</text>
                   </g>
                 );
               })}
-              <line x1={0} y1={0} x2={w} y2={0} stroke="#1a1814" strokeWidth={1} />
             </svg>
           )}
 
@@ -731,6 +762,7 @@ export default function GraphExplorer() {
             width={w}
             height={h}
             className="absolute inset-0 w-full h-full select-none"
+            style={{ cursor: dragging.current ? 'grabbing' : 'grab' }}
             onWheel={onWheel}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
@@ -739,16 +771,14 @@ export default function GraphExplorer() {
           >
             <defs>
               <radialGradient id="bgGrad" cx="50%" cy="50%" r="60%">
-                <stop offset="0%" stopColor="#111009" />
-                <stop offset="100%" stopColor="#080706" />
+                <stop offset="0%" stopColor="#110f0d" />
+                <stop offset="100%" stopColor="#080608" />
               </radialGradient>
             </defs>
             <rect width={w} height={h} fill="url(#bgGrad)" />
 
             <g transform={`translate(${view.x},${view.y}) scale(${view.scale})`}>
-              {/* Edges */}
               {visibleEdges.map((e, i) => renderEdge(e, i))}
-              {/* Nodes */}
               {visibleNodes.map((n) => renderNode(n))}
             </g>
           </svg>
@@ -756,109 +786,109 @@ export default function GraphExplorer() {
 
         {/* ── Detail panel ────────────────────────────────────────────────── */}
         {panel && (
-          <div className="w-72 flex-shrink-0 border-l border-border bg-ground overflow-y-auto">
-            <div className="p-4 border-b border-border flex items-start justify-between">
+          <div className="w-80 flex-shrink-0 border-l border-border bg-ground overflow-y-auto flex flex-col">
+            {/* Header */}
+            <div className="p-5 border-b border-border flex items-start justify-between">
               <div>
-                <p className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary mb-0.5">
-                  {panel.type === 'institution' ? (panel.subtype ?? 'Institution') : (panel.subtype ?? 'Person')}
+                <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-1">
+                  {(panel.subtype ?? panel.type).replace(/_/g, ' ')}
                 </p>
-                <h3 className="font-serif text-base leading-tight">{panel.name}</h3>
+                <h3 className="font-serif text-[1.1rem] leading-tight">{panel.name}</h3>
               </div>
-              <button
-                onClick={() => { setPanel(null); setSelected(new Set()); }}
-                className="text-text-tertiary hover:text-text-primary ml-2 text-sm"
-              >
-                ✕
-              </button>
+              <button onClick={() => { setPanel(null); setSelected(new Set()); }}
+                className="text-text-tertiary hover:text-text-primary ml-3 text-sm mt-0.5 shrink-0">✕</button>
             </div>
 
             {/* Identity facts */}
-            <div className="p-4 space-y-2.5 border-b border-border">
+            <div className="p-5 space-y-2.5 border-b border-border">
               {panel.year && (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary w-16 flex-shrink-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary w-16 shrink-0">
                     {panel.type === 'person' ? 'Born' : 'Founded'}
                   </span>
-                  <span className="text-xs">{panel.year}{panel.died_year ? ` – ${panel.died_year}` : ''}</span>
+                  <span className="text-sm">{panel.year}{panel.died_year ? ` – ${panel.died_year}` : ''}</span>
                 </div>
               )}
               {panel.type === 'person' && panel.faith && (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary w-16 flex-shrink-0">Faith</span>
-                  <span className="text-xs">{panel.faith}</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary w-16 shrink-0">Faith</span>
+                  <span className="text-sm">{panel.faith}</span>
                 </div>
               )}
               {panel.type === 'person' && panel.political_party && (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary w-16 flex-shrink-0">Party</span>
-                  <span className="text-xs">{panel.political_party}</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary w-16 shrink-0">Party</span>
+                  <span className="text-sm">{panel.political_party}</span>
                 </div>
               )}
               {panel.type === 'institution' && panel.transparency_tier && (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary w-16 flex-shrink-0">Opacity</span>
-                  <span className="text-xs">{panel.transparency_tier.replace(/_/g, ' ')}</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary w-16 shrink-0">Opacity</span>
+                  <span className="text-sm">{panel.transparency_tier.replace(/_/g, ' ')}</span>
                 </div>
               )}
               {panel.short_bio && (
-                <p className="text-xs text-text-tertiary leading-relaxed">{panel.short_bio}</p>
+                <p className="text-[0.82rem] text-text-secondary leading-relaxed pt-1">{panel.short_bio}</p>
               )}
               {panel.slug && (
-                <a
-                  href={`/${panel.type === 'person' ? 'people' : 'institutions'}/${panel.slug}`}
-                  className="inline-block font-mono text-[8px] uppercase tracking-widest text-gold hover:text-gold/80 transition-colors mt-1"
-                >
+                <a href={`/${panel.type === 'person' ? 'people' : 'institutions'}/${panel.slug}`}
+                  className="inline-block font-mono text-[10px] uppercase tracking-widest text-gold hover:text-gold/80 transition-colors mt-1">
                   Full profile →
                 </a>
               )}
             </div>
 
             {/* Connections list */}
-            <div className="p-4">
-              <p className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary mb-3">
-                {panelConnections.length} connection{panelConnections.length !== 1 ? 's' : ''}
+            <div className="p-5 flex-1">
+              <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-4">
+                Connections ({panelConnections.length})
               </p>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {panelConnections.map(({ edge, other }) => (
-                  <div key={edge.id} className="group">
-                    <div className="flex items-start gap-2">
+                  <div key={edge.id}>
+                    <div className="flex items-start gap-2.5">
                       <span
-                        className="font-mono text-[7px] uppercase tracking-widest border px-1 py-0.5 rounded flex-shrink-0 mt-0.5"
-                        style={{ color: edgeColor(edge), borderColor: edgeColor(edge) + '44' }}
+                        className="font-mono text-[9px] uppercase tracking-widest border px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5"
+                        style={{ color: edgeColor(edge), borderColor: edgeColor(edge) + '55' }}
                       >
                         {edge.type.replace(/_/g, ' ')}
                       </span>
                       <div className="flex-1 min-w-0">
-                        {other?.slug ? (
+                        {other ? (
                           <button
-                            onClick={(ev) => { ev.stopPropagation(); const node = nodes.find((n) => n.id === other.id); if (node) { setPanel(node); setSelected(new Set([node.id])); } }}
-                            className="text-xs text-text-secondary hover:text-gold transition-colors text-left"
+                            onClick={(ev) => { ev.stopPropagation(); setPanel(other); setSelected(new Set([other.id])); centerOnNode(other); }}
+                            className="text-[0.82rem] text-text-secondary hover:text-gold transition-colors text-left leading-snug"
                           >
-                            {other?.name ?? edge.target}
+                            {other.name}
                           </button>
                         ) : (
-                          <span className="text-xs text-text-tertiary">{other?.name ?? edge.target}</span>
+                          <span className="text-[0.82rem] text-text-tertiary">{edge.target}</span>
                         )}
                         {(edge.start_year || edge.end_year) && (
-                          <span className="font-mono text-[7px] text-text-tertiary ml-1">
+                          <span className="font-mono text-[9px] text-text-tertiary ml-1.5">
                             {edge.start_year ?? '?'}{edge.end_year && edge.end_year !== edge.start_year ? `–${edge.end_year}` : ''}
                           </span>
                         )}
-                        {edge.membership_status && edge.membership_status !== 'unknown' && (
-                          <span className={`font-mono text-[7px] ml-1 ${edge.membership_status === 'confirmed' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                            {edge.membership_status}
-                          </span>
-                        )}
-                        {edge.covert && <span className="font-mono text-[7px] text-red-400 ml-1">covert</span>}
+                        <div className="flex gap-2 mt-0.5">
+                          {edge.membership_status && edge.membership_status !== 'unknown' && (
+                            <span className={`font-mono text-[9px] ${edge.membership_status === 'confirmed' ? 'text-teal' : 'text-amber-500/70'}`}>
+                              {edge.membership_status}
+                            </span>
+                          )}
+                          {edge.covert && <span className="font-mono text-[9px] text-red-400/70">covert</span>}
+                        </div>
                       </div>
                     </div>
                     {edge.description && (
-                      <p className="text-[10px] text-text-tertiary mt-0.5 ml-0 leading-relaxed line-clamp-2">
+                      <p className="text-[11px] text-text-tertiary mt-1.5 leading-relaxed line-clamp-2">
                         {edge.description}
                       </p>
                     )}
                   </div>
                 ))}
+                {panelConnections.length === 0 && (
+                  <p className="text-[0.82rem] text-text-tertiary">No documented connections.</p>
+                )}
               </div>
             </div>
           </div>
@@ -866,31 +896,76 @@ export default function GraphExplorer() {
       </div>
 
       {/* ── Legend ────────────────────────────────────────────────────────── */}
-      <div className="px-4 py-2 border-t border-border bg-ground flex gap-6 flex-shrink-0 overflow-x-auto">
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">People</span>
-          {Object.entries(PERSON_COLORS).filter(([k]) => k !== 'default').slice(0, 5).map(([type, color]) => (
-            <span key={type} className="flex items-center gap-1 font-mono text-[7px] text-text-tertiary">
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-              {type.replace(/_/g, ' ')}
-            </span>
-          ))}
-        </div>
-        <div className="w-px bg-border flex-shrink-0" />
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">Institutions</span>
-          {Object.entries(INST_COLORS).filter(([k]) => k !== 'default').slice(0, 5).map(([type, color]) => (
-            <span key={type} className="flex items-center gap-1 font-mono text-[7px] text-text-tertiary">
-              <span className="w-2 h-2 rounded flex-shrink-0" style={{ backgroundColor: color, clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }} />
-              {type.replace(/_/g, ' ')}
-            </span>
-          ))}
-        </div>
-        <div className="w-px bg-border flex-shrink-0" />
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="font-mono text-[7px] text-text-tertiary">― solid = confirmed</span>
-          <span className="font-mono text-[7px] text-text-tertiary">╌ dashed = covert / assumed</span>
-          <span className="font-mono text-[7px] text-text-tertiary">shift+click = multi-select</span>
+      <div className="border-t border-border bg-ground flex-shrink-0 overflow-x-auto">
+        <div className="px-5 py-3 flex gap-6 items-start min-w-max">
+
+          {/* People */}
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-2">People</p>
+            <div className="flex gap-3 flex-wrap">
+              {Object.entries(PERSON_COLORS).filter(([k]) => k !== 'default').map(([type, color]) => {
+                const active = highlightedSubtypes.has(type);
+                return (
+                  <button
+                    key={type}
+                    onClick={() => toggleSubtype(type)}
+                    className={`flex items-center gap-1.5 transition-opacity ${active ? 'opacity-100' : (highlightedSubtypes.size > 0 ? 'opacity-40' : 'opacity-80')} hover:opacity-100`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                    <span className="font-mono text-[11px] text-text-secondary">{type.replace(/_/g, ' ')}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="w-px self-stretch bg-border flex-shrink-0" />
+
+          {/* Institutions */}
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-2">Institutions</p>
+            <div className="flex gap-3 flex-wrap">
+              {Object.entries(INST_COLORS).filter(([k]) => k !== 'default').map(([type, color]) => {
+                const active = highlightedSubtypes.has(type);
+                return (
+                  <button
+                    key={type}
+                    onClick={() => toggleSubtype(type)}
+                    className={`flex items-center gap-1.5 transition-opacity ${active ? 'opacity-100' : (highlightedSubtypes.size > 0 ? 'opacity-40' : 'opacity-80')} hover:opacity-100`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: color }} />
+                    <span className="font-mono text-[11px] text-text-secondary">{type.replace(/_/g, ' ')}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="w-px self-stretch bg-border flex-shrink-0" />
+
+          {/* Edges key */}
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-2">Edges</p>
+            <div className="flex gap-4 items-center">
+              <span className="flex items-center gap-1.5 font-mono text-[11px] text-text-secondary">
+                <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#7A746E" strokeWidth="1.5" /></svg>
+                confirmed
+              </span>
+              <span className="flex items-center gap-1.5 font-mono text-[11px] text-text-secondary">
+                <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#7A746E" strokeWidth="1.5" strokeDasharray="4,3" /></svg>
+                inferred
+              </span>
+              <span className="font-mono text-[11px] text-text-tertiary">shift+click = multi-select</span>
+            </div>
+          </div>
+
+          {/* Clear legend filter if active */}
+          {highlightedSubtypes.size > 0 && (
+            <button onClick={() => setHighlightedSubtypes(new Set())}
+              className="ml-auto font-mono text-[10px] text-text-tertiary hover:text-gold transition-colors self-center shrink-0">
+              clear filter
+            </button>
+          )}
         </div>
       </div>
     </div>

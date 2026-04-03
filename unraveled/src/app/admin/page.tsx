@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAllAgents } from '@/lib/research/agents/definitions';
 import type { AgentDefinition } from '@/lib/research/types';
+import { SocialTab } from './SocialTab';
+import { IntelligenceTab } from './IntelligenceTab';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -763,17 +765,24 @@ function SessionsTab() {
                 )}
                 <button
                   onClick={async () => {
-                    const msg = s.status === 'complete'
-                      ? `Delete this session? The published dossier is safe, but raw findings from this session will be removed.`
-                      : `Delete this failed session and its partial data?`;
+                    const isActive = !['complete', 'failed'].includes(s.status);
+                    const msg = isActive
+                      ? `Stop & delete this in-progress session?\n\nAll pending and running jobs will be cancelled. This cannot be undone.`
+                      : s.status === 'complete'
+                        ? `Delete this session? The published dossier is safe, but raw findings from this session will be removed.`
+                        : `Delete this failed session and its partial data?`;
                     if (!confirm(msg)) return;
                     const res = await fetch(`/api/admin/sessions?id=${s.id}`, { method: 'DELETE' });
                     if (!res.ok) { alert(`Delete failed: ${(await res.json()).error}`); return; }
                     setSessions((prev) => prev.filter((x) => x.id !== s.id));
                   }}
-                  className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-red-400 border border-border hover:border-red-400/30 px-2 py-1 rounded transition-colors"
+                  className={`font-mono text-[9px] uppercase tracking-widest border px-2 py-1 rounded transition-colors ${
+                    !['complete', 'failed'].includes(s.status)
+                      ? 'text-red-400 border-red-400/40 bg-red-400/5 hover:bg-red-400/15'
+                      : 'text-text-tertiary hover:text-red-400 border-border hover:border-red-400/30'
+                  }`}
                 >
-                  Delete
+                  {!['complete', 'failed'].includes(s.status) ? 'Stop & Delete' : 'Delete'}
                 </button>
               </div>
             </div>
@@ -1348,12 +1357,14 @@ function ContentTab() {
                 </div>
               )}
               {/* People & Institutions */}
-              {d.session_id && <DossierEntities sessionId={d.session_id} />}
+              {d.session_id && <DossierEntities sessionId={d.session_id} topic={d.topic} />}
 
               {/* Visual Strategy */}
-              {typeof d.synthesized_output?.visual_strategy === 'string' && (
+              {typeof d.synthesized_output?.visual_strategy === 'string' ? (
                 <VisualStrategy text={d.synthesized_output.visual_strategy} />
-              )}
+              ) : d.synthesized_output ? (
+                <GenerateVisualStrategy topic={d.topic} />
+              ) : null}
 
               {/* Podcast Audio */}
               <DossierPodcast topic={d.topic} />
@@ -1391,11 +1402,13 @@ interface EntityRecord {
   extraction_notes?: string | null;
 }
 
-function DossierEntities({ sessionId }: { sessionId: string }) {
+function DossierEntities({ sessionId, topic }: { sessionId: string; topic: string }) {
   const [open, setOpen] = useState(false);
   const [people, setPeople] = useState<EntityRecord[]>([]);
   const [institutions, setInstitutions] = useState<EntityRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [extractMsg, setExtractMsg] = useState('');
   const [statuses, setStatuses] = useState<Record<string, string>>({});
   const [researchStatus, setResearchStatus] = useState<Record<string, string>>({});
 
@@ -1410,6 +1423,26 @@ function DossierEntities({ sessionId }: { sessionId: string }) {
       // leave empty — show empty state
     } finally {
       setLoading(false);
+    }
+  };
+
+  const extractNow = async () => {
+    setExtracting(true);
+    setExtractMsg('');
+    try {
+      const res = await fetch('/api/admin/dossier/entities', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, topic }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setExtractMsg(`Error: ${data.error}`); return; }
+      setExtractMsg(`Done — ${data.created_people} people, ${data.created_institutions} institutions extracted`);
+      await load();
+    } catch (err) {
+      setExtractMsg(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setExtracting(false);
     }
   };
 
@@ -1506,16 +1539,31 @@ function DossierEntities({ sessionId }: { sessionId: string }) {
           {loading && <p className="font-mono text-[10px] text-text-tertiary">Loading…</p>}
 
           {!loading && total === 0 && (
-            <div className="flex items-center gap-3">
-              <p className="font-mono text-[10px] text-text-tertiary">
-                No entities extracted yet. Run the editor pass to auto-extract.
-              </p>
-              <button
-                onClick={load}
-                className="font-mono text-[9px] text-text-tertiary border border-border px-2 py-1 rounded hover:text-text-secondary transition-colors"
-              >
-                Refresh
-              </button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <p className="font-mono text-[10px] text-text-tertiary">
+                  No entities extracted yet.
+                </p>
+                <button
+                  onClick={load}
+                  disabled={extracting}
+                  className="font-mono text-[9px] text-text-tertiary border border-border px-2 py-1 rounded hover:text-text-secondary transition-colors disabled:opacity-40"
+                >
+                  Refresh
+                </button>
+                <button
+                  onClick={extractNow}
+                  disabled={extracting}
+                  className="font-mono text-[9px] text-gold border border-gold/30 bg-gold/5 hover:bg-gold/10 px-2 py-1 rounded transition-colors disabled:opacity-40"
+                >
+                  {extracting ? 'Extracting…' : 'Extract Now'}
+                </button>
+              </div>
+              {extractMsg && (
+                <p className={`font-mono text-[9px] ${extractMsg.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {extractMsg}
+                </p>
+              )}
             </div>
           )}
 
@@ -1836,6 +1884,52 @@ function VisualStrategy({ text }: { text: string }) {
   );
 }
 
+// ── Generate Visual Strategy ──────────────────────────────────────────────────
+
+function GenerateVisualStrategy({ topic }: { topic: string }) {
+  const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  const generate = async () => {
+    setStatus('generating');
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/visual-strategy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Unknown error');
+      setStatus('done');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="border-t border-border/40 px-4 py-3 flex items-center justify-between">
+      <span className="font-mono text-[9px] uppercase tracking-widest text-violet-400/50">
+        Visual Strategy — Hero Image Prompts
+      </span>
+      {status === 'done' ? (
+        <span className="font-mono text-[9px] text-emerald-400">Generated ✓ — refresh to view</span>
+      ) : status === 'error' ? (
+        <span className="font-mono text-[9px] text-red-400">{error}</span>
+      ) : (
+        <button
+          onClick={generate}
+          disabled={status === 'generating'}
+          className="font-mono text-[9px] uppercase tracking-widest border border-violet-400/30 text-violet-400 px-3 py-1 hover:bg-violet-400/10 transition-colors disabled:opacity-40"
+        >
+          {status === 'generating' ? 'Generating…' : '+ Generate'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Dossier Images Panel ──────────────────────────────────────────────────────
 
 interface TopicImage {
@@ -1863,6 +1957,8 @@ interface TopicImage {
   gemini_caption: string | null;
   gemini_tweaks: string | null;
   gemini_alternatives: string | null;
+  hero_position: string | null;
+  cropped_url: string | null;
 }
 
 function DossierImages({ topic, title }: { topic: string; title: string }) {
@@ -1873,6 +1969,7 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
   const [searchMsg, setSearchMsg] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
+  const [cropStatus, setCropStatus] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -1881,6 +1978,47 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
     const data = await res.json();
     setImages(data.images ?? []);
     setLoading(false);
+  };
+
+  // Parse Gemini tweaks crop hint: "crop: 20%-80% vertical, 0%-100% horizontal — reason"
+  const parseCropHint = (tweaks: string | null): { top: number; bottom: number; left: number; right: number } | null => {
+    if (!tweaks) return null;
+    const m = tweaks.match(/crop:\s*(\d+)%-(\d+)%\s*vertical,\s*(\d+)%-(\d+)%\s*horizontal/i);
+    if (!m) return null;
+    return {
+      top: parseInt(m[1]) / 100,
+      bottom: parseInt(m[2]) / 100,
+      left: parseInt(m[3]) / 100,
+      right: parseInt(m[4]) / 100,
+    };
+  };
+
+  const applyCrop = async (img: TopicImage) => {
+    const crop = parseCropHint(img.gemini_tweaks);
+    if (!crop) { setCropStatus((s) => ({ ...s, [img.id]: 'No crop hint found in tweaks' })); return; }
+    setCropStatus((s) => ({ ...s, [img.id]: 'cropping…' }));
+    try {
+      const res = await fetch('/api/admin/images/crop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: img.id, ...crop }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setCropStatus((s) => ({ ...s, [img.id]: `error: ${data.error}` })); return; }
+      setCropStatus((s) => ({ ...s, [img.id]: `cropped ✓ (${data.width}×${data.height})` }));
+      await load();
+    } catch (err) {
+      setCropStatus((s) => ({ ...s, [img.id]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  const setPosition = async (id: string, position: string) => {
+    await fetch('/api/admin/images/crop', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, hero_position: position }),
+    });
+    setImages((prev) => prev.map((i) => i.id === id ? { ...i, hero_position: position } : i));
   };
 
   const search = async () => {
@@ -2129,12 +2267,46 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
                           </p>
                         )}
 
-                        {/* Tweaks note */}
+                        {/* Tweaks note + crop controls */}
                         {img.gemini_tweaks && (
-                          <p className="text-[9px] text-amber-400/80 leading-snug line-clamp-2">
-                            <span className="font-mono text-[8px] uppercase tracking-widest mr-1">Tweak:</span>
-                            {img.gemini_tweaks}
-                          </p>
+                          <div className="space-y-1.5">
+                            <p className="text-[9px] text-amber-400/80 leading-snug line-clamp-3">
+                              <span className="font-mono text-[8px] uppercase tracking-widest mr-1">Tweak:</span>
+                              {img.gemini_tweaks}
+                            </p>
+                            {/* Crop + position controls for approved images */}
+                            {img.status === 'approved' && (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {parseCropHint(img.gemini_tweaks) && (
+                                  <button
+                                    onClick={() => void applyCrop(img)}
+                                    disabled={cropStatus[img.id] === 'cropping…'}
+                                    className="font-mono text-[8px] uppercase tracking-widest px-2 py-0.5 border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 rounded transition-colors disabled:opacity-40"
+                                  >
+                                    {img.cropped_url ? 'Re-crop' : 'Apply Crop'}
+                                  </button>
+                                )}
+                                {img.cropped_url && (
+                                  <span className="font-mono text-[8px] text-emerald-400">cropped ✓</span>
+                                )}
+                                {cropStatus[img.id] && (
+                                  <span className={`font-mono text-[8px] ${cropStatus[img.id].startsWith('error') ? 'text-red-400' : cropStatus[img.id].includes('✓') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
+                                    {cropStatus[img.id]}
+                                  </span>
+                                )}
+                                <span className="font-mono text-[8px] text-text-tertiary">pos:</span>
+                                {(['top', 'center', 'bottom'] as const).map((pos) => (
+                                  <button
+                                    key={pos}
+                                    onClick={() => void setPosition(img.id, pos)}
+                                    className={`font-mono text-[8px] px-1.5 py-0.5 border rounded transition-colors ${(img.hero_position ?? 'center') === pos ? 'border-gold text-gold bg-gold/10' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+                                  >
+                                    {pos}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         {/* License + author */}
@@ -2451,14 +2623,170 @@ function MediaTab() {
   );
 }
 
+// ── People Diff Panel ─────────────────────────────────────────────────────────
+
+function PersonDiffPanel({
+  person,
+  fresh,
+  applyingDiff,
+  onApply,
+  onDismiss,
+}: {
+  person: PersonRow;
+  fresh: AIResearchResult;
+  applyingDiff: boolean;
+  onApply: (fields: Record<string, unknown>) => void;
+  onDismiss: () => void;
+}) {
+  const changed = DIFF_FIELDS.filter(({ key }) => {
+    const fv = String(fresh[key] ?? '').trim();
+    const cv = String((person as unknown as Record<string, string>)[key as string] ?? '').trim();
+    return fv !== '' && fv !== cv;
+  });
+  const unchanged = DIFF_FIELDS.filter(({ key }) => {
+    const fv = String(fresh[key] ?? '').trim();
+    const cv = String((person as unknown as Record<string, string>)[key as string] ?? '').trim();
+    return fv === '' || fv === cv;
+  });
+  const warnings = validateAIResult(fresh);
+  const changedFields = Object.fromEntries(changed.map(({ key }) => [key, fresh[key]])) as Record<string, unknown>;
+
+  return (
+    <div className="mt-3 border border-sky-400/20 bg-sky-400/5 rounded p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-[8px] uppercase tracking-widest text-sky-400">
+          Re-research result — {changed.length} field{changed.length !== 1 ? 's' : ''} changed
+        </p>
+        <button onClick={onDismiss} className="font-mono text-[8px] text-text-tertiary hover:text-text-secondary">
+          ✕ dismiss
+        </button>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className="border border-amber-400/30 bg-amber-400/5 rounded p-2 space-y-1">
+          {warnings.map((w, i) => (
+            <p key={i} className="font-mono text-[9px] text-amber-400/80">⚠ {w}</p>
+          ))}
+        </div>
+      )}
+
+      {changed.length === 0 ? (
+        <p className="font-mono text-[9px] text-text-tertiary">No differences found — data looks current.</p>
+      ) : (
+        <div className="space-y-2">
+          {changed.map(({ key, label }) => {
+            const freshVal = String(fresh[key] ?? '').trim();
+            const currentVal = String((person as unknown as Record<string, string>)[key as string] ?? '').trim();
+            return (
+              <div key={key} className="grid grid-cols-[80px_1fr_1fr] gap-2 items-start text-xs">
+                <span className="font-mono text-[8px] text-text-tertiary pt-0.5">{label}</span>
+                <span className="text-text-tertiary line-clamp-2 bg-ground rounded px-2 py-1">{currentVal || '—'}</span>
+                <span className="text-text-primary line-clamp-2 bg-ground rounded px-2 py-1 border border-sky-400/20">{freshVal}</span>
+              </div>
+            );
+          })}
+          {unchanged.length > 0 && (
+            <p className="font-mono text-[8px] text-text-tertiary">
+              {unchanged.length} field{unchanged.length !== 1 ? 's' : ''} unchanged ({unchanged.map((f) => f.label).join(', ')})
+            </p>
+          )}
+        </div>
+      )}
+
+      {changed.length > 0 && (
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={() => onApply(changedFields)}
+            disabled={applyingDiff}
+            className="font-mono text-[8px] uppercase tracking-widest text-sky-400 border border-sky-400/30 px-3 py-1.5 rounded hover:bg-sky-400/5 transition-colors disabled:opacity-40"
+          >
+            {applyingDiff ? 'Applying…' : `Apply ${changed.length} change${changed.length !== 1 ? 's' : ''} →`}
+          </button>
+          <button
+            onClick={onDismiss}
+            className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary px-3 py-1.5 rounded hover:text-text-secondary transition-colors"
+          >
+            Discard
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── People Tab ────────────────────────────────────────────────────────────────
 
 const CREDIBILITY_TIERS = [
   'academic', 'journalist', 'independent_researcher', 'whistleblower',
-  'public_figure', 'historical_figure', 'witness', 'controversial', 'unclassified',
+  'public_figure', 'historical_figure', 'witness', 'unclassified',
 ];
 
 const STATUS_OPTIONS = ['draft', 'published', 'archived'];
+
+// ── Validation ────────────────────────────────────────────────────────────────
+
+const KNOWN_BAD_ROLE_VALUES = new Set([
+  'postgres', 'mysql', 'sqlite', 'mongodb', 'redis', 'string', 'null', 'undefined',
+  'n/a', 'unknown', 'tbd', 'none', 'placeholder', 'example', 'test',
+]);
+
+const PLACEHOLDER_PATTERNS = /^(string|null|undefined|N\/A|unknown|TBD|none|example|test|\[.*\])$/i;
+
+function validateAIResult(r: AIResearchResult): string[] {
+  const warnings: string[] = [];
+
+  if (r.current_role) {
+    const roleNorm = r.current_role.toLowerCase().trim();
+    if (KNOWN_BAD_ROLE_VALUES.has(roleNorm))
+      warnings.push(`current_role looks like a DB/placeholder artifact: "${r.current_role}"`);
+  }
+
+  if (r.credibility_tier && !CREDIBILITY_TIERS.includes(r.credibility_tier))
+    warnings.push(`credibility_tier "${r.credibility_tier}" is not in the allowed list`);
+
+  for (const field of ['short_bio', 'bio', 'nationality', 'born_location'] as const) {
+    const val = r[field];
+    if (typeof val === 'string' && PLACEHOLDER_PATTERNS.test(val.trim()))
+      warnings.push(`${field} looks like a placeholder: "${val}"`);
+  }
+
+  if (r.short_bio && r.short_bio.trim().length < 10)
+    warnings.push('short_bio is suspiciously short');
+
+  if (r.born_date) {
+    const year = parseInt(r.born_date.slice(0, 4));
+    if (isNaN(year) || year < 1200 || year > 2010)
+      warnings.push(`born_date "${r.born_date}" looks invalid`);
+  }
+
+  if (r.slug && !/^[a-z0-9-]+$/.test(r.slug))
+    warnings.push(`slug "${r.slug}" contains invalid characters`);
+
+  return warnings;
+}
+
+const STALE_DAYS = 90;
+function isStale(lastResearched: string | null): boolean {
+  if (!lastResearched) return true;
+  const ms = Date.now() - new Date(lastResearched).getTime();
+  return ms > STALE_DAYS * 24 * 60 * 60 * 1000;
+}
+
+// Fields we compare when showing a re-research diff
+const DIFF_FIELDS: { key: keyof AIResearchResult; label: string }[] = [
+  { key: 'short_bio', label: 'Short bio' },
+  { key: 'credibility_tier', label: 'Tier' },
+  { key: 'current_role', label: 'Current role' },
+  { key: 'nationality', label: 'Nationality' },
+  { key: 'born_date', label: 'Born' },
+  { key: 'born_location', label: 'Born location' },
+  { key: 'died_date', label: 'Died' },
+  { key: 'website_url', label: 'Website' },
+  { key: 'twitter_handle', label: 'X / Twitter' },
+  { key: 'wikipedia_url', label: 'Wikipedia' },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface PersonRow {
   id: string;
@@ -2470,6 +2798,7 @@ interface PersonRow {
   current_role: string | null;
   status: string | null;
   featured: boolean;
+  last_researched_at: string | null;
   relationship_count?: number;
   media_count?: number;
   topic_count?: number;
@@ -2515,6 +2844,9 @@ function PeopleTab() {
   const [wishlist, setWishlist] = useState<{ id: string; person_name: string; relationship_type: string | null; source_person_name: string | null; description: string | null; created_at: string }[]>([]);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [wishlisted, setWishlisted] = useState<Set<string>>(new Set());
+  const [reresearchingId, setReresearchingId] = useState<string | null>(null);
+  const [diffResult, setDiffResult] = useState<{ personId: string; fresh: AIResearchResult } | null>(null);
+  const [applyingDiff, setApplyingDiff] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2618,6 +2950,35 @@ function PeopleTab() {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     await fetch(`/api/admin/people?id=${id}`, { method: 'DELETE' });
     await load();
+  };
+
+  const runReresearch = async (person: PersonRow) => {
+    setReresearchingId(person.id);
+    setDiffResult(null);
+    try {
+      const res = await fetch('/api/admin/people/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: person.full_name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Re-research failed');
+      setDiffResult({ personId: person.id, fresh: data.person });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setReresearchingId(null);
+    }
+  };
+
+  const applyDiffFields = async (personId: string, fields: Record<string, unknown>) => {
+    setApplyingDiff(true);
+    try {
+      await patchPerson(personId, { ...fields, last_researched_at: new Date().toISOString() });
+      setDiffResult(null);
+    } finally {
+      setApplyingDiff(false);
+    }
   };
 
   return (
@@ -2820,6 +3181,22 @@ function PeopleTab() {
                 </div>
               )}
 
+              {/* Validation warnings */}
+              {(() => {
+                const warnings = validateAIResult(researchResult);
+                if (warnings.length === 0) return null;
+                return (
+                  <div className="border border-amber-400/30 bg-amber-400/5 rounded p-3 space-y-1">
+                    <p className="font-mono text-[8px] uppercase tracking-widest text-amber-400 mb-2">
+                      {warnings.length} validation warning{warnings.length > 1 ? 's' : ''} — review before saving
+                    </p>
+                    {warnings.map((w, i) => (
+                      <p key={i} className="font-mono text-[9px] text-amber-400/80">⚠ {w}</p>
+                    ))}
+                  </div>
+                );
+              })()}
+
               <div className="flex gap-3 pt-2 border-t border-border">
                 <button
                   onClick={savePerson}
@@ -2985,6 +3362,7 @@ function PeopleTab() {
                       </div>
                     </div>
                   ) : (
+                    <>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -2997,6 +3375,11 @@ function PeopleTab() {
                               {person.credibility_tier}
                             </span>
                           )}
+                          {isStale(person.last_researched_at) && (
+                            <span title={person.last_researched_at ? `Last researched ${new Date(person.last_researched_at).toLocaleDateString()}` : 'Never researched'} className="font-mono text-[7px] uppercase tracking-widest text-amber-400 border border-amber-400/30 px-1.5 py-0.5 rounded">
+                              stale
+                            </span>
+                          )}
                         </div>
                         {person.short_bio && (
                           <p className="text-xs text-text-tertiary line-clamp-1">{person.short_bio}</p>
@@ -3007,6 +3390,11 @@ function PeopleTab() {
                           )}
                           {(person.relationship_count ?? 0) > 0 && (
                             <span className="font-mono text-[8px] text-text-tertiary">{person.relationship_count} connections</span>
+                          )}
+                          {person.last_researched_at && (
+                            <span className="font-mono text-[8px] text-text-tertiary">
+                              researched {new Date(person.last_researched_at).toLocaleDateString()}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -3021,6 +3409,13 @@ function PeopleTab() {
                             View
                           </a>
                         )}
+                        <button
+                          onClick={() => runReresearch(person)}
+                          disabled={reresearchingId === person.id}
+                          className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-sky-400 hover:border-sky-400/30 transition-colors disabled:opacity-40"
+                        >
+                          {reresearchingId === person.id ? '…' : '↻'}
+                        </button>
                         <button
                           onClick={() => {
                             setEditingId(person.id);
@@ -3054,6 +3449,18 @@ function PeopleTab() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Diff panel — shown after re-research */}
+                    {diffResult?.personId === person.id && (
+                      <PersonDiffPanel
+                        person={person}
+                        fresh={diffResult.fresh}
+                        applyingDiff={applyingDiff}
+                        onApply={(fields) => applyDiffFields(person.id, fields)}
+                        onDismiss={() => setDiffResult(null)}
+                      />
+                    )}
+                  </>
                   )}
                 </div>
               ))}
@@ -4009,6 +4416,7 @@ function JobsTab() {
   const [tickResult, setTickResult] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [queuePhasesStatus, setQueuePhasesStatus] = useState<Record<string, string>>({});
+  const [stopStatus, setStopStatus] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -4095,6 +4503,22 @@ function JobsTab() {
       }
     } catch (err) {
       setQueuePhasesStatus((s) => ({ ...s, [sessionId]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  const stopSession = async (sessionId: string, topic: string) => {
+    if (!confirm(`Stop & delete session for "${topic}"?\n\nAll pending and running jobs will be cancelled.`)) return;
+    setStopStatus((s) => ({ ...s, [sessionId]: 'stopping…' }));
+    try {
+      const res = await fetch(`/api/admin/sessions?id=${sessionId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        setStopStatus((s) => ({ ...s, [sessionId]: `error: ${data.error}` }));
+      } else {
+        await load();
+      }
+    } catch (err) {
+      setStopStatus((s) => ({ ...s, [sessionId]: `error: ${err instanceof Error ? err.message : String(err)}` }));
     }
   };
 
@@ -4258,6 +4682,19 @@ function JobsTab() {
                         {queuePhasesStatus[sid]}
                       </span>
                     )}
+                    {!allComplete && !stopStatus[sid] && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); void stopSession(sid, topic); }}
+                        className="font-mono text-[9px] uppercase tracking-widest px-2 py-1 border border-red-400/40 text-red-400 bg-red-400/5 hover:bg-red-400/15 rounded transition-colors"
+                      >
+                        Stop & Delete
+                      </button>
+                    )}
+                    {stopStatus[sid] && (
+                      <span className={`font-mono text-[9px] ${stopStatus[sid].startsWith('error') ? 'text-red-400' : 'text-text-tertiary'}`}>
+                        {stopStatus[sid]}
+                      </span>
+                    )}
                   </div>
                 </summary>
 
@@ -4417,6 +4854,8 @@ const TABS = [
   { id: 'jobs', label: 'Jobs' },
   { id: 'launch', label: 'Launch Research' },
   { id: 'content', label: 'Content' },
+  { id: 'social', label: 'Social' },
+  { id: 'intelligence', label: 'Intelligence' },
   { id: 'media', label: 'Media Library' },
   { id: 'people', label: 'People' },
   { id: 'institutions', label: 'Institutions' },
@@ -4476,6 +4915,8 @@ export default function AdminPage() {
         {tab === 'jobs' && <JobsTab />}
         {tab === 'launch' && <LaunchTab />}
         {tab === 'content' && <ContentTab />}
+        {tab === 'social' && <SocialTab />}
+        {tab === 'intelligence' && <IntelligenceTab />}
         {tab === 'media' && <MediaTab />}
         {tab === 'people' && <PeopleTab />}
         {tab === 'institutions' && <InstitutionsTab />}

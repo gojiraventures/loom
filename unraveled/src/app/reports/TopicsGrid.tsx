@@ -11,6 +11,8 @@ interface Topic {
   key_traditions: string[];
   summary: string | null;
   published_at: string | null;
+  heroImageUrl: string | null;
+  heroPosition: string;
 }
 
 interface TopicsGridProps {
@@ -34,14 +36,7 @@ const SORT_LABELS: Record<SortOption, string> = {
 };
 
 export function TopicsGrid({ topics }: TopicsGridProps) {
-  const [activeTradition, setActiveTradition] = useState<string>('All');
   const [sort, setSort] = useState<SortOption>('score');
-
-  const allTraditions = Array.from(
-    new Set(topics.flatMap((t) => t.key_traditions))
-  ).sort();
-
-  const pills = ['All', ...allTraditions];
 
   const sorted = useMemo(() => {
     const list = [...topics];
@@ -61,76 +56,44 @@ export function TopicsGrid({ topics }: TopicsGridProps) {
     }
   }, [topics, sort]);
 
-  const filtered =
-    activeTradition === 'All'
-      ? sorted
-      : sorted.filter((t) => t.key_traditions.includes(activeTradition));
-
   return (
     <div>
-      {/* Sort + filter controls */}
-      <div className="flex flex-col gap-4 mb-8">
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mr-1">Sort:</span>
-          {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setSort(opt)}
-              className={[
-                'font-mono text-[9px] tracking-[0.15em] uppercase px-3 py-1.5 rounded border transition-colors',
-                sort === opt
-                  ? 'border-gold/60 bg-gold/10 text-gold'
-                  : 'border-border text-text-tertiary hover:border-gold/30 hover:text-text-secondary',
-              ].join(' ')}
-            >
-              {SORT_LABELS[opt]}
-            </button>
-          ))}
-        </div>
-
-        {allTraditions.length > 0 && (
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mr-1">Filter:</span>
-            {pills.map((pill) => (
-              <button
-                key={pill}
-                onClick={() => setActiveTradition(pill)}
-                className={[
-                  'font-mono text-[9px] tracking-[0.15em] uppercase px-3 py-1.5 rounded border transition-colors',
-                  activeTradition === pill
-                    ? 'border-gold/60 bg-gold/10 text-gold'
-                    : 'border-border text-text-tertiary hover:border-gold/30 hover:text-text-secondary',
-                ].join(' ')}
-              >
-                {pill}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* Sort — compact, right-aligned */}
+      <div className="flex items-center justify-end gap-1.5 mb-5">
+        <span className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mr-1">Sort:</span>
+        {(Object.keys(SORT_LABELS) as SortOption[]).map((opt) => (
+          <button
+            key={opt}
+            onClick={() => setSort(opt)}
+            className={[
+              'font-mono text-[8px] tracking-[0.12em] uppercase px-2.5 py-1 border transition-colors',
+              sort === opt
+                ? 'border-gold/50 text-gold'
+                : 'border-border text-text-tertiary hover:text-text-secondary',
+            ].join(' ')}
+          >
+            {SORT_LABELS[opt]}
+          </button>
+        ))}
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="py-16 text-center text-text-tertiary text-sm font-mono">
-          No topics match this filter.
-        </div>
+      {sorted.length === 0 ? (
+        <div className="py-16 text-center text-text-tertiary text-sm font-mono">No reports published yet.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px">
-          {filtered.map((topic, i) => (
-            <div key={topic.slug} className="relative">
-              {isNew(topic.published_at) && (
-                <span className="absolute top-4 right-4 z-10 font-mono text-[8px] tracking-[0.2em] uppercase px-2 py-0.5 bg-gold/15 text-gold border border-gold/30 rounded">
-                  New
-                </span>
-              )}
-              <ConvergenceCard
-                index={i}
-                title={topic.title}
-                score={topic.convergence_score}
-                traditions={topic.key_traditions}
-                jawDrop={topic.summary ?? ''}
-                href={`/topics/${topic.slug}`}
-              />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px border border-border">
+          {sorted.map((topic, i) => (
+            <ConvergenceCard
+              key={topic.slug}
+              index={i}
+              title={topic.title}
+              score={topic.convergence_score}
+              traditions={topic.key_traditions}
+              jawDrop={topic.summary ?? ''}
+              href={`/topics/${topic.slug}`}
+              heroImageUrl={topic.heroImageUrl}
+              heroPosition={topic.heroPosition}
+              isNew={isNew(topic.published_at)}
+            />
           ))}
         </div>
       )}

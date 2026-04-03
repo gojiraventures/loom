@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { getFeaturedTopics, getPublishedTopics, getDossierStats } from '@/lib/topics';
+import { getFeaturedTopics, getPublishedTopics, getDossierStats, getTopicHeroImage } from '@/lib/topics';
 import { Footer } from '@/components/Footer';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { HeroVideo } from '@/components/HeroVideo';
 import {
   DossierTabs,
   RelationshipFilters,
@@ -46,6 +47,7 @@ export default async function HomePage() {
   ]);
 
   const heroReport = featured[0] ?? published[0] ?? null;
+  const heroImageUrl = heroReport ? await getTopicHeroImage(heroReport.topic) : null;
 
   const gridPool = featured.length > 1
     ? [...featured.slice(1), ...published.filter((p) => !featured.find((f) => f.slug === p.slug))]
@@ -59,7 +61,6 @@ export default async function HomePage() {
       <nav className="border-b border-border sticky top-0 z-50 backdrop-blur-xl bg-ground/90">
         <div className="max-w-[1200px] mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-2 h-2 rounded-full bg-gold shadow-[0_0_12px_rgba(200,149,108,0.4)]" />
             <span className="font-serif text-[1.05rem] font-medium tracking-[-0.01em]">
               Unraveled<span className="text-gold">Truth</span>
             </span>
@@ -68,7 +69,6 @@ export default async function HomePage() {
             <Link href="/reports" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Reports</Link>
             <Link href="/people" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Dossiers</Link>
             <Link href="/explore" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Relationships</Link>
-            <Link href="#method" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Method</Link>
             <ThemeToggle />
             <Link
               href="/login"
@@ -80,124 +80,34 @@ export default async function HomePage() {
         </div>
       </nav>
 
-      {/* ── §1 Hero ──────────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen flex items-end px-6 pb-16 overflow-hidden">
-        {/* Background layers */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: 'linear-gradient(180deg, rgba(8,9,10,0.3) 0%, rgba(8,9,10,0.1) 40%, rgba(8,9,10,0.7) 70%, rgba(8,9,10,1) 100%), linear-gradient(135deg, rgba(200,149,108,0.06) 0%, transparent 50%), radial-gradient(ellipse at 70% 30%, rgba(106,173,173,0.05) 0%, transparent 60%)',
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.025] pointer-events-none"
-          style={{
-            backgroundImage: `
-              repeating-linear-gradient(0deg,   transparent, transparent 40px, rgba(200,149,108,0.6) 40px, rgba(200,149,108,0.6) 41px),
-              repeating-linear-gradient(90deg,  transparent, transparent 40px, rgba(200,149,108,0.6) 40px, rgba(200,149,108,0.6) 41px)
-            `,
-          }}
-        />
-        {/* Topographic texture */}
-        <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
-          style={{
-            background: 'repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 10deg, rgba(200,149,108,0.3) 10deg 11deg), radial-gradient(circle at 30% 40%, rgba(200,149,108,0.08) 0%, transparent 50%)',
-          }}
-        />
+      {/* ── §1 Hero — video plays then fades ────────────────────────────── */}
+      <HeroVideo />
 
-        <div className="relative z-10 max-w-[1200px] w-full mx-auto">
-          <div className="flex items-center gap-3 mb-6">
+      {/* ── §1b Hero text — below the video ─────────────────────────────── */}
+      <section className="px-6 pt-20 pb-24 border-b border-border">
+        <div className="max-w-[1200px] mx-auto">
+          <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-px bg-[rgba(200,149,108,0.4)]" />
-            <span className="font-mono text-[0.68rem] tracking-[0.12em] uppercase text-gold">
+            <span className="font-mono text-[0.68rem] tracking-[0.15em] uppercase text-gold">
               Research · Score · Decide
             </span>
           </div>
-
-          <h1 className="font-serif text-[clamp(2.4rem,5vw,4rem)] font-normal leading-[1.15] tracking-tight max-w-[850px] mb-6">
+          <h1 className="font-serif text-[clamp(2.4rem,5vw,4rem)] font-normal leading-[1.15] tracking-tight max-w-[720px] mb-6">
             What lives in the space between{' '}
             <em className="text-gold not-italic italic">myth</em> and{' '}
             <em className="text-gold not-italic italic">evidence?</em>
           </h1>
-
           <p className="text-[1.05rem] font-light leading-[1.7] text-text-secondary max-w-[600px]">
-            An AI-powered research engine exploring the unexplained, the suppressed, and the
-            patterns that don&apos;t fit the narrative. Every claim investigated from every angle.
-            Both sides published at full strength. No verdict — you decide.
+            Dozens of cultures. Thousands of years apart. The same stories, the same silence,
+            the same unanswered questions. We investigate each one from every angle — and
+            we&apos;re mapping what connects them all.
           </p>
         </div>
-
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none">
-          <span className="font-mono text-[0.6rem] tracking-[0.15em] uppercase text-text-tertiary">Explore</span>
-          <div className="w-px h-8 bg-gradient-to-b from-[rgba(200,149,108,0.4)] to-transparent animate-pulse" />
-        </div>
       </section>
 
-      {/* ── §2 Mission / Method ──────────────────────────────────────────── */}
-      <section id="method" className="border-y border-border px-6 py-20" style={{ background: 'linear-gradient(135deg, rgba(200,149,108,0.03) 0%, transparent 40%, rgba(106,173,173,0.02) 100%)' }}>
-        <div className="max-w-[1200px] mx-auto grid lg:grid-cols-2 gap-16 items-center">
-
-          {/* Left: mission copy */}
-          <div>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
-              <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">What this is</span>
-            </div>
-            <h2 className="font-serif text-[clamp(1.8rem,3vw,2.6rem)] font-normal leading-[1.25] tracking-tight mb-6">
-              Truth is a matter of{' '}
-              <em className="text-gold not-italic italic">perspective.</em>{' '}
-              We publish all of them.
-            </h2>
-            <div className="space-y-4 text-[0.95rem] leading-[1.8] text-text-secondary mb-8">
-              <p>
-                Cross-civilizational patterns. UAP whistleblowers. Institutional gatekeeping.
-                Suppressed evidence. Anomalous science. The questions that serious people
-                aren&apos;t supposed to ask — we investigate all of them.
-              </p>
-              <p>
-                The Advocate builds the strongest case. The Skeptic tears it apart. Both publish
-                at full strength.
-              </p>
-              <p>
-                The result isn&apos;t a verdict. It&apos;s the tension between competing explanations —
-                and the open questions that neither side has resolved. You decide what survives.
-              </p>
-            </div>
-            <Link
-              href="/methodology"
-              className="inline-flex items-center gap-3 font-mono text-[0.7rem] tracking-[0.08em] uppercase text-gold hover:gap-5 transition-all"
-            >
-              Read our methodology
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </Link>
-          </div>
-
-          {/* Right: 5-step method */}
-          <div className="divide-y divide-border">
-            {[
-              { num: '01', title: 'Research swarm', desc: 'Specialist agents — archaeologist, ethnographer, earth scientist, textual scholar — investigate independently across domains.', note: '~50 agents · 3 LLM providers' },
-              { num: '02', title: 'Cross-validation', desc: 'Agents challenge each other\'s findings. Unsupported claims are flagged. Corroborated evidence is strengthened.', note: 'Peer review layer' },
-              { num: '03', title: 'Convergence analysis', desc: 'Pattern matching across every agent\'s findings. Where did isolated cultures independently describe the same thing?', note: '4 convergence agents' },
-              { num: '04', title: 'Adversarial debate', desc: 'The Advocate builds the strongest case for the pattern. The Skeptic builds the strongest case against. Neither wins.', note: '2 adversarial agents' },
-              { num: '05', title: 'Synthesis & publish', desc: 'Editorial agents produce the final report. Full citations. Both sides at full strength. No verdict imposed.', note: '9 governance + output agents' },
-            ].map((step) => (
-              <div key={step.num} className="grid grid-cols-[48px_1fr] gap-4 py-5">
-                <span className="font-mono text-[0.65rem] text-text-tertiary tracking-[0.05em] pt-0.5">{step.num}</span>
-                <div>
-                  <div className="font-serif text-[1rem] font-medium mb-1">{step.title}</div>
-                  <div className="text-[0.8rem] text-text-secondary leading-[1.5] mb-1">{step.desc}</div>
-                  <div className="font-mono text-[0.6rem] text-teal/60 tracking-[0.05em]">{step.note}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── §3 Featured Report ───────────────────────────────────────────── */}
+      {/* ── §2 Featured Report ───────────────────────────────────────────── */}
       {heroReport && (
-        <section className="px-6 py-20">
+        <section className="px-6 py-20 border-b border-border bg-ground-light/10">
           <div className="max-w-[1200px] mx-auto">
             <div className="flex items-baseline justify-between mb-10">
               <div className="flex items-center gap-3">
@@ -210,20 +120,41 @@ export default async function HomePage() {
               href={`/topics/${heroReport.slug}`}
               className="group grid lg:grid-cols-[1.2fr_1fr] border border-border bg-ground-light/40 hover:border-[rgba(255,255,255,0.12)] transition-colors overflow-hidden"
             >
-              {/* Image placeholder */}
+              {/* Hero image (or styled placeholder) */}
               <div
                 className="relative min-h-[300px] lg:min-h-[480px] flex items-end p-8 overflow-hidden"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(200,149,108,0.08) 0%, rgba(8,9,10,0.9) 100%), linear-gradient(45deg, rgba(106,173,173,0.05) 0%, transparent 50%)',
+                  background: heroImageUrl
+                    ? undefined
+                    : 'linear-gradient(135deg, rgba(200,149,108,0.08) 0%, rgba(8,9,10,0.9) 100%), linear-gradient(45deg, rgba(106,173,173,0.05) 0%, transparent 50%)',
                 }}
               >
-                {/* Grid pattern */}
+                {heroImageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={heroImageUrl}
+                    alt={heroReport.title}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                )}
+                {/* Dark scrim for legibility */}
                 <div
-                  className="absolute inset-0 opacity-[0.06] pointer-events-none"
+                  className="absolute inset-0 pointer-events-none"
                   style={{
-                    backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(200,149,108,0.4) 39px, rgba(200,149,108,0.4) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(200,149,108,0.4) 39px, rgba(200,149,108,0.4) 40px)',
+                    background: heroImageUrl
+                      ? 'linear-gradient(180deg, rgba(8,9,10,0.2) 0%, rgba(8,9,10,0.5) 100%)'
+                      : undefined,
                   }}
                 />
+                {/* Grid pattern (only when no image) */}
+                {!heroImageUrl && (
+                  <div
+                    className="absolute inset-0 opacity-[0.06] pointer-events-none"
+                    style={{
+                      backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(200,149,108,0.4) 39px, rgba(200,149,108,0.4) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(200,149,108,0.4) 39px, rgba(200,149,108,0.4) 40px)',
+                    }}
+                  />
+                )}
                 <div className="relative z-10 font-mono text-[0.55rem] tracking-[0.15em] uppercase text-[rgba(200,149,108,0.6)] px-3 py-2 border border-[rgba(200,149,108,0.15)] bg-[rgba(8,9,10,0.6)] backdrop-blur-sm">
                   {heroReport.key_traditions.length > 0
                     ? `${heroReport.key_traditions.length} traditions · ${published.length > 1 ? '47' : '12'} sources · 6 continents`
@@ -233,7 +164,15 @@ export default async function HomePage() {
 
               {/* Content */}
               <div className="p-8 lg:p-12 flex flex-col justify-center">
-                <div className="font-mono text-[0.6rem] tracking-[0.12em] uppercase text-teal mb-4">Published report</div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="font-mono text-[0.6rem] tracking-[0.12em] uppercase text-teal">Published report</div>
+                  {heroReport.convergence_score > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[0.55rem] tracking-[0.08em] uppercase text-text-tertiary">Convergence</span>
+                      <span className="font-mono text-[0.8rem] text-gold font-medium">{heroReport.convergence_score}</span>
+                    </div>
+                  )}
+                </div>
                 <h2 className="font-serif text-[clamp(1.6rem,2.5vw,2.2rem)] font-normal leading-[1.25] tracking-tight mb-4 group-hover:text-gold transition-colors">
                   {heroReport.title}
                 </h2>
@@ -284,15 +223,18 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── §4 Report Grid ───────────────────────────────────────────────── */}
+      {/* ── §3 Report Grid ───────────────────────────────────────────────── */}
       {reportGrid.length > 0 && (
-        <section className="px-6 pb-20">
+        <section className="px-6 py-20">
           <div className="max-w-[1200px] mx-auto">
             <div className="flex items-baseline justify-between mb-10">
               <div className="flex items-center gap-3">
                 <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
                 <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Latest research</span>
               </div>
+              <Link href="/reports" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-text-tertiary hover:text-gold transition-colors">
+                Browse all reports →
+              </Link>
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
@@ -320,12 +262,17 @@ export default async function HomePage() {
                     </h3>
 
                     {topic.summary && (
-                      <p className="text-[0.82rem] leading-[1.6] text-text-secondary mb-5 line-clamp-2">
+                      <p className="text-[0.82rem] leading-[1.6] text-text-secondary mb-5 line-clamp-1">
                         {topic.summary}
                       </p>
                     )}
 
-                    {/* Connection dots */}
+                    {/* Convergence score + connection dots */}
+                    {topic.convergence_score > 0 && (
+                      <div className="font-mono text-[0.55rem] tracking-[0.08em] text-text-tertiary mb-3">
+                        Convergence <span className="text-gold">{topic.convergence_score}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 mt-auto">
                       <div className="flex gap-[3px] flex-wrap max-w-[120px]">
                         {Array.from({ length: dots.traditions }).map((_, j) => (
@@ -358,7 +305,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── §5 Advocate vs Skeptic ───────────────────────────────────────── */}
+      {/* ── §4 Advocate vs Skeptic ───────────────────────────────────────── */}
       <section className="border-y border-border px-6 py-20 bg-ground-light/20">
         <div className="max-w-[1200px] mx-auto">
           <div className="text-center mb-12">
@@ -423,10 +370,19 @@ export default async function HomePage() {
           <p className="text-center mt-8 font-serif text-[1.1rem] italic text-text-secondary">
             You see both cases at full strength. You decide what the pattern means.
           </p>
+          <div className="text-center mt-8">
+            <Link
+              href="/method"
+              className="inline-flex items-center gap-3 font-mono text-[0.7rem] tracking-[0.08em] uppercase text-gold hover:gap-5 transition-all"
+            >
+              See the full method
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* ── §6 Dossiers Preview ──────────────────────────────────────────── */}
+      {/* ── §5 Dossiers Preview ──────────────────────────────────────────── */}
       <section id="dossiers-section" className="px-6 py-20">
         <div className="max-w-[1200px] mx-auto">
           <div className="flex items-baseline justify-between mb-4">
@@ -451,7 +407,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── §7 Relationships Preview ─────────────────────────────────────── */}
+      {/* ── §6 Relationships Preview ─────────────────────────────────────── */}
       <section id="relationships" className="border-y border-border px-6 py-20 bg-ground-light/20">
         <div className="max-w-[1200px] mx-auto">
           <div className="flex items-baseline justify-between mb-4">
@@ -543,7 +499,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── §8 Community Signal ──────────────────────────────────────────── */}
+      {/* ── §7 Community Signal ──────────────────────────────────────────── */}
       <section className="px-6 py-20">
         <div className="max-w-[1200px] mx-auto">
           <div className="flex items-center gap-3 mb-4">
@@ -555,13 +511,13 @@ export default async function HomePage() {
           </h2>
           <p className="text-[0.9rem] text-text-secondary max-w-[600px] mb-10 leading-relaxed">
             The best leads come from the community. Submit a person we should investigate,
-            an institution that needs a dossier, or a topic you want our 65 agents to tear apart.
+            an institution that needs a dossier, or a topic you want our 65 agents to investigate.
           </p>
           <CommunitySignal />
         </div>
       </section>
 
-      {/* ── §9 CTA / Email Signup ────────────────────────────────────────── */}
+      {/* ── §8 CTA / Email Signup ────────────────────────────────────────── */}
       <section className="border-t border-border px-6 py-24 text-center" style={{ background: 'linear-gradient(180deg, var(--color-ground) 0%, rgba(200,149,108,0.03) 50%, var(--color-ground) 100%)' }}>
         <div className="max-w-[600px] mx-auto">
           <h2 className="font-serif text-[clamp(1.8rem,3vw,2.4rem)] font-normal leading-[1.3] mb-4">
@@ -579,7 +535,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── §10 Footer ───────────────────────────────────────────────────── */}
+      {/* ── §9 Footer ────────────────────────────────────────────────────── */}
       <Footer />
     </div>
   );

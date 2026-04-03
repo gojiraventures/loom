@@ -117,3 +117,22 @@ export async function getPublishedTopics(): Promise<{
     published_at: d.published_at ?? null,
   }));
 }
+
+/**
+ * Returns the hero image URL for a topic (featured + approved, or first approved).
+ */
+export async function getTopicHeroImage(topic: string): Promise<string | null> {
+  const supabase = createServerSupabaseClient();
+  const { data } = await supabase
+    .from('topic_images')
+    .select('cropped_url, image_url')
+    .eq('topic', topic)
+    .eq('status', 'approved')
+    .order('featured', { ascending: false })
+    .order('quality_score', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!data) return null;
+  return data.cropped_url ?? data.image_url ?? null;
+}

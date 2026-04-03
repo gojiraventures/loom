@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Newsreader, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
-import Script from "next/script";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
@@ -56,15 +55,15 @@ export default function RootLayout({
       className={`${newsreader.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}
       suppressHydrationWarning
     >
-      <body>
-        {/* Anti-flash: apply stored theme before first paint */}
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
+      <head>
+        {/* Anti-flash: apply stored theme before first paint — must be in <head> so React doesn't reconcile it */}
+        <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();`,
           }}
         />
+      </head>
+      <body>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

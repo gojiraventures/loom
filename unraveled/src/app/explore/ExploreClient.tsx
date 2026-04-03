@@ -4,9 +4,9 @@ import dynamic from 'next/dynamic';
 
 function GraphLoading() {
   return (
-    <div className="flex items-center justify-center h-screen bg-ground">
+    <div className="flex-1 flex items-center justify-center bg-ground">
       <div className="font-mono text-xs tracking-[0.2em] uppercase text-text-tertiary animate-pulse">
-        Loading graph…
+        Building graph…
       </div>
     </div>
   );
@@ -19,7 +19,7 @@ const GraphExplorer = dynamic(
 
 export function ExploreClient() {
   return (
-    <div className="h-screen w-screen overflow-hidden bg-ground">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <GraphExplorer />
     </div>
   );

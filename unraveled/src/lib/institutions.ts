@@ -214,6 +214,17 @@ export async function getPeopleAtInstitution(institutionId: string): Promise<Per
   });
 }
 
+export async function getInstitutionDiscourse(institutionId: string): Promise<import('@/components/PublicDiscourseSection').DiscourseEntry[]> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from('public_discourse')
+    .select('id, sentiment, claim, claim_source, claim_source_url, response_summary, response_source, response_source_url, extracted_by')
+    .eq('institution_id', institutionId)
+    .order('sentiment');
+  if (error) return [];
+  return (data ?? []) as import('@/components/PublicDiscourseSection').DiscourseEntry[];
+}
+
 export async function upsertInstitution(data: Record<string, unknown>): Promise<{ id: string }> {
   const supabase = createServerSupabaseClient();
   const { data: result, error } = await supabase

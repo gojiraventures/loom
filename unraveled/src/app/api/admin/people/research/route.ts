@@ -24,7 +24,7 @@ Return this JSON schema (all fields optional except full_name):
   "born_location": "string — city, country",
   "died_date": "string or null",
   "nationality": "string",
-  "credibility_tier": "one of: academic | journalist | independent_researcher | whistleblower | public_figure | historical_figure | witness | controversial | unclassified",
+  "credibility_tier": "one of: academic | journalist | independent_researcher | whistleblower | public_figure | historical_figure | witness | unclassified — describes the person's primary professional role or public identity, NOT how they are perceived. Never use this field to express editorial judgment about a person's reputation.",
   "current_role": "string — current primary role/occupation",
   "work_history": [{"org": "string", "role": "string", "years": "string"}],
   "education": [{"institution": "string", "degree": "string", "year": "string", "verified": true}],
@@ -79,8 +79,26 @@ Return this JSON schema (all fields optional except full_name):
       "description": "string — brief note on the nature of the affiliation"
     }
   ],
-  "slug": "string — kebab-case URL slug derived from full name"
+  "slug": "string — kebab-case URL slug derived from full name",
+  "public_discourse": [
+    {
+      "sentiment": "one of: positive | negative | mixed — how this claim characterizes the person",
+      "claim": "string — specific, sourced public claim about this person. Must be factual and attributed. Good: 'Criticized by X for Y.' Bad: 'Some people find them controversial.'",
+      "claim_source": "string — who made this claim: a publication, named individual, institution, or identifiable community",
+      "claim_source_url": "string or null — link to the source if publicly available",
+      "response_summary": "string or null — if the person has publicly responded to this claim, summarize their stated position",
+      "response_source": "string or null — where the person made their response (e.g. 'The Portal podcast, Episode 41', 'Twitter/X, March 2023')",
+      "response_source_url": "string or null"
+    }
+  ]
 }
+
+Public discourse extraction rules:
+- Only include claims that are documented in public sources. Do not generate claims from your own assessment.
+- Each claim must be specific and attributed — not vague (e.g. "respected by many" is not a valid claim).
+- If a claim is domain-specific (e.g. criticism of their physics work vs. their economic views), note that in the claim text.
+- If the person has publicly responded to a negative claim, always capture their response — this is the fairness layer.
+- If you cannot find sourced claims, return an empty array. Do not fabricate discourse entries.
 
 Return ONLY the JSON object, no markdown fences.`;
 

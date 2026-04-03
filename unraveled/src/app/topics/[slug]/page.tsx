@@ -25,7 +25,7 @@ export async function generateMetadata({
   const dossier = await getDossier(topic);
   if (!dossier) return {};
   return {
-    title: dossier.title ?? topic,
+    title: dossier.title ? `${dossier.title} — UnraveledTruth` : topic,
     description: dossier.summary?.slice(0, 160),
   };
 }
@@ -65,7 +65,7 @@ export default async function TopicPage({
   const [{ data: topicImages }, { data: dossierAudio }] = await Promise.all([
     supabase
       .from('topic_images')
-      .select('id, title, description, image_url, thumbnail_url, source_page_url, license, license_url, attribution, author, width, height, featured')
+      .select('id, title, description, image_url, thumbnail_url, cropped_url, source_page_url, license, license_url, attribution, author, width, height, featured, hero_position, gemini_caption')
       .eq('topic', topic)
       .eq('status', 'approved')
       .order('featured', { ascending: false })
@@ -79,6 +79,11 @@ export default async function TopicPage({
   ]);
 
   const approvedImages = topicImages ?? [];
+  // Hero: featured image or first approved; excluded from the gallery grid below
+  const heroImage = approvedImages.find((i) => i.featured) ?? approvedImages[0] ?? null;
+  const galleryImages = heroImage
+    ? approvedImages.filter((i) => i.id !== heroImage.id)
+    : [];
   const audioUrl = dossierAudio?.audio_url ?? null;
 
   const vizNarratives = getVizNarratives(slug);
@@ -88,36 +93,93 @@ export default async function TopicPage({
       <Header />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="px-6 pt-16 pb-12 border-b border-border">
-        <div className="max-w-[var(--spacing-content)] mx-auto">
-          <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
-            Convergence Topic
-          </span>
-          <div className="flex items-start justify-between gap-8 mt-4">
-            <div className="flex-1">
-              <h1 className="font-serif text-[clamp(28px,5vw,54px)] font-normal leading-[1.05] tracking-tight mb-3">
-                {output.title}
-              </h1>
-              <p className="text-lg text-text-secondary leading-relaxed max-w-2xl mb-5">
-                {output.subtitle}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {output.traditions_analyzed.map((t) => (
-                  <span key={t} className="font-mono text-[9px] tracking-wider uppercase px-2 py-0.5 border border-border text-text-tertiary">
-                    {t}
+      {heroImage ? (
+        <section className="relative border-b border-border overflow-hidden" style={{ aspectRatio: '16/7' }}>
+          {/* Hero image */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={heroImage.cropped_url ?? heroImage.image_url}
+            alt={heroImage.gemini_caption ?? heroImage.title}
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: heroImage.hero_position ?? 'center' }}
+          />
+
+          {/* Always-dark scrim — mode-independent, ensures legibility on any image */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+
+          {/* Content */}
+          <div className="relative h-full flex flex-col justify-end px-6 pb-6 pt-16">
+            <div className="max-w-[var(--spacing-content)] mx-auto w-full">
+              <div className="flex items-end justify-between gap-8">
+                {/* Text block — frosted glass card for extra legibility on busy images */}
+                <div className="flex-1 rounded bg-black/40 backdrop-blur-[2px] px-5 py-4 max-w-3xl">
+                  <span className="font-mono text-[8px] tracking-[0.25em] uppercase text-white/50 block mb-2">
+                    Convergence Topic
                   </span>
-                ))}
+                  <h1 className="font-serif text-[clamp(20px,3.8vw,46px)] font-normal leading-[1.05] tracking-tight mb-2 text-white drop-shadow-sm">
+                    {output.title}
+                  </h1>
+                  <p className="text-sm text-white/75 leading-relaxed mb-3 max-w-2xl">
+                    {output.subtitle}
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {output.traditions_analyzed.map((t) => (
+                      <span key={t} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 border border-white/20 text-white/55 bg-white/5">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  {/* Attribution */}
+                  <p className="font-mono text-[7px] text-white/25 mt-3">
+                    {heroImage.author ? `${heroImage.author} · ` : ''}{heroImage.license ?? 'Open license'}
+                    {heroImage.source_page_url && (
+                      <a href={heroImage.source_page_url} target="_blank" rel="noopener noreferrer" className="ml-1 hover:text-white/45 transition-colors">↗</a>
+                    )}
+                  </p>
+                </div>
+                {/* Convergence score — frosted pill */}
+                <div className="shrink-0 flex flex-col items-center gap-1.5 pb-1 bg-black/40 backdrop-blur-[2px] rounded px-4 py-3">
+                  <ConvergenceScore score={output.convergence_score} size={64} />
+                  <span className="font-mono text-[7px] tracking-[0.15em] uppercase text-white/50 text-center">
+                    Convergence<br />Score
+                  </span>
+                </div>
               </div>
             </div>
-            <div className="shrink-0 flex flex-col items-center gap-1.5 pt-2">
-              <ConvergenceScore score={output.convergence_score} size={72} />
-              <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-text-tertiary text-center">
-                Convergence<br />Score
-              </span>
+          </div>
+        </section>
+      ) : (
+        <section className="px-6 pt-16 pb-12 border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto">
+            <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
+              Convergence Topic
+            </span>
+            <div className="flex items-start justify-between gap-8 mt-4">
+              <div className="flex-1">
+                <h1 className="font-serif text-[clamp(28px,5vw,54px)] font-normal leading-[1.05] tracking-tight mb-3">
+                  {output.title}
+                </h1>
+                <p className="text-lg text-text-secondary leading-relaxed max-w-2xl mb-5">
+                  {output.subtitle}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {output.traditions_analyzed.map((t) => (
+                    <span key={t} className="font-mono text-[9px] tracking-wider uppercase px-2 py-0.5 border border-border text-text-tertiary">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="shrink-0 flex flex-col items-center gap-1.5 pt-2">
+                <ConvergenceScore score={output.convergence_score} size={72} />
+                <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-text-tertiary text-center">
+                  Convergence<br />Score
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── Podcast Audio ────────────────────────────────────────────────── */}
       {audioUrl && (
@@ -137,52 +199,7 @@ export default async function TopicPage({
         </section>
       )}
 
-      {/* ── Image Gallery ────────────────────────────────────────────────── */}
-      {approvedImages.length > 0 && (
-        <section className="border-b border-border">
-          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-10 pb-10">
-            <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
-              Primary Sources
-            </span>
-            <div className={`mt-4 grid gap-3 ${approvedImages.length === 1 ? 'grid-cols-1 max-w-2xl' : approvedImages.length === 2 ? 'grid-cols-2' : approvedImages.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
-              {approvedImages.map((img) => (
-                <a
-                  key={img.id}
-                  href={img.source_page_url ?? img.image_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative block overflow-hidden border border-border hover:border-border/80 transition-colors"
-                >
-                  {img.featured && (
-                    <div className="absolute top-2 left-2 z-10 font-mono text-[8px] uppercase tracking-widest bg-gold text-ground px-1.5 py-0.5">
-                      Primary
-                    </div>
-                  )}
-                  <div className={`bg-ground-light/30 overflow-hidden ${approvedImages.length === 1 ? 'aspect-[16/7]' : 'aspect-[4/3]'}`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={img.thumbnail_url ?? img.image_url}
-                      alt={img.title}
-                      className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.02] transition-all duration-300"
-                    />
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-ground/90 to-transparent px-3 py-3">
-                    <p className="text-xs text-text-secondary leading-tight line-clamp-1">{img.title}</p>
-                    <p className="font-mono text-[8px] text-text-tertiary mt-0.5">
-                      {img.author ? `${img.author} · ` : ''}{img.license ?? 'Wikimedia Commons'}
-                    </p>
-                  </div>
-                </a>
-              ))}
-            </div>
-            {approvedImages.length > 1 && (
-              <p className="font-mono text-[8px] text-text-tertiary/60 mt-3">
-                Images sourced from Wikimedia Commons under open licenses. Click any image for full attribution and source.
-              </p>
-            )}
-          </div>
-        </section>
-      )}
+      {/* Images are distributed inline between content sections below */}
 
       {/* ── World Map ─────────────────────────────────────────────────────── */}
       {vizNarratives.length > 0 && (
@@ -274,6 +291,33 @@ export default async function TopicPage({
         </div>
       </section>
 
+      {/* ── Inline image 1 — after Evidence ─────────────────────────────── */}
+      {galleryImages[0] && (
+        <figure className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-6">
+            <a href={galleryImages[0].source_page_url ?? galleryImages[0].image_url} target="_blank" rel="noopener noreferrer" className="block group overflow-hidden">
+              <div className="aspect-[16/7] overflow-hidden bg-ground-light/30">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={galleryImages[0].cropped_url ?? galleryImages[0].image_url}
+                  alt={galleryImages[0].gemini_caption ?? galleryImages[0].title}
+                  className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{ objectPosition: galleryImages[0].hero_position ?? 'center' }}
+                />
+              </div>
+            </a>
+            <figcaption className="py-3 flex items-start justify-between gap-4">
+              <p className="text-xs text-text-secondary leading-snug max-w-2xl">
+                {galleryImages[0].gemini_caption ?? galleryImages[0].title}
+              </p>
+              <p className="font-mono text-[8px] text-text-tertiary shrink-0 text-right">
+                {galleryImages[0].author ? `${galleryImages[0].author} · ` : ''}{galleryImages[0].license ?? 'Open license'}
+              </p>
+            </figcaption>
+          </div>
+        </figure>
+      )}
+
       {/* ── Executive Summary ────────────────────────────────────────────── */}
       <section className="border-b border-border">
         <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
@@ -291,6 +335,33 @@ export default async function TopicPage({
         </div>
       </section>
 
+      {/* ── Inline image 2 — after Summary ──────────────────────────────── */}
+      {galleryImages[1] && (
+        <figure className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-6">
+            <a href={galleryImages[1].source_page_url ?? galleryImages[1].image_url} target="_blank" rel="noopener noreferrer" className="block group overflow-hidden">
+              <div className="aspect-[16/7] overflow-hidden bg-ground-light/30">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={galleryImages[1].cropped_url ?? galleryImages[1].image_url}
+                  alt={galleryImages[1].gemini_caption ?? galleryImages[1].title}
+                  className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{ objectPosition: galleryImages[1].hero_position ?? 'center' }}
+                />
+              </div>
+            </a>
+            <figcaption className="py-3 flex items-start justify-between gap-4">
+              <p className="text-xs text-text-secondary leading-snug max-w-2xl">
+                {galleryImages[1].gemini_caption ?? galleryImages[1].title}
+              </p>
+              <p className="font-mono text-[8px] text-text-tertiary shrink-0 text-right">
+                {galleryImages[1].author ? `${galleryImages[1].author} · ` : ''}{galleryImages[1].license ?? 'Open license'}
+              </p>
+            </figcaption>
+          </div>
+        </figure>
+      )}
+
       {/* ── Advocate vs Skeptic ──────────────────────────────────────────── */}
       <section className="border-b border-border">
         <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
@@ -305,7 +376,7 @@ export default async function TopicPage({
                 <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-teal">The Advocate</span>
               </div>
               <div className="space-y-3">
-                {output.advocate_case.split('\n\n').filter(Boolean).map((p, i) => (
+                {(output.advocate_case ?? '').split('\n\n').filter(Boolean).map((p, i) => (
                   <p key={i} className="text-sm text-text-secondary leading-[1.8]">
                     {p.replace(/\*\*(.*?)\*\*/g, '$1')}
                   </p>
@@ -318,7 +389,7 @@ export default async function TopicPage({
                 <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-gold">The Skeptic</span>
               </div>
               <div className="space-y-3">
-                {output.skeptic_case.split('\n\n').filter(Boolean).map((p, i) => (
+                {(output.skeptic_case ?? '').split('\n\n').filter(Boolean).map((p, i) => (
                   <p key={i} className="text-sm text-text-secondary leading-[1.8]">
                     {p.replace(/\*\*(.*?)\*\*/g, '$1')}
                   </p>
@@ -328,6 +399,33 @@ export default async function TopicPage({
           </div>
         </div>
       </section>
+
+      {/* ── Inline image 3 — after Debate ───────────────────────────────── */}
+      {galleryImages[2] && (
+        <figure className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-6">
+            <a href={galleryImages[2].source_page_url ?? galleryImages[2].image_url} target="_blank" rel="noopener noreferrer" className="block group overflow-hidden">
+              <div className="aspect-[16/7] overflow-hidden bg-ground-light/30">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={galleryImages[2].cropped_url ?? galleryImages[2].image_url}
+                  alt={galleryImages[2].gemini_caption ?? galleryImages[2].title}
+                  className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{ objectPosition: galleryImages[2].hero_position ?? 'center' }}
+                />
+              </div>
+            </a>
+            <figcaption className="py-3 flex items-start justify-between gap-4">
+              <p className="text-xs text-text-secondary leading-snug max-w-2xl">
+                {galleryImages[2].gemini_caption ?? galleryImages[2].title}
+              </p>
+              <p className="font-mono text-[8px] text-text-tertiary shrink-0 text-right">
+                {galleryImages[2].author ? `${galleryImages[2].author} · ` : ''}{galleryImages[2].license ?? 'Open license'}
+              </p>
+            </figcaption>
+          </div>
+        </figure>
+      )}
 
       {/* ── Shared Elements + Network ─────────────────────────────────────── */}
       {output.shared_elements_matrix.length > 0 && (
@@ -459,6 +557,46 @@ export default async function TopicPage({
         </div>
       </section>
 
+      {/* ── Remaining images — small grid before sources ─────────────────── */}
+      {galleryImages.length > 3 && (
+        <section className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-8 pb-6">
+            <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
+              Primary Sources
+            </span>
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {galleryImages.slice(3).map((img) => (
+                <a
+                  key={img.id}
+                  href={img.source_page_url ?? img.image_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative block overflow-hidden border border-border"
+                >
+                  <div className="aspect-[4/3] overflow-hidden bg-ground-light/30">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.cropped_url ?? img.thumbnail_url ?? img.image_url}
+                      alt={img.gemini_caption ?? img.title}
+                      className="w-full h-full object-cover opacity-85 group-hover:opacity-100 transition-opacity duration-300"
+                      style={{ objectPosition: img.hero_position ?? 'center' }}
+                    />
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-2">
+                    <p className="font-mono text-[7px] text-white/60 leading-tight line-clamp-1">
+                      {img.author ? `${img.author} · ` : ''}{img.license ?? 'Open license'}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+            <p className="font-mono text-[8px] text-text-tertiary/50 mt-3">
+              Images sourced under open licenses. Click any image for full attribution and source.
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* ── Sources ──────────────────────────────────────────────────────── */}
       {output.sources.length > 0 && (
         <section>
@@ -482,7 +620,7 @@ export default async function TopicPage({
                     </span>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="font-mono text-[8px] tracking-wider uppercase text-text-tertiary border border-border px-1">
-                        {s.source_type.replace(/_/g, ' ')}
+                        {(s.source_type ?? '').replace(/_/g, ' ')}
                       </span>
                       <CredibilityDots tier={s.credibility_tier} />
                       {s.url && (
@@ -499,6 +637,21 @@ export default async function TopicPage({
           </div>
         </section>
       )}
+
+      {/* ── Creator attribution callout ──────────────────────────────────── */}
+      <div className="max-w-[var(--spacing-content)] mx-auto px-6 pb-10">
+        <div className="border-t border-border/40 pt-6 flex items-center justify-between gap-4 flex-wrap">
+          <p className="font-mono text-[9px] text-text-tertiary">
+            Want to use this research? Everything here is free with attribution.
+          </p>
+          <a
+            href="/creators"
+            className="font-mono text-[9px] text-gold/70 hover:text-gold transition-colors shrink-0"
+          >
+            See how →
+          </a>
+        </div>
+      </div>
 
       <Footer />
     </div>

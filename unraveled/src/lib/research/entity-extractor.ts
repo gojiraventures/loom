@@ -14,12 +14,23 @@ import type { AgentFinding, SynthesizedOutput } from './types';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
+export interface ExtractedDiscourseEntry {
+  sentiment: 'positive' | 'negative' | 'mixed';
+  claim: string;
+  claim_source: string;
+  claim_source_url?: string | null;
+  response_summary?: string | null;
+  response_source?: string | null;
+  response_source_url?: string | null;
+}
+
 export interface ExtractedPerson {
   name: string;
   role_in_topic: string;       // "researcher", "whistleblower", "critic", etc.
   credibility_tier: string;    // our tier vocab
   relationship_to_topic: string; // short description of why they matter
   confidence: number;          // 0–1
+  public_discourse?: ExtractedDiscourseEntry[];
 }
 
 export interface ExtractedInstitution {
@@ -78,9 +89,20 @@ Return this JSON:
     {
       "name": "full name as mentioned",
       "role_in_topic": "one short phrase — e.g. 'archaeologist who disputed mainstream dating'",
-      "credibility_tier": "one of: academic|journalist|independent_researcher|whistleblower|public_figure|historical_figure|witness|controversial|unclassified",
+      "credibility_tier": "one of: academic|journalist|independent_researcher|whistleblower|public_figure|historical_figure|witness|unclassified — describes the person's primary professional role, never editorial judgment",
       "relationship_to_topic": "1-2 sentence explanation of their relevance",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "public_discourse": [
+        {
+          "sentiment": "one of: positive|negative|mixed",
+          "claim": "specific, attributed public claim about this person — not a vague characterisation",
+          "claim_source": "publication, named individual, institution, or identifiable community",
+          "claim_source_url": null,
+          "response_summary": "if the person has publicly responded to this claim, summarize their stated position — or null",
+          "response_source": "where the person made their response — or null",
+          "response_source_url": null
+        }
+      ]
     }
   ],
   "institutions": [
@@ -99,7 +121,9 @@ Rules:
 - Minimum confidence 0.6 to include
 - Skip entities that are clearly mythological/fictional (e.g. "Noah", "Gilgamesh")
 - Do not include individual researchers unless they are prominent named figures
-- Return empty arrays if nothing qualifies`;
+- Return empty arrays if nothing qualifies
+- For public_discourse: only include claims documented in public sources — do not generate from your own assessment. If you cannot find sourced claims, return an empty array. Do not fabricate discourse entries.
+- credibility_tier describes role, not reputation — never use "controversial" or any editorial judgment`;
 }
 
 function slugify(name: string): string {
@@ -166,6 +190,8 @@ export async function extractAndQueueEntities(
         .or(`slug.eq.${slug},full_name.ilike.${person.name}`)
         .maybeSingle();
 
+      let personDbId: string | null = null;
+
       if (existing) {
         // Already exists — link to this topic via people_topics if not already linked
         await supabase.from('people_topics').upsert(
@@ -177,10 +203,11 @@ export async function extractAndQueueEntities(
           },
           { onConflict: 'person_id,topic_id,role', ignoreDuplicates: true },
         );
+        personDbId = existing.id;
         result.linked_people++;
       } else {
         // Create needs_review stub
-        const { error } = await supabase.from('people').insert({
+        const { data: newPerson, error } = await supabase.from('people').insert({
           slug,
           full_name: person.name,
           short_bio: person.relationship_to_topic,
@@ -189,11 +216,30 @@ export async function extractAndQueueEntities(
           status: 'needs_review',
           source_session_id: sessionId,
           extraction_notes: `Auto-extracted from research session on "${topic}". Confidence: ${Math.round(person.confidence * 100)}%`,
-        });
+        }).select('id').single();
         if (error) {
           result.errors.push(`Failed to create person "${person.name}": ${error.message}`);
         } else {
+          personDbId = newPerson?.id ?? null;
           result.created_people++;
+        }
+      }
+
+      // Write any public_discourse entries extracted for this person
+      if (personDbId && Array.isArray(person.public_discourse)) {
+        for (const entry of person.public_discourse) {
+          if (!entry.claim || !entry.claim_source || !entry.sentiment) continue;
+          await supabase.from('public_discourse').insert({
+            person_id: personDbId,
+            sentiment: entry.sentiment,
+            claim: entry.claim,
+            claim_source: entry.claim_source,
+            claim_source_url: entry.claim_source_url ?? null,
+            response_summary: entry.response_summary ?? null,
+            response_source: entry.response_source ?? null,
+            response_source_url: entry.response_source_url ?? null,
+            extracted_by: 'ai',
+          });
         }
       }
     } catch (err) {

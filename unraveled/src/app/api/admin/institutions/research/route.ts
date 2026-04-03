@@ -29,9 +29,9 @@ Return this JSON schema:
   "headquarters_state": "string or null",
   "headquarters_country": "string or null",
   "active": true,
-  "transparency_tier": "one of: open|standard|opaque|classified|defunct_classified",
+  "transparency_tier": "one of: open|standard|opaque|classified|defunct_classified — factual descriptor of operational accessibility, not an editorial judgment",
   "relevance_summary": "why relevant to alternative history/archaeology/conspiracy research",
-  "controversy_summary": "documented controversies",
+  "controversy_summary": "documented controversies — brief summary only; detail goes in public_discourse",
   "website_url": "string or null",
   "wikipedia_url": "string or null",
   "bio_sections": [
@@ -39,8 +39,27 @@ Return this JSON schema:
   ],
   "suggested_relationships": [
     { "institution_name": "string", "relationship_type": "one of: parent|funded|front_for|collaborated|oversight|spun_off|merged_into|competed|investigated|succeeded|affiliated|classified_program", "description": "string", "covert": false, "start_year": "string or null" }
+  ],
+  "public_discourse": [
+    {
+      "sentiment": "one of: positive | negative | mixed",
+      "claim": "string — specific, attributed public claim about this institution. Must be factual and sourced. Good: 'A 2018 Pennsylvania grand jury report documented systemic concealment of clergy abuse across six dioceses.' Bad: 'Critics say they are corrupt.'",
+      "claim_source": "string — specific publication, named individual, government body, court ruling, or identifiable community. Examples: 'Pennsylvania Grand Jury Report (2018)', 'Church Committee Final Report, 1975', 'FOIA-released documents'",
+      "claim_source_url": "string or null",
+      "response_summary": "string or null — if the institution has publicly responded to this claim, summarize their stated position",
+      "response_source": "string or null — where the institution made its response",
+      "response_source_url": "string or null"
+    }
   ]
 }
+
+Public discourse extraction rules:
+- Do NOT generate claims from your own assessment. Only capture claims that are documented in public sources.
+- Official government designations, court rulings, grand jury reports, and congressional findings are valid sourced claims — include them.
+- If the institution has issued a public response to a documented criticism, always capture it — this is the fairness layer.
+- Do not manufacture balance. If the documented record skews heavily one direction, document that honestly.
+- If you can't find sourced claims, return an empty array. Do not fabricate discourse entries.
+- institution_type and transparency_tier describe what the institution IS and how accessible it is — not how you judge it.
 
 Return ONLY the JSON object, no markdown fences.`;
 

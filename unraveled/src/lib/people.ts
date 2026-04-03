@@ -297,6 +297,20 @@ export async function getPersonInstitutions(personId: string): Promise<PersonIns
   });
 }
 
+import type { DiscourseEntry } from '@/components/PublicDiscourseSection';
+export type { DiscourseEntry };
+
+export async function getPersonDiscourse(personId: string): Promise<DiscourseEntry[]> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from('public_discourse')
+    .select('id, sentiment, claim, claim_source, claim_source_url, response_summary, response_source, response_source_url, extracted_by')
+    .eq('person_id', personId)
+    .order('sentiment');
+  if (error) return [];
+  return (data ?? []) as DiscourseEntry[];
+}
+
 export async function deletePerson(id: string): Promise<void> {
   const supabase = createServerSupabaseClient();
   const { error } = await supabase.from('people').delete().eq('id', id);

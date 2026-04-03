@@ -14,6 +14,7 @@
  * The tick cron (/api/jobs/tick) picks these up automatically.
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import { createSession } from '@/lib/research/storage/sessions';
 import { createJobs } from '@/lib/research/storage/jobs';
 import { assignRaci, getActiveAgents } from '@/lib/research/raci';
@@ -56,6 +57,22 @@ export async function POST(req: NextRequest) {
   const topicStr = topic.trim();
   const titleStr = title.trim();
   const questionsArr = research_questions.map(String);
+
+  // Reject duplicate launches — block if any non-terminal session already exists for this topic
+  const supabase = createServerSupabaseClient();
+  const { data: existing } = await supabase
+    .from('research_sessions')
+    .select('id, status')
+    .eq('topic', topicStr)
+    .not('status', 'in', '("complete","failed")')
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    return NextResponse.json(
+      { error: `A research session for "${topicStr}" is already running (id: ${existing[0].id}, status: ${existing[0].status}). Stop it before launching a new one.` },
+      { status: 409 },
+    );
+  }
 
   const contextParts: string[] = [];
   if (typeof description === 'string' && description.trim())
