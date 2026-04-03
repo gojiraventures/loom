@@ -222,6 +222,10 @@ export default function GraphExplorer() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // Node dragging
+  const nodeDragRef = useRef<{ nodeId: string; startScreenX: number; startScreenY: number; startNx: number; startNy: number } | null>(null);
+  const userPositionedRef = useRef(false); // true once user has manually placed any node
+
   // Panel resize
   const [panelWidth, setPanelWidth] = useState(320);
   const panelDragRef = useRef<{ startX: number; startW: number } | null>(null);
@@ -240,6 +244,28 @@ export default function GraphExplorer() {
 
   const onGripUp = useCallback(() => { panelDragRef.current = null; }, []);
 
+  // ── localStorage position persistence ─────────────────────────────────────
+  const POS_KEY = 'ut-graph-positions-v1';
+  const loadSavedPositions = (): Record<string, { x: number; y: number }> | null => {
+    try { const s = localStorage.getItem(POS_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
+  };
+  const savePositions = useCallback((ns: GraphNode[]) => {
+    try {
+      const pos: Record<string, { x: number; y: number }> = {};
+      ns.forEach((n) => { pos[n.id] = { x: n.x, y: n.y }; });
+      localStorage.setItem(POS_KEY, JSON.stringify(pos));
+    } catch { /* quota exceeded etc */ }
+  }, []);
+  const resetPositions = useCallback(() => {
+    try { localStorage.removeItem(POS_KEY); } catch { /* ignore */ }
+    userPositionedRef.current = false;
+    const { w, h } = dims;
+    const updated = nodes.map((n) => ({ ...n, fx: null, fy: null, x: w / 2 + (Math.random() - 0.5) * w * 0.6, y: h / 2 + (Math.random() - 0.5) * h * 0.6, vx: 0, vy: 0 }));
+    runForce(updated, edges, w / 2, h / 2, w, h);
+    setNodes(updated);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dims, nodes, edges]);
+
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/graph')
@@ -247,13 +273,16 @@ export default function GraphExplorer() {
       .then(({ nodes: rawNodes, edges: rawEdges }) => {
         const { w, h } = dims;
         const cx = w / 2, cy = h / 2;
-        const initialized = (rawNodes as GraphNode[]).map((n: GraphNode) => ({
-          ...n,
-          x: cx + (Math.random() - 0.5) * w * 0.6,
-          y: cy + (Math.random() - 0.5) * h * 0.6,
-          vx: 0, vy: 0,
-        }));
-        runForce(initialized, rawEdges, cx, cy, w, h);
+        const saved = loadSavedPositions();
+        const initialized = (rawNodes as GraphNode[]).map((n: GraphNode) => {
+          const pos = saved?.[n.id];
+          return { ...n, x: pos?.x ?? cx + (Math.random() - 0.5) * w * 0.6, y: pos?.y ?? cy + (Math.random() - 0.5) * h * 0.6, vx: 0, vy: 0 };
+        });
+        if (!saved) {
+          runForce(initialized, rawEdges, cx, cy, w, h);
+        } else {
+          userPositionedRef.current = true;
+        }
         setNodes(initialized);
         setEdges(rawEdges);
         setLoading(false);
@@ -292,7 +321,8 @@ export default function GraphExplorer() {
       setNodes(updated);
       setTimelineRange({ min: minYear, max: maxYear });
       setYearRange([minYear, maxYear]);
-    } else {
+    } else if (!userPositionedRef.current) {
+      // Only re-run force if user hasn't manually placed nodes
       const updated = nodes.map((n) => ({ ...n, fx: null, fy: null }));
       runForce(updated, edges, w / 2, h / 2, w, h);
       setNodes(updated);
@@ -363,11 +393,24 @@ export default function GraphExplorer() {
   }, [view]);
 
   const onPointerMove = useCallback((ev: React.PointerEvent) => {
-    if (!dragging.current) return;
-    setView((v) => ({ ...v, x: dragging.current!.startVx + ev.clientX - dragging.current!.startX, y: dragging.current!.startVy + ev.clientY - dragging.current!.startY }));
-  }, []);
+    if (nodeDragRef.current) {
+      const { nodeId, startScreenX, startScreenY, startNx, startNy } = nodeDragRef.current;
+      const dx = (ev.clientX - startScreenX) / view.scale;
+      const dy = (ev.clientY - startScreenY) / view.scale;
+      setNodes((prev) => prev.map((n) => n.id === nodeId ? { ...n, x: startNx + dx, y: startNy + dy } : n));
+    } else if (dragging.current) {
+      setView((v) => ({ ...v, x: dragging.current!.startVx + ev.clientX - dragging.current!.startX, y: dragging.current!.startVy + ev.clientY - dragging.current!.startY }));
+    }
+  }, [view.scale]);
 
-  const onPointerUp = useCallback(() => { dragging.current = null; }, []);
+  const onPointerUp = useCallback(() => {
+    if (nodeDragRef.current) {
+      nodeDragRef.current = null;
+      userPositionedRef.current = true;
+      setNodes((current) => { savePositions(current); return current; });
+    }
+    dragging.current = null;
+  }, [savePositions]);
 
   // ── Center on a node ───────────────────────────────────────────────────────
   const centerOnNode = useCallback((n: GraphNode) => {
@@ -479,11 +522,16 @@ export default function GraphExplorer() {
         key={n.id}
         data-node="1"
         transform={`translate(${n.x},${n.y})`}
-        style={{ cursor: 'pointer' }}
+        style={{ cursor: nodeDragRef.current?.nodeId === n.id ? 'grabbing' : 'grab' }}
         opacity={opacity}
         onMouseEnter={() => setHovered(n.id)}
         onMouseLeave={() => setHovered(null)}
-        onClick={(ev) => onNodeClick(ev, n)}
+        onClick={(ev) => { if (!nodeDragRef.current) onNodeClick(ev, n); }}
+        onPointerDown={(ev) => {
+          ev.stopPropagation();
+          svgRef.current?.setPointerCapture(ev.pointerId);
+          nodeDragRef.current = { nodeId: n.id, startScreenX: ev.clientX, startScreenY: ev.clientY, startNx: n.x, startNy: n.y };
+        }}
       >
         {isSelected && (
           <defs>
@@ -653,6 +701,17 @@ export default function GraphExplorer() {
         <div className="ml-auto font-mono text-[11px] text-text-tertiary shrink-0">
           {visibleNodes.length} nodes · {visibleEdges.length} edges
         </div>
+
+        {/* Reset layout */}
+        {userPositionedRef.current && (
+          <button
+            onClick={resetPositions}
+            className="font-mono text-[10px] text-text-tertiary border border-border px-2 py-1 rounded hover:text-gold hover:border-gold/30 transition-colors shrink-0"
+            title="Reset to auto-layout"
+          >
+            ↺ reset layout
+          </button>
+        )}
 
         {/* Zoom controls */}
         <div className="flex gap-1">
