@@ -201,7 +201,7 @@ const FORMS = {
 
 function SubmissionCard({ formKey }: { formKey: FormKey }) {
   const [value, setValue] = useState('');
-  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error' | 'limit'>('idle');
 
   const form = FORMS[formKey];
 
@@ -215,6 +215,11 @@ function SubmissionCard({ formKey }: { formKey: FormKey }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ submission_type: formKey, content: value.trim() }),
       });
+      if (res.status === 429) {
+        setState('limit');
+        setTimeout(() => setState('idle'), 5000);
+        return;
+      }
       if (!res.ok) throw new Error();
       setState('done');
       setValue('');
@@ -262,7 +267,7 @@ function SubmissionCard({ formKey }: { formKey: FormKey }) {
           disabled={state === 'loading'}
           className="font-mono text-[0.6rem] tracking-[0.08em] uppercase px-5 py-2 border border-border text-text-secondary hover:border-[rgba(200,149,108,0.4)] hover:text-gold transition-colors disabled:opacity-50"
         >
-          {state === 'loading' ? 'Sending…' : state === 'done' ? 'Received ✓' : state === 'error' ? 'Failed — try again' : form.cta}
+          {state === 'loading' ? 'Sending…' : state === 'done' ? 'Received ✓' : state === 'limit' ? 'One per day — try tomorrow' : state === 'error' ? 'Failed — try again' : form.cta}
         </button>
       </form>
     </div>

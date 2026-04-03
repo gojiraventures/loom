@@ -4904,6 +4904,8 @@ interface Submission {
   status: SubmissionStatus;
   notes: string | null;
   reviewer_notes: string | null;
+  moderation_status: 'clean' | 'flagged';
+  moderation_reason: string | null;
   created_at: string;
   actioned_at: string | null;
 }
@@ -4914,18 +4916,19 @@ const SUBMISSION_TYPE_LABELS: Record<SubmissionType, { label: string; color: str
   research:    { label: 'Research',    color: 'text-amber-400 border-amber-400/30' },
 };
 
-const INBOX_FILTER_LABELS: Record<SubmissionStatus | 'all', string> = {
+const INBOX_FILTER_LABELS: Record<SubmissionStatus | 'all' | 'flagged', string> = {
   all:        'All',
   pending:    'Pending',
   backlogged: 'Backlogged',
   actioned:   'Actioned',
   dismissed:  'Dismissed',
+  flagged:    '⚑ Flagged',
 };
 
 function InboxTab() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<SubmissionStatus | 'all'>('pending');
+  const [filter, setFilter] = useState<SubmissionStatus | 'all' | 'flagged'>('pending');
   const [actionStatus, setActionStatus] = useState<Record<string, string>>({});
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [noteValues, setNoteValues] = useState<Record<string, string>>({});
@@ -4993,7 +4996,7 @@ function InboxTab() {
 
       {/* Filter tabs */}
       <div className="flex gap-1 border-b border-border pb-0">
-        {(Object.entries(INBOX_FILTER_LABELS) as [SubmissionStatus | 'all', string][]).map(([f, label]) => (
+        {(Object.entries(INBOX_FILTER_LABELS) as [SubmissionStatus | 'all' | 'flagged', string][]).map(([f, label]) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -5041,6 +5044,14 @@ function InboxTab() {
                     Delete
                   </button>
                 </div>
+
+                {/* Moderation flag */}
+                {s.moderation_status === 'flagged' && (
+                  <div className="mb-3 flex items-start gap-2 px-3 py-2 border border-red-400/30 bg-red-400/5">
+                    <span className="font-mono text-[8px] uppercase text-red-400 shrink-0 mt-0.5">⚑ Flagged</span>
+                    <p className="font-mono text-[9px] text-red-400/80">{s.moderation_reason ?? 'Content policy violation'}</p>
+                  </div>
+                )}
 
                 {/* Content */}
                 <p className="text-sm text-text-secondary leading-relaxed mb-3">{s.content ?? s.description}</p>
