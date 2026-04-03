@@ -13,7 +13,10 @@ export async function GET(req: NextRequest) {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (status !== 'all') {
+  if (status === 'pending') {
+    // 'submitted' is the table default — treat it the same as 'pending'
+    query = query.in('status', ['pending', 'submitted']);
+  } else if (status !== 'all') {
     query = query.eq('status', status);
   }
 
@@ -52,6 +55,7 @@ export async function POST(req: NextRequest) {
       title: typeLabels[submission_type as string] ?? (submission_type as string),
       description: content.trim(),
       content: content.trim(),
+      status: 'pending',
       email: typeof email === 'string' && email.trim() ? email.trim() : null,
     })
     .select()
