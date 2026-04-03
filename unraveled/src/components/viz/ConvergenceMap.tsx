@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { feature } from 'topojson-client';
 import type { VizNarrative } from '@/lib/viz/types';
 
 // ── Map projection ─────────────────────────────────────────────────────────
@@ -9,30 +10,53 @@ const MAP_H = 460;
 const projX = (lng: number) => ((lng + 180) / 360) * MAP_W;
 const projY = (lat: number) => ((90 - lat) / 180) * MAP_H;
 
-// ── Landmass dot grid ──────────────────────────────────────────────────────
-const LAND_REGIONS = [
-  { latMin: 25, latMax: 72, lngMin: -168, lngMax: -55 },
-  { latMin: 7, latMax: 25, lngMin: -118, lngMax: -77 },
-  { latMin: -56, latMax: 12, lngMin: -82, lngMax: -34 },
-  { latMin: 36, latMax: 71, lngMin: -10, lngMax: 40 },
-  { latMin: 55, latMax: 71, lngMin: 5, lngMax: 30 },
-  { latMin: 50, latMax: 59, lngMin: -11, lngMax: 2 },
-  { latMin: -35, latMax: 37, lngMin: -18, lngMax: 52 },
-  { latMin: 12, latMax: 42, lngMin: 25, lngMax: 60 },
-  { latMin: 40, latMax: 75, lngMin: 40, lngMax: 180 },
-  { latMin: 6, latMax: 35, lngMin: 68, lngMax: 90 },
-  { latMin: -8, latMax: 28, lngMin: 90, lngMax: 140 },
-  { latMin: 18, latMax: 54, lngMin: 100, lngMax: 145 },
-  { latMin: -40, latMax: -11, lngMin: 113, lngMax: 154 },
-];
-
-const LAND_POINTS: { x: number; y: number }[] = [];
-for (let lat = -60; lat <= 75; lat += 5) {
-  for (let lng = -170; lng <= 178; lng += 5) {
-    if (LAND_REGIONS.some(r => lat >= r.latMin && lat <= r.latMax && lng >= r.lngMin && lng <= r.lngMax)) {
-      LAND_POINTS.push({ x: projX(lng), y: projY(lat) });
+// ── Land detection via TopoJSON ─────────────────────────────────────────────
+// Ray-casting point-in-polygon for a single GeoJSON ring
+function ptInRing(lng: number, lat: number, ring: number[][]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
     }
   }
+  return inside;
+}
+
+function ptInPolygon(lng: number, lat: number, rings: number[][][]): boolean {
+  if (!ptInRing(lng, lat, rings[0])) return false;
+  for (let i = 1; i < rings.length; i++) {
+    if (ptInRing(lng, lat, rings[i])) return false; // hole
+  }
+  return true;
+}
+
+// Lazily populated land point cache — built once on first render
+let LAND_POINTS: { x: number; y: number }[] | null = null;
+
+async function buildLandPoints(): Promise<{ x: number; y: number }[]> {
+  if (LAND_POINTS) return LAND_POINTS;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const topo = await import('world-atlas/countries-110m.json') as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const landFeature = feature(topo, topo.objects.land) as any;
+  const geom = landFeature.geometry ?? landFeature.features?.[0]?.geometry;
+  if (!geom) return [];
+
+  const polygons: number[][][][] =
+    geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+
+  const pts: { x: number; y: number }[] = [];
+  for (let lat = -60; lat <= 75; lat += 3) {
+    for (let lng = -178; lng <= 180; lng += 3) {
+      if (polygons.some(poly => ptInPolygon(lng, lat, poly))) {
+        pts.push({ x: projX(lng), y: projY(lat) });
+      }
+    }
+  }
+  LAND_POINTS = pts;
+  return pts;
 }
 
 // ── Colors ─────────────────────────────────────────────────────────────────
@@ -66,6 +90,11 @@ function MapCanvas({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
+  const [landPts, setLandPts] = useState<{ x: number; y: number }[]>([]);
+
+  useEffect(() => {
+    buildLandPoints().then(setLandPts);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -100,10 +129,10 @@ function MapCanvas({
       ctx.beginPath(); ctx.moveTo(0, MAP_H / 2); ctx.lineTo(MAP_W, MAP_H / 2); ctx.stroke();
 
       // Land dots
-      LAND_POINTS.forEach(p => {
+      landPts.forEach(p => {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 1.2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.28)';
         ctx.fill();
       });
 
@@ -212,7 +241,7 @@ function MapCanvas({
 
     draw();
     return () => cancelAnimationFrame(animRef.current);
-  }, [narratives, currentYear, hoveredId, filter]);
+  }, [narratives, currentYear, hoveredId, filter, landPts]);
 
   return (
     <canvas
