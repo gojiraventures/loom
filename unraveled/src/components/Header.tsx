@@ -1,12 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { ThemeToggle } from './ThemeToggle';
 import { createBrowserSupabaseClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
+const NAV_LINKS = [
+  { href: '/reports', label: 'Reports' },
+  { href: '/people', label: 'Dossiers' },
+  { href: '/explore', label: 'Relationships' },
+];
+
 export function Header() {
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const signOut = async () => {
     const supabase = createBrowserSupabaseClient();
@@ -23,25 +31,18 @@ export function Header() {
             Unraveled<span className="text-gold">Truth</span>
           </span>
         </Link>
-        <div className="flex items-center gap-8">
-          <Link
-            href="/reports"
-            className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block"
-          >
-            Reports
-          </Link>
-          <Link
-            href="/people"
-            className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block"
-          >
-            Dossiers
-          </Link>
-          <Link
-            href="/explore"
-            className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block"
-          >
-            Relationships
-          </Link>
+
+        {/* Desktop nav */}
+        <div className="hidden sm:flex items-center gap-8">
+          {NAV_LINKS.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors"
+            >
+              {label}
+            </Link>
+          ))}
           <ThemeToggle />
           <button
             onClick={signOut}
@@ -50,7 +51,54 @@ export function Header() {
             Sign Out
           </button>
         </div>
+
+        {/* Mobile right: theme toggle + hamburger */}
+        <div className="flex sm:hidden items-center gap-3">
+          <ThemeToggle />
+          <button
+            onClick={() => setMenuOpen(prev => !prev)}
+            aria-label="Toggle menu"
+            className="flex flex-col justify-center items-center w-8 h-8 gap-[5px]"
+          >
+            <span
+              className="block h-px w-5 bg-text-secondary transition-all duration-200 origin-center"
+              style={menuOpen ? { transform: 'translateY(6px) rotate(45deg)' } : {}}
+            />
+            <span
+              className="block h-px w-5 bg-text-secondary transition-all duration-200"
+              style={menuOpen ? { opacity: 0 } : {}}
+            />
+            <span
+              className="block h-px w-5 bg-text-secondary transition-all duration-200 origin-center"
+              style={menuOpen ? { transform: 'translateY(-6px) rotate(-45deg)' } : {}}
+            />
+          </button>
+        </div>
       </div>
+
+      {/* Mobile dropdown */}
+      {menuOpen && (
+        <div className="sm:hidden border-t border-border bg-ground/95 backdrop-blur-xl">
+          <div className="flex flex-col px-6 py-4 gap-0">
+            {NAV_LINKS.map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMenuOpen(false)}
+                className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors py-3 border-b border-border/50 last:border-b-0"
+              >
+                {label}
+              </Link>
+            ))}
+            <button
+              onClick={() => { setMenuOpen(false); signOut(); }}
+              className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-gold hover:text-gold/70 transition-colors py-3 text-left"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
