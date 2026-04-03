@@ -248,15 +248,19 @@ export default function GraphExplorer() {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      const w = el.clientWidth;
-      const h = Math.max(el.clientHeight || window.innerHeight - 56, 500);
-      setDims({ w, h });
-    });
+    const measure = () => {
+      const w = el.clientWidth || el.getBoundingClientRect().width;
+      // Walk up to the closest ancestor with a real height if el itself is 0
+      let h = el.clientHeight;
+      if (!h) h = el.parentElement?.clientHeight ?? 0;
+      if (!h) h = window.innerHeight - 56;
+      setDims({ w: Math.max(w, 300), h: Math.max(h, 400) });
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    const w = el.clientWidth;
-    const h = Math.max(el.clientHeight || window.innerHeight - 56, 500);
-    setDims({ w, h });
+    // Also observe the parent so we catch flex-resolved heights
+    if (el.parentElement) ro.observe(el.parentElement);
+    measure();
     return () => ro.disconnect();
   }, []);
 

@@ -19,7 +19,8 @@ const GraphExplorer = dynamic(
 
 export function ExploreClient() {
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    // h-14 = 56px header. Explicit height so flex children resolve h-full correctly.
+    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 56px)' }}>
       <GraphExplorer />
     </div>
   );
