@@ -222,6 +222,24 @@ export default function GraphExplorer() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // Panel resize
+  const [panelWidth, setPanelWidth] = useState(320);
+  const panelDragRef = useRef<{ startX: number; startW: number } | null>(null);
+
+  const onGripDown = useCallback((ev: React.PointerEvent<HTMLDivElement>) => {
+    ev.preventDefault();
+    ev.currentTarget.setPointerCapture(ev.pointerId);
+    panelDragRef.current = { startX: ev.clientX, startW: panelWidth };
+  }, [panelWidth]);
+
+  const onGripMove = useCallback((ev: React.PointerEvent<HTMLDivElement>) => {
+    if (!panelDragRef.current) return;
+    const dx = panelDragRef.current.startX - ev.clientX; // drag left = wider
+    setPanelWidth(Math.max(240, Math.min(680, panelDragRef.current.startW + dx)));
+  }, []);
+
+  const onGripUp = useCallback(() => { panelDragRef.current = null; }, []);
+
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/graph')
@@ -790,7 +808,22 @@ export default function GraphExplorer() {
 
         {/* ── Detail panel ────────────────────────────────────────────────── */}
         {panel && (
-          <div className="w-80 flex-shrink-0 border-l border-border bg-ground overflow-y-auto flex flex-col">
+          <>
+          {/* Drag grip — sits on the left edge of the panel */}
+          <div
+            className="flex-shrink-0 flex items-center justify-center border-l border-r border-border bg-ground hover:bg-gold/5 transition-colors"
+            style={{ width: 14, cursor: 'col-resize', touchAction: 'none' }}
+            onPointerDown={onGripDown}
+            onPointerMove={onGripMove}
+            onPointerUp={onGripUp}
+          >
+            <div className="flex flex-col gap-[4px]">
+              {[0,1,2,3,4].map((i) => (
+                <div key={i} className="w-[3px] h-[3px] rounded-full bg-text-tertiary/50" />
+              ))}
+            </div>
+          </div>
+          <div className="flex-shrink-0 border-r border-border bg-ground overflow-y-auto flex flex-col" style={{ width: panelWidth }}>
             {/* Header */}
             <div className="p-5 border-b border-border flex items-start justify-between">
               <div>
@@ -896,6 +929,7 @@ export default function GraphExplorer() {
               </div>
             </div>
           </div>
+          </>
         )}
       </div>
 
