@@ -38,11 +38,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'content is required' }, { status: 400 });
   }
 
+  const typeLabels: Record<string, string> = {
+    person: 'Person suggestion',
+    institution: 'Institution flag',
+    research: 'Research request',
+  };
+
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from('submissions')
     .insert({
       submission_type,
+      title: typeLabels[submission_type as string] ?? (submission_type as string),
+      description: content.trim(),
       content: content.trim(),
       email: typeof email === 'string' && email.trim() ? email.trim() : null,
     })
@@ -68,7 +76,10 @@ export async function PATCH(req: NextRequest) {
     patch.status = status;
     if (status === 'actioned') patch.actioned_at = new Date().toISOString();
   }
-  if (typeof notes === 'string') patch.notes = notes;
+  if (typeof notes === 'string') {
+    patch.notes = notes;
+    patch.reviewer_notes = notes; // write to both columns for compatibility
+  }
 
   const supabase = createServerSupabaseClient();
   const { error } = await supabase.from('submissions').update(patch).eq('id', id);

@@ -4898,10 +4898,12 @@ type SubmissionType = 'person' | 'institution' | 'research';
 interface Submission {
   id: string;
   submission_type: SubmissionType;
-  content: string;
+  content: string | null;
+  description: string | null;
   email: string | null;
   status: SubmissionStatus;
   notes: string | null;
+  reviewer_notes: string | null;
   created_at: string;
   actioned_at: string | null;
 }
@@ -5041,14 +5043,14 @@ function InboxTab() {
                 </div>
 
                 {/* Content */}
-                <p className="text-sm text-text-secondary leading-relaxed mb-3">{s.content}</p>
+                <p className="text-sm text-text-secondary leading-relaxed mb-3">{s.content ?? s.description}</p>
 
                 {/* Note */}
                 {isEditingNote ? (
                   <div className="mb-3 flex gap-2">
                     <input
                       type="text"
-                      value={noteValues[s.id] ?? s.notes ?? ''}
+                      value={noteValues[s.id] ?? s.notes ?? s.reviewer_notes ?? ''}
                       onChange={(e) => setNoteValues((n) => ({ ...n, [s.id]: e.target.value }))}
                       placeholder="Add a note…"
                       className="flex-1 bg-ground border border-border px-2 py-1 text-xs font-mono text-text-primary focus:outline-none focus:border-gold/40"
