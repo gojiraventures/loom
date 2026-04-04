@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase';
+import { OAuthButtons } from '@/components/auth/OAuthButtons';
 
 function LoginForm() {
   const router = useRouter();
@@ -46,18 +47,18 @@ function LoginForm() {
       <div className="relative z-10 w-full max-w-sm">
 
         {/* Logo */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-10">
           <a href="/" className="inline-block">
             <h1 className="font-serif text-3xl font-normal">
               Unraveled<span className="text-gold">Truth</span>
             </h1>
           </a>
           <p className="font-mono text-[9px] tracking-[0.3em] uppercase text-text-tertiary mt-2">
-            Private Beta
+            Sign in to your account
           </p>
         </div>
 
-        {/* Form */}
+        {/* Email / Password — primary */}
         <form onSubmit={signIn} className="space-y-4">
           <div>
             <label className="block font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-1.5">
@@ -98,15 +99,32 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full font-mono text-[11px] uppercase tracking-widest border border-gold/40 text-gold py-3 hover:bg-gold/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+            className="w-full font-mono text-[11px] uppercase tracking-widest bg-gold/10 border border-gold/40 text-gold py-3 hover:bg-gold/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-1"
           >
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
 
-        <p className="text-center font-mono text-[9px] text-text-tertiary mt-10 leading-relaxed">
-          No sign-up during beta.<br />
-          If you should have access, ask Mike.
+        {/* Divider */}
+        <div className="flex items-center gap-3 my-6">
+          <div className="flex-1 border-t border-border" />
+          <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">or</span>
+          <div className="flex-1 border-t border-border" />
+        </div>
+
+        {/* OAuth providers */}
+        <OAuthButtons next={next} mode="signin" />
+
+        {/* Privacy note */}
+        <p className="text-center font-mono text-[9px] text-text-tertiary mt-8 leading-relaxed">
+          We only collect your email and display name. Nothing else. Ever.
+        </p>
+
+        <p className="text-center font-mono text-[9px] text-text-tertiary mt-4">
+          No account?{' '}
+          <a href={`/signup?next=${encodeURIComponent(next)}`} className="text-gold hover:underline">
+            Create one free
+          </a>
         </p>
       </div>
     </div>
