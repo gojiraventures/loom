@@ -12,9 +12,15 @@ import { slugToTopic } from '@/lib/topics';
 import { LLMPerspectives } from '@/components/LLMPerspectives';
 import type { LLMPerspective } from '@/components/LLMPerspectives';
 import { FLOOD_NARRATIVES } from '@/lib/viz/topics/flood';
+import { synthesisToVizNarratives } from '@/lib/viz/transform';
 import { getTopicMedia } from '@/lib/research/intelligence/gatherer';
 import { MediaSection } from '@/components/media/MediaSection';
+import { TopicTOC } from '@/components/TopicTOC';
+import { RelatedResearch } from '@/components/RelatedResearch';
+import { ComponentRenderer } from '@/components/interactive/ComponentRenderer';
 import type { SynthesizedOutput } from '@/lib/research/types';
+import type { TocSection } from '@/components/TopicTOC';
+import type { ComponentRecord } from '@/lib/interactive/types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveled.ai';
 
@@ -46,7 +52,11 @@ export async function generateMetadata({
     .limit(1)
     .single();
 
-  const ogImage = heroImg?.cropped_url ?? heroImg?.image_url ?? `${BASE_URL}/og-default.png`;
+  const ogImageFallback = heroImg?.cropped_url ?? heroImg?.image_url;
+  const scoreForOg = output?.convergence_score ?? 0;
+  const traditionsForOg = (output?.traditions_analyzed ?? []).length;
+  const generatedOg = `${BASE_URL}/api/og?title=${encodeURIComponent(title)}&score=${scoreForOg}&traditions=${traditionsForOg}`;
+  const ogImage = ogImageFallback ?? generatedOg;
   const keywords = output?.traditions_analyzed ?? [];
 
   return {
@@ -76,15 +86,11 @@ export async function generateMetadata({
   };
 }
 
-// Pick the right viz data per topic
-function getVizNarratives(slug: string) {
-  switch (slug) {
-    case 'the-great-flood':
-    case 'the-great-flood-cross-civilizational-evidence':
-      return FLOOD_NARRATIVES;
-    default: return [];
-  }
-}
+// Flood slugs get the richer hand-curated data with spread connections
+const FLOOD_SLUGS = new Set([
+  'the-great-flood',
+  'the-great-flood-cross-civilizational-evidence',
+]);
 
 export default async function TopicPage({
   params,
@@ -119,7 +125,7 @@ export default async function TopicPage({
       .limit(12),
     supabase
       .from('topic_dossiers')
-      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug')
+      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug, selected_components')
       .eq('topic', topic)
       .single(),
   ]);
@@ -135,6 +141,12 @@ export default async function TopicPage({
   const quickBrief = (dossierMeta?.quick_brief as string | null) ?? null;
   const publishedAt = (dossierMeta?.published_at as string | null) ?? null;
   const updatedAt = (dossierMeta?.updated_at as string | null) ?? null;
+  const selectedComponents = ((dossierMeta?.selected_components ?? []) as ComponentRecord[]).filter((c) => c.enabled);
+
+  // Helper: pull a specific component for contextual inline placement
+  function getComponent(id: string): ComponentRecord | undefined {
+    return selectedComponents.find((c) => c.id === id);
+  }
 
   const canonicalUrl = `${BASE_URL}/topics/${slug}`;
 
@@ -189,7 +201,28 @@ export default async function TopicPage({
     })),
   } : null;
 
-  const vizNarratives = getVizNarratives(slug);
+  // Map/timeline are only shown when:
+  //  - It's a flood topic (always has rich hand-curated data), OR
+  //  - The convergence_map component is in selectedComponents and enabled
+  const mapEnabled = FLOOD_SLUGS.has(slug) || !!getComponent('convergence_map')?.enabled;
+  const timelineEnabled = FLOOD_SLUGS.has(slug) || !!getComponent('narrative_timeline')?.enabled;
+  const vizNarratives = mapEnabled || timelineEnabled
+    ? (FLOOD_SLUGS.has(slug) ? FLOOD_NARRATIVES : synthesisToVizNarratives(output))
+    : [];
+
+  // ── Table of Contents ──────────────────────────────────────────────────────
+  const tocSections: TocSection[] = [
+    ...(quickBrief || output.executive_summary ? [{ id: 'quick-brief', label: 'Quick Brief' }] : []),
+    ...(mapEnabled && vizNarratives.length > 0 ? [{ id: 'geographic-spread', label: 'Geographic Spread' }] : []),
+    ...(timelineEnabled && vizNarratives.length > 0 ? [{ id: 'chronology', label: 'Chronology' }] : []),
+    { id: 'the-evidence', label: 'The Evidence' },
+    { id: 'research-summary', label: 'Summary' },
+    { id: 'the-debate', label: 'The Debate' },
+    ...(output.shared_elements_matrix.length > 0 ? [{ id: 'shared-elements', label: 'Shared Elements' }] : []),
+    ...(Object.keys(output.how_cultures_describe).length > 0 ? [{ id: 'in-their-own-words', label: 'In Their Own Words' }] : []),
+    { id: 'open-questions', label: 'Open Questions' },
+    ...(output.sources.length > 0 ? [{ id: 'sources', label: 'Sources' }] : []),
+  ];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -208,6 +241,8 @@ export default async function TopicPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
         />
       )}
+
+      <TopicTOC sections={tocSections} />
 
       <Header />
 
@@ -339,8 +374,8 @@ export default async function TopicPage({
       {/* Images are distributed inline between content sections below */}
 
       {/* ── World Map ─────────────────────────────────────────────────────── */}
-      {vizNarratives.length > 0 && (
-        <section className="border-b border-border" data-dark>
+      {mapEnabled && vizNarratives.length > 0 && (
+        <section id="geographic-spread" className="border-b border-border" data-dark>
           <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-6">
             <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
               Geographic Spread
@@ -359,8 +394,8 @@ export default async function TopicPage({
       )}
 
       {/* ── Timeline ────────────────────────────────────────────────────── */}
-      {vizNarratives.length > 0 && (
-        <section className="border-b border-border" data-dark>
+      {timelineEnabled && vizNarratives.length > 0 && (
+        <section id="chronology" className="border-b border-border" data-dark>
           <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-6">
             <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
               Chronology
@@ -372,7 +407,7 @@ export default async function TopicPage({
               For diffusion to explain shared narrative structure, the story must travel before it's recorded. This timeline shows the documented dates for each tradition — including oral traditions whose geological corroboration allows independent dating. Scroll right for the full picture. Click any marker to see the source.
             </p>
           </div>
-          <div className="px-6 pb-12">
+          <div className="max-w-5xl mx-auto px-6 pb-12">
             <div className="border border-border">
               <NarrativeTimeline narratives={vizNarratives} />
             </div>
@@ -381,7 +416,7 @@ export default async function TopicPage({
       )}
 
       {/* ── Jaw-Drop Layers ──────────────────────────────────────────────── */}
-      <section className="border-b border-border">
+      <section id="the-evidence" className="border-b border-border">
         <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
           <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
             The Evidence
@@ -428,6 +463,15 @@ export default async function TopicPage({
         </div>
       </section>
 
+      {/* ── Tradition Deep Dive — after Evidence, before image ───────────── */}
+      {getComponent('tradition_deep_dive') && (
+        <section className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
+            <ComponentRenderer component={getComponent('tradition_deep_dive')!} />
+          </div>
+        </section>
+      )}
+
       {/* ── Inline image 1 — after Evidence ─────────────────────────────── */}
       {galleryImages[0] && (
         <figure className="border-b border-border">
@@ -456,7 +500,7 @@ export default async function TopicPage({
       )}
 
       {/* ── Executive Summary ────────────────────────────────────────────── */}
-      <section className="border-b border-border">
+      <section id="research-summary" className="border-b border-border">
         <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
           <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
             Research Summary
@@ -500,7 +544,7 @@ export default async function TopicPage({
       )}
 
       {/* ── Advocate vs Skeptic ──────────────────────────────────────────── */}
-      <section className="border-b border-border">
+      <section id="the-debate" className="border-b border-border">
         <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
           <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
             The Debate
@@ -564,9 +608,18 @@ export default async function TopicPage({
         </figure>
       )}
 
+      {/* ── Debate Simulator — after The Debate section ──────────────────── */}
+      {getComponent('debate_simulator') && (
+        <section className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
+            <ComponentRenderer component={getComponent('debate_simulator')!} />
+          </div>
+        </section>
+      )}
+
       {/* ── Shared Elements + Network ─────────────────────────────────────── */}
       {output.shared_elements_matrix.length > 0 && (
-        <section className="border-b border-border">
+        <section id="shared-elements" className="border-b border-border">
           <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
             <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
               Pattern Analysis
@@ -632,7 +685,7 @@ export default async function TopicPage({
 
       {/* ── How Cultures Describe ────────────────────────────────────────── */}
       {Object.keys(output.how_cultures_describe).length > 0 && (
-        <section className="border-b border-border">
+        <section id="in-their-own-words" className="border-b border-border">
           <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
             <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
               In Their Own Words
@@ -674,7 +727,7 @@ export default async function TopicPage({
       )}
 
       {/* ── Open Questions ───────────────────────────────────────────────── */}
-      <section className="border-b border-border">
+      <section id="open-questions" className="border-b border-border">
         <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
           <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
             Unresolved
@@ -739,9 +792,36 @@ export default async function TopicPage({
         </section>
       )}
 
+      {/* ── Related Research ─────────────────────────────────────────────── */}
+      {/* ── Convergence Score + Source Breakdown — before Sources ────────── */}
+      {(getComponent('convergence_score_gauge') || getComponent('source_type_breakdown')) && (
+        <section className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12 space-y-10">
+            {getComponent('convergence_score_gauge') && (
+              <div className="space-y-4">
+                <ComponentRenderer component={getComponent('convergence_score_gauge')!} />
+                <p className="text-xs text-text-tertiary leading-relaxed max-w-xl">
+                  The convergence score measures how independently a pattern appears across unconnected traditions —
+                  weighted for cultural distance, source diversity, and structural similarity.
+                  A score above 70 indicates the pattern is statistically unlikely to be explained by diffusion or coincidence alone.{' '}
+                  <a href="/method" className="text-gold hover:underline underline-offset-2">
+                    How we score convergence →
+                  </a>
+                </p>
+              </div>
+            )}
+            {getComponent('source_type_breakdown') && (
+              <ComponentRenderer component={getComponent('source_type_breakdown')!} />
+            )}
+          </div>
+        </section>
+      )}
+
+      <RelatedResearch currentSlug={slug} traditions={output.traditions_analyzed} />
+
       {/* ── Sources ──────────────────────────────────────────────────────── */}
       {output.sources.length > 0 && (
-        <section>
+        <section id="sources">
           <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-16">
             <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
               Sources

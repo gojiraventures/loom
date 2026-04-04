@@ -3,10 +3,31 @@ import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { getConvergenceBySession } from '@/lib/research/storage/convergence';
 import { getDebateBySession } from '@/lib/research/storage/debates';
 import { queryClaude } from '@/lib/research/llm/claude';
+import { queryGemini } from '@/lib/research/llm/gemini';
 import { getJob } from '@/lib/research/storage/jobs';
 import { buildSectionPrompt } from '../section-prompts';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SectionKey, SynthesisOutline } from '../section-prompts';
+
+// Sections that need Claude's narrative voice (reader-facing, argumentative prose)
+const CLAUDE_SECTIONS = new Set<SectionKey>([
+  'executive_summary',
+  'key_findings',
+  'advocate_case',
+  'skeptic_case',
+  'jaw_drop_layers',
+]);
+
+// Sections routed to Gemini Flash — data aggregation, citation formatting, pattern listing
+const GEMINI_FLASH_SECTIONS = new Set<SectionKey>([
+  'how_cultures_describe',
+  'circumstantial_convergence',
+  'sources',
+]);
+
+// Everything else → Gemini Pro (analytical but structured; BLOCK_NONE safety so no guardrails)
+// Includes: traditions_analysis, convergence_deep_dive, faith_perspectives,
+//           legendary_patterns, open_questions
 
 export interface SynthesisSectionPayload {
   section_key: SectionKey;
@@ -40,14 +61,15 @@ export async function handleSynthesisSection(job: ResearchJob): Promise<Record<s
     convergenceAnalyses,
   });
 
-  const response = await queryClaude({
-    provider: 'claude',
-    systemPrompt,
-    userPrompt,
-    maxTokens,
-    temperature: 0.45,
-    jsonMode: false,
-  });
+  const provider = CLAUDE_SECTIONS.has(section_key)
+    ? 'claude'
+    : GEMINI_FLASH_SECTIONS.has(section_key)
+    ? 'gemini-flash'
+    : 'gemini';
+
+  const response = provider === 'claude'
+    ? await queryClaude({ provider: 'claude', systemPrompt, userPrompt, maxTokens, temperature: 0.45, jsonMode: false })
+    : await queryGemini({ provider, systemPrompt, userPrompt, maxTokens, temperature: 0.45, jsonMode: false });
 
   // Store section in dossier_sections table
   // content is JSONB — wrap prose in an object
@@ -88,7 +110,7 @@ export async function handleSynthesisSection(job: ResearchJob): Promise<Record<s
       is_current: isCurrent,
       updated_at: new Date().toISOString(),
     }, {
-      onConflict: 'session_id,section_key',
+      onConflict: 'topic,section_key,version',
     })
     .select('id')
     .single();

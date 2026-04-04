@@ -16,27 +16,29 @@ function yearLabel(y: number) {
 
 export function NarrativeTimeline({ narratives }: { narratives: VizNarrative[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [scrollPct, setScrollPct] = useState(50); // start in the middle so earliest + latest are both reachable
 
-  // Sort by year, exclude geological (they're physical evidence, not narratives)
+  // Sort by year, exclude geological
   const events = [...narratives]
     .filter(n => n.type !== 'geological')
     .sort((a, b) => a.year - b.year);
 
+  if (events.length === 0) return null;
+
   const MIN = Math.min(...events.map(e => e.year));
   const MAX = Math.max(...events.map(e => e.year));
-  const RANGE = MAX - MIN;
+  const RANGE = MAX - MIN || 1;
 
   const xPct = (year: number) => ((year - MIN) / RANGE) * 100;
 
   const selected = selectedId ? events.find(e => e.id === selectedId) : null;
 
-  // Cluster by proximity to avoid label overlap
+  // Lane assignment — avoids label collisions
   const LANES = 4;
   const lanes: (VizNarrative | null)[][] = Array.from({ length: LANES }, () => []);
   const eventLanes: Record<string, number> = {};
 
   events.forEach(ev => {
-    // Find a lane where there's no recent event within 4% of timeline width
     let placed = false;
     for (let l = 0; l < LANES; l++) {
       const last = lanes[l].filter(Boolean).at(-1);
@@ -48,7 +50,6 @@ export function NarrativeTimeline({ narratives }: { narratives: VizNarrative[] }
       }
     }
     if (!placed) {
-      // Put in least-used lane
       const minLane = lanes.reduce((min, l, i) => l.length < lanes[min].length ? i : min, 0);
       lanes[minLane].push(ev);
       eventLanes[ev.id] = minLane;
@@ -70,100 +71,114 @@ export function NarrativeTimeline({ narratives }: { narratives: VizNarrative[] }
     { year: 600, label: '600 CE' },
   ].filter(e => e.year >= MIN - 500 && e.year <= MAX + 500);
 
-  // Fixed SVG width — container scrolls horizontally
+  // SVG uses a fixed logical width of 1200; viewBox window (VISIBLE_W) slides via scrollPct
   const SVG_W = 1200;
-  const PAD = 60; // horizontal padding inside SVG so edge labels don't clip
+  const VISIBLE_W = 820;
+  const PAD = 40;
+  const maxScrollX = SVG_W - VISIBLE_W;
+  const viewX = (scrollPct / 100) * maxScrollX;
 
   return (
     <div className="space-y-0">
-      <div
-        className="overflow-x-auto"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        <div style={{ width: SVG_W + PAD * 2 }}>
-          <svg
-            viewBox={`${-PAD} 0 ${SVG_W + PAD * 2} ${TOTAL_H}`}
-            width={SVG_W + PAD * 2}
-            height={TOTAL_H}
-            style={{ display: 'block' }}
-          >
-            {/* Epoch gridlines */}
-            {EPOCHS.map(ep => {
-              const x = (xPct(ep.year) / 100) * SVG_W;
-              return (
-                <g key={ep.year}>
-                  <line
-                    x1={x} y1={TOP_OFFSET - 8} x2={x} y2={AXIS_Y}
-                    stroke="rgba(255,255,255,0.12)"
-                    strokeWidth={0.5}
-                  />
-                  <text
-                    x={x} y={AXIS_Y + 18}
-                    textAnchor="middle"
-                    fill="rgba(255,255,255,0.55)"
-                    fontSize={11}
-                    fontFamily="'IBM Plex Mono', monospace"
-                    letterSpacing={1}
-                  >
-                    {ep.label}
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Axis line */}
-            <line
-              x1={0} y1={AXIS_Y} x2={SVG_W} y2={AXIS_Y}
-              stroke="rgba(255,255,255,0.25)"
-              strokeWidth={1}
-            />
-
-            {/* Events */}
-            {events.map(ev => {
-              const x = (xPct(ev.year) / 100) * SVG_W;
-              const lane = eventLanes[ev.id] ?? 0;
-              const cy = TOP_OFFSET + lane * LANE_H + LANE_H / 2;
-              const col = TYPE_COLORS[ev.type] || '#C8956C';
-              const isSelected = selectedId === ev.id;
-
-              return (
-                <g
-                  key={ev.id}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setSelectedId(ev.id === selectedId ? null : ev.id)}
+      {/* Timeline SVG — constrained to content width, panned by slider */}
+      <div style={{ width: '100%', overflow: 'hidden' }}>
+        <svg
+          viewBox={`${viewX - PAD} 0 ${VISIBLE_W + PAD * 2} ${TOTAL_H}`}
+          width="100%"
+          height={TOTAL_H}
+          preserveAspectRatio="xMinYMid meet"
+          style={{ display: 'block' }}
+        >
+          {/* Epoch gridlines */}
+          {EPOCHS.map(ep => {
+            const x = (xPct(ep.year) / 100) * SVG_W;
+            return (
+              <g key={ep.year}>
+                <line
+                  x1={x} y1={TOP_OFFSET - 8} x2={x} y2={AXIS_Y}
+                  stroke="rgba(255,255,255,0.12)"
+                  strokeWidth={0.5}
+                />
+                <text
+                  x={x} y={AXIS_Y + 18}
+                  textAnchor="middle"
+                  fill="rgba(255,255,255,0.55)"
+                  fontSize={11}
+                  fontFamily="'IBM Plex Mono', monospace"
+                  letterSpacing={1}
                 >
-                  {/* Vertical drop to axis */}
-                  <line
-                    x1={x} y1={cy + 5} x2={x} y2={AXIS_Y}
-                    stroke={isSelected ? col : 'rgba(255,255,255,0.20)'}
-                    strokeWidth={isSelected ? 1 : 0.5}
-                    strokeDasharray="2,3"
-                  />
+                  {ep.label}
+                </text>
+              </g>
+            );
+          })}
 
-                  {/* Dot */}
-                  <circle
-                    cx={x} cy={cy}
-                    r={isSelected ? 6 : 4}
-                    fill={isSelected ? col : `rgba(${parseInt(col.slice(1, 3), 16)},${parseInt(col.slice(3, 5), 16)},${parseInt(col.slice(5, 7), 16)},0.8)`}
-                  />
-                  <circle cx={x} cy={cy} r={isSelected ? 2.5 : 1.5} fill="rgba(255,255,255,0.8)" />
+          {/* Axis line */}
+          <line
+            x1={0} y1={AXIS_Y} x2={SVG_W} y2={AXIS_Y}
+            stroke="rgba(255,255,255,0.25)"
+            strokeWidth={1}
+          />
 
-                  {/* Label (short) */}
-                  <text
-                    x={x} y={cy - 9}
-                    textAnchor="middle"
-                    fill={isSelected ? col : 'rgba(255,255,255,0.65)'}
-                    fontSize={10}
-                    fontFamily="'IBM Plex Mono', monospace"
-                    fontWeight={isSelected ? '600' : '400'}
-                  >
-                    {ev.tradition.split(' ')[0]}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
+          {/* Events */}
+          {events.map(ev => {
+            const x = (xPct(ev.year) / 100) * SVG_W;
+            const lane = eventLanes[ev.id] ?? 0;
+            const cy = TOP_OFFSET + lane * LANE_H + LANE_H / 2;
+            const col = TYPE_COLORS[ev.type] || '#C8956C';
+            const isSelected = selectedId === ev.id;
+
+            return (
+              <g
+                key={ev.id}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setSelectedId(ev.id === selectedId ? null : ev.id)}
+              >
+                <line
+                  x1={x} y1={cy + 5} x2={x} y2={AXIS_Y}
+                  stroke={isSelected ? col : 'rgba(255,255,255,0.20)'}
+                  strokeWidth={isSelected ? 1 : 0.5}
+                  strokeDasharray="2,3"
+                />
+                <circle
+                  cx={x} cy={cy}
+                  r={isSelected ? 6 : 4}
+                  fill={isSelected ? col : `rgba(${parseInt(col.slice(1, 3), 16)},${parseInt(col.slice(3, 5), 16)},${parseInt(col.slice(5, 7), 16)},0.8)`}
+                />
+                <circle cx={x} cy={cy} r={isSelected ? 2.5 : 1.5} fill="rgba(255,255,255,0.8)" />
+                <text
+                  x={x} y={cy - 9}
+                  textAnchor="middle"
+                  fill={isSelected ? col : 'rgba(255,255,255,0.65)'}
+                  fontSize={10}
+                  fontFamily="'IBM Plex Mono', monospace"
+                  fontWeight={isSelected ? '600' : '400'}
+                >
+                  {ev.tradition.split(' ')[0]}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Pan slider */}
+      <div className="border-t border-border px-5 py-3 flex items-center gap-3">
+        <span className="font-mono text-[9px] text-text-tertiary shrink-0 tabular-nums w-20">
+          {yearLabel(MIN)}
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={scrollPct}
+          onChange={(e) => setScrollPct(Number(e.target.value))}
+          className="flex-1 accent-[#C8956C] h-0.5 cursor-pointer"
+          aria-label="Scroll timeline"
+        />
+        <span className="font-mono text-[9px] text-text-tertiary shrink-0 tabular-nums w-20 text-right">
+          {yearLabel(MAX)}
+        </span>
       </div>
 
       {/* Selected detail */}

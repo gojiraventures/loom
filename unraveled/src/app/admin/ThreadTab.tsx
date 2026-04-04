@@ -117,10 +117,12 @@ function PulseSection() {
   const [processing, setProcessing] = useState(false);
   const [enriching, setEnriching] = useState(false);
   const [enrichingInst, setEnrichingInst] = useState(false);
+  const [running, setRunning] = useState(false);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [processResult, setProcessResult] = useState<string | null>(null);
   const [enrichResult, setEnrichResult] = useState<string | null>(null);
   const [enrichInstResult, setEnrichInstResult] = useState<string | null>(null);
+  const [pipelineLog, setPipelineLog] = useState<Array<{ text: string; type: 'info' | 'ok' | 'error' }>>([]);
 
   const loadStats = useCallback(async () => {
     setLoadingStats(true);
@@ -217,6 +219,105 @@ function PulseSection() {
     }
   }
 
+  async function runFullPipeline() {
+    setRunning(true);
+    setPipelineLog([]);
+    const log = (text: string, type: 'info' | 'ok' | 'error' = 'info') =>
+      setPipelineLog((prev) => [...prev, { text, type }]);
+
+    try {
+      // Step 1 — Tier 1 SQL scan
+      log('⊙ Tier 1: scanning entities for connections…');
+      let scanData: { candidates_found?: number; candidates_inserted?: number; entities_scanned?: number; error?: string } = {};
+      try {
+        const res = await fetch('/api/admin/thread/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ full_scan: true }),
+        });
+        scanData = await res.json();
+        if (!res.ok) throw new Error(scanData.error ?? 'Scan failed');
+        log(
+          `✓ Tier 1 done — ${scanData.candidates_found} candidates found (${scanData.candidates_inserted} new) across ${scanData.entities_scanned} entities`,
+          'ok',
+        );
+      } catch (e) {
+        log(`✗ Tier 1 failed: ${e instanceof Error ? e.message : 'unknown error'}`, 'error');
+        // Don't abort — still process any existing queue
+      }
+
+      // Step 2 — Tier 2/3 + Lead Gen (only if there's something to process)
+      await loadStats();
+      const statsRes = await fetch('/api/admin/thread/stats');
+      const freshStats: SetiStats | null = statsRes.ok ? await statsRes.json() : null;
+      const pending = freshStats?.candidates.pending_tier2 ?? 0;
+
+      if (pending === 0) {
+        log('— Queue empty, no Tier 2 work to do', 'info');
+      } else {
+        log(`⊙ Tier 2/3: processing ${pending} candidates (Ollama inference + scoring + lead gen)…`);
+        try {
+          const res = await fetch('/api/admin/thread/tier2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ batch_size: 50 }),
+          });
+          const data: { processed?: number; suggestions_created?: number; leads_created?: number; errors?: number; error?: string } = await res.json();
+          if (!res.ok) throw new Error(data.error ?? 'Tier 2 failed');
+          const errNote = (data.errors ?? 0) > 0 ? ` (${data.errors} errors — check Ollama)` : '';
+          log(
+            `✓ Tier 2/3 done — ${data.processed} processed → ${data.suggestions_created} suggestions, ${data.leads_created} new leads${errNote}`,
+            (data.errors ?? 0) > 0 ? 'error' : 'ok',
+          );
+        } catch (e) {
+          log(`✗ Tier 2/3 failed: ${e instanceof Error ? e.message : 'unknown error'}`, 'error');
+        }
+      }
+
+      // Step 3 — Enrich bios (Perplexity + Claude, ~$0.05-0.10/person)
+      log('⊙ Enriching bios — Perplexity + Claude (may take a minute)…');
+      try {
+        const res = await fetch('/api/admin/thread/enrich', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 10 }),
+        });
+        const data: { enriched?: number; total_institutions_added?: number; total_connections_added?: number; new_ghost_nodes?: string[]; error?: string } = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Enrich failed');
+        const ghostNote = (data.new_ghost_nodes?.length ?? 0) > 0 ? `, ${data.new_ghost_nodes!.length} ghost nodes flagged` : '';
+        log(
+          `✓ Bios enriched — ${data.enriched} people, +${data.total_institutions_added} institutions, +${data.total_connections_added} connections${ghostNote}`,
+          'ok',
+        );
+      } catch (e) {
+        log(`✗ Bio enrichment failed: ${e instanceof Error ? e.message : 'unknown error'}`, 'error');
+      }
+
+      // Step 4 — Enrich institutions (Perplexity + Claude, ~$0.05-0.10/institution)
+      log('⊙ Enriching institutions — Perplexity + Claude (may take a minute)…');
+      try {
+        const res = await fetch('/api/admin/thread/enrich-institutions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 5 }),
+        });
+        const data: { enriched?: number; total_sections?: number; total_events?: number; total_personnel_linked?: number; total_connections?: number; error?: string } = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Enrich failed');
+        log(
+          `✓ Institutions enriched — ${data.enriched} orgs, +${data.total_sections} sections, +${data.total_events} events, +${data.total_personnel_linked} personnel links, +${data.total_connections} connections`,
+          'ok',
+        );
+      } catch (e) {
+        log(`✗ Institution enrichment failed: ${e instanceof Error ? e.message : 'unknown error'}`, 'error');
+      }
+
+      await loadStats();
+      log('Pipeline complete.', 'ok');
+    } finally {
+      setRunning(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -268,15 +369,48 @@ function PulseSection() {
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Auto-run full pipeline */}
+      <div className="border border-gold/30 bg-gold/3 px-4 py-3 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-widest text-gold">Full Auto Pipeline</p>
+            <p className="font-mono text-[8px] text-text-tertiary mt-0.5">
+              Scan → Tier 2/3 → Lead Gen → Enrich Bios (10) → Enrich Institutions (5). Runs daily at 1–2 AM UTC automatically.
+            </p>
+          </div>
+          <button
+            onClick={runFullPipeline}
+            disabled={running || scanning || processing}
+            className="font-mono text-[9px] uppercase tracking-widest px-5 py-2 border border-gold/60 text-gold hover:bg-gold/10 transition-colors disabled:opacity-40 shrink-0"
+          >
+            {running ? '⊙ Running…' : '⊙ Run Now'}
+          </button>
+        </div>
+        {pipelineLog.length > 0 && (
+          <div className="space-y-0.5 border-t border-border/30 pt-2">
+            {pipelineLog.map((entry, i) => (
+              <p
+                key={i}
+                className={`font-mono text-[9px] ${
+                  entry.type === 'ok' ? 'text-emerald-400' : entry.type === 'error' ? 'text-red-400' : 'text-text-tertiary'
+                }`}
+              >
+                {entry.text}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Manual stage controls */}
       <div className="flex gap-3 flex-wrap">
         <div className="space-y-1">
           <button
             onClick={runScan}
-            disabled={scanning}
+            disabled={scanning || running}
             className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 transition-colors disabled:opacity-40"
           >
-            {scanning ? '⊙ Scanning…' : '⊙ Run Tier 1 Scan'}
+            {scanning ? '⊙ Scanning…' : '⊙ Tier 1 Scan'}
           </button>
           <p className="font-mono text-[8px] text-text-tertiary">Pure SQL — zero LLM cost</p>
           {scanResult && <p className="font-mono text-[9px] text-emerald-400">{scanResult}</p>}
@@ -285,7 +419,7 @@ function PulseSection() {
         <div className="space-y-1">
           <button
             onClick={runTier2}
-            disabled={processing || !stats || stats.candidates.pending_tier2 === 0}
+            disabled={processing || running || !stats || stats.candidates.pending_tier2 === 0}
             className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-violet-400/40 text-violet-400 hover:bg-violet-400/10 transition-colors disabled:opacity-40"
           >
             {processing ? '⊙ Processing…' : `⊙ Process Queue (${stats?.candidates.pending_tier2 ?? 0})`}
@@ -297,7 +431,7 @@ function PulseSection() {
         <div className="space-y-1">
           <button
             onClick={runEnrich}
-            disabled={enriching}
+            disabled={enriching || running}
             className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-40"
           >
             {enriching ? '⊙ Enriching… (slow)' : '⊙ Enrich Bios (10)'}
@@ -309,7 +443,7 @@ function PulseSection() {
         <div className="space-y-1">
           <button
             onClick={runEnrichInstitutions}
-            disabled={enrichingInst}
+            disabled={enrichingInst || running}
             className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-teal-400/40 text-teal-400 hover:bg-teal-400/10 transition-colors disabled:opacity-40"
           >
             {enrichingInst ? '⊙ Enriching… (slow)' : '⊙ Enrich Institutions (5)'}

@@ -6,6 +6,7 @@ import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { extractAndQueueEntities } from '@/lib/research/entity-extractor';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SynthesizedOutput, JawDropLayer } from '@/lib/research/types';
+import { pickComponents } from '@/lib/interactive/picker';
 
 export interface EditorPassPayload {
   topic: string;
@@ -240,6 +241,51 @@ export async function handleEditorPass(job: ResearchJob): Promise<Record<string,
 
   if (updateError) throw new Error(`Failed to update dossier: ${updateError.message}`);
 
+  // ── Component recommendations (best-effort, non-fatal) ───────────────────
+  try {
+    const recommendations = pickComponents(finalOutput);
+    await supabase
+      .from('topic_dossiers')
+      .update({ recommended_components: recommendations })
+      .eq('topic', topic);
+  } catch (err) {
+    console.error('[editor-pass] Component picker failed (non-fatal):', err);
+  }
+
+  // ── Quick Brief generation (best-effort, non-fatal) ───────────────────────
+  let quickBriefGenerated = false;
+  try {
+    const briefResponse = await queryClaude({
+      provider: 'claude',
+      systemPrompt: `You are a senior editor at Unraveled. Write a quick brief — a 250–350 word summary that a busy reader can absorb in 90 seconds. Style: confident, precise, no filler. Lead with the single most important finding. End with one sentence that captures why this pattern refuses to go away. Never use the word "pipeline" or "convergence score". Return only the brief text, no heading, no JSON.`,
+      userPrompt: `Topic: ${finalOutput.title}
+
+Executive Summary:
+${finalOutput.executive_summary}
+
+Key jaw-drop findings:
+${(finalOutput.jaw_drop_layers ?? []).slice(0, 3).map((l) => `- ${l.title}: ${l.content?.slice(0, 200)}`).join('\n')}
+
+Traditions: ${(finalOutput.traditions_analyzed ?? []).join(', ')}
+
+Write the quick brief now.`,
+      jsonMode: false,
+      maxTokens: 600,
+      temperature: 0.5,
+    });
+
+    const briefText = briefResponse.text.trim();
+    if (briefText.length > 100) {
+      await supabase
+        .from('topic_dossiers')
+        .update({ quick_brief: briefText })
+        .eq('topic', topic);
+      quickBriefGenerated = true;
+    }
+  } catch (err) {
+    console.error('[editor-pass] Quick brief generation failed (non-fatal):', err);
+  }
+
   // ── Entity extraction (best-effort, non-fatal) ─────────────────────────────
   let extractionResult = null;
   try {
@@ -253,6 +299,7 @@ export async function handleEditorPass(job: ResearchJob): Promise<Record<string,
     topic,
     sections_edited: ['executive_summary', 'advocate_case', 'skeptic_case', 'jaw_drop_layers', 'open_questions'],
     visual_strategy_generated: !!visualStrategy,
+    quick_brief_generated: quickBriefGenerated,
     input_tokens: response.inputTokens,
     output_tokens: response.outputTokens,
     entities: extractionResult

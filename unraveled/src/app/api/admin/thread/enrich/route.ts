@@ -18,7 +18,7 @@
 
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { queryPerplexity, queryAnthropic } from '@/lib/ai';
+import { queryPerplexity, queryGemini } from '@/lib/ai';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -162,10 +162,11 @@ Be specific with names and years. This is for an investigative knowledge graph.`
       const researchResult = await queryPerplexity(researchQuery).catch(() => ({ content: '' }));
       const researchNotes = researchResult.content || 'No research available.';
 
-      // 2. Claude structured extraction
-      const { content } = await queryAnthropic(
+      // 2. Gemini structured extraction
+      const { content } = await queryGemini(
         enrichmentPrompt(name, currentBio, researchNotes, entitiesInSystem),
         ENRICHMENT_SYSTEM,
+        4096,
       );
 
       let extracted: EnrichmentResult;

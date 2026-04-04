@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from('topic_dossiers')
-    .select('topic, title, slug, published, featured, best_convergence_score, key_traditions, summary, synthesized_output, last_researched_at, llm_perspectives')
+    .select('topic, title, slug, published, featured, best_convergence_score, key_traditions, summary, synthesized_output, last_researched_at, published_at, llm_perspectives, recommended_components, selected_components')
     .eq('topic', topic)
     .single();
 
@@ -17,19 +17,31 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ dossier: data });
 }
 
-// PATCH /api/admin/dossier — toggle featured
+// PATCH /api/admin/dossier
+// Accepts: { topic, featured? } or { topic, selected_components? }
 export async function PATCH(req: NextRequest) {
-  const { topic, featured } = await req.json();
-  if (!topic || typeof featured !== 'boolean') {
-    return NextResponse.json({ error: 'topic and featured (boolean) required' }, { status: 400 });
+  const body = await req.json() as {
+    topic: string;
+    featured?: boolean;
+    selected_components?: unknown[];
+  };
+  const { topic } = body;
+  if (!topic) return NextResponse.json({ error: 'topic required' }, { status: 400 });
+
+  const updates: Record<string, unknown> = {};
+  if (typeof body.featured === 'boolean') updates.featured = body.featured;
+  if (Array.isArray(body.selected_components)) updates.selected_components = body.selected_components;
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
   }
 
   const supabase = createServerSupabaseClient();
   const { error } = await supabase
     .from('topic_dossiers')
-    .update({ featured })
+    .update(updates)
     .eq('topic', topic);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, featured });
+  return NextResponse.json({ ok: true, ...updates });
 }

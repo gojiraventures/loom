@@ -119,7 +119,8 @@ export async function queryGrok(
 
 export async function queryGemini(
   prompt: string,
-  systemPrompt?: string
+  systemPrompt?: string,
+  maxOutputTokens = 1024,
 ): Promise<AIResponse> {
   const response = await fetch(
     `${GEMINI_API_URL}?key=${process.env.GOOGLE_AI_API_KEY!}`,
@@ -131,7 +132,7 @@ export async function queryGemini(
           ? { parts: [{ text: systemPrompt }] }
           : undefined,
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1024 },
+        generationConfig: { maxOutputTokens },
       }),
     }
   );

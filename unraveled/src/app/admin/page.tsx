@@ -25,6 +25,14 @@ async function safeJson(res: Response): Promise<Record<string, unknown>> {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface ComponentRecord {
+  id:      string;
+  label:   string;
+  reason:  string;
+  enabled: boolean;
+  data:    unknown;
+}
+
 interface Dossier {
   topic: string;
   title: string;
@@ -36,7 +44,10 @@ interface Dossier {
   summary: string | null;
   synthesized_output: Record<string, unknown> | null;
   last_researched_at: string | null;
+  published_at: string | null;
   llm_perspectives: unknown[] | null;
+  recommended_components: ComponentRecord[] | null;
+  selected_components: ComponentRecord[] | null;
   session_id?: string;
 }
 
@@ -809,11 +820,12 @@ function SessionsTab() {
 function ContentTab() {
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [pendingEnhancements, setPendingEnhancements] = useState<Record<string, number>>({});
-  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'unpublished'>('all');
-  const [sortBy, setSortBy] = useState<'score' | 'title' | 'pending'>('pending');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'unpublished' | 'needs_review'>('all');
+  const [sortBy, setSortBy] = useState<'unpublished' | 'score' | 'title'>('unpublished');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [previewing, setPreviewing] = useState<string | null>(null);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [slugInputs, setSlugInputs] = useState<Record<string, string>>({});
   const [publishStatus, setPublishStatus] = useState<Record<string, string>>({});
   const [enhanceOpen, setEnhanceOpen] = useState<string | null>(null);
@@ -827,6 +839,9 @@ function ContentTab() {
   const [resynthStatus, setResynthStatus] = useState<Record<string, string>>({});
   const [featureStatus, setFeatureStatus] = useState<Record<string, string>>({});
   const [llmStatus, setLlmStatus] = useState<Record<string, string>>({});
+  const [componentStatus, setComponentStatus] = useState<Record<string, string>>({});
+  const [componentsOpen, setComponentsOpen] = useState<string | null>(null);
+  const [componentGenStatus, setComponentGenStatus] = useState<Record<string, string>>({});
 
   const toggleFeature = async (topic: string, currentlyFeatured: boolean) => {
     const next = !currentlyFeatured;
@@ -863,6 +878,52 @@ function ContentTab() {
       load();
     } catch {
       setLlmStatus((s) => ({ ...s, [d.topic]: 'error' }));
+    }
+  };
+
+  const generateComponentRecs = async (d: Dossier) => {
+    setComponentGenStatus((s) => ({ ...s, [d.topic]: 'generating…' }));
+    try {
+      const res = await fetch('/api/admin/components/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: d.topic }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setComponentGenStatus((s) => ({ ...s, [d.topic]: '' }));
+      load();
+    } catch {
+      setComponentGenStatus((s) => ({ ...s, [d.topic]: 'error' }));
+    }
+  };
+
+  const toggleComponent = async (d: Dossier, componentId: string, enabled: boolean) => {
+    const recs = d.recommended_components ?? [];
+    // Merge recs into selected (start from recs if selected is empty)
+    const base: ComponentRecord[] = (d.selected_components ?? []).length > 0
+      ? (d.selected_components ?? [])
+      : recs;
+
+    const updated = base.map((c) => c.id === componentId ? { ...c, enabled } : c);
+    // If the component isn't in selected yet (e.g. from recs only), add it
+    const exists = updated.some((c) => c.id === componentId);
+    if (!exists) {
+      const rec = recs.find((c) => c.id === componentId);
+      if (rec) updated.push({ ...rec, enabled });
+    }
+
+    setComponentStatus((s) => ({ ...s, [`${d.topic}:${componentId}`]: 'saving…' }));
+    try {
+      const res = await fetch('/api/admin/dossier', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: d.topic, selected_components: updated }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setComponentStatus((s) => ({ ...s, [`${d.topic}:${componentId}`]: enabled ? 'enabled ✓' : 'disabled' }));
+      load();
+    } catch {
+      setComponentStatus((s) => ({ ...s, [`${d.topic}:${componentId}`]: 'error' }));
     }
   };
 
@@ -1106,23 +1167,38 @@ function ContentTab() {
       )}
 
       {!loading && dossiers.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          {(['all', 'published', 'unpublished'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilterStatus(f)}
-              className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1 border rounded transition-colors ${filterStatus === f ? 'border-gold text-gold bg-gold/5' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
-            >
-              {f === 'all' ? `All (${dossiers.length})` : f === 'published' ? `Published (${dossiers.filter(d => d.published).length})` : `Drafts (${dossiers.filter(d => !d.published).length})`}
-            </button>
-          ))}
-          <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-col gap-3">
+          {/* Tabs */}
+          <div className="flex border-b border-border">
+            {([
+              ['all',          `All`,          dossiers.length],
+              ['published',    `Published`,    dossiers.filter(d => d.published).length],
+              ['unpublished',  `Unpublished`,  dossiers.filter(d => !d.published).length],
+              ['needs_review', `Needs Review`, Object.values(pendingEnhancements).reduce((a, b) => a + b, 0)],
+            ] as const).map(([f, label, count]) => (
+              <button
+                key={f}
+                onClick={() => setFilterStatus(f)}
+                className={`font-mono text-[9px] uppercase tracking-widest px-4 py-2.5 border-b-2 -mb-px transition-colors ${
+                  filterStatus === f
+                    ? f === 'needs_review' ? 'border-amber-400 text-amber-400' : 'border-gold text-gold'
+                    : 'border-transparent text-text-tertiary hover:text-text-secondary'
+                }`}
+              >
+                {label}
+                <span className="ml-1.5 font-mono text-[8px] opacity-60">({count})</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Sort */}
+          <div className="flex items-center gap-2 justify-end">
             <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">Sort:</span>
-            {([['pending', '⬆ Needs Review'], ['score', 'Score'], ['title', 'A → Z']] as const).map(([val, label]) => (
+            {([['unpublished', 'New & Unpublished'], ['score', 'Score'], ['title', 'A → Z']] as const).map(([val, label]) => (
               <button
                 key={val}
                 onClick={() => setSortBy(val)}
-                className={`font-mono text-[9px] uppercase tracking-widest px-2 py-1 border rounded transition-colors ${sortBy === val ? 'border-gold text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+                className={`font-mono text-[9px] uppercase tracking-widest px-2 py-1 border transition-colors ${sortBy === val ? 'border-gold text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
               >
                 {label}
               </button>
@@ -1133,12 +1209,15 @@ function ContentTab() {
 
       <div className="space-y-4">
         {dossiers
-          .filter((d) => filterStatus === 'all' || (filterStatus === 'published' ? d.published : !d.published))
+          .filter((d) => {
+            if (filterStatus === 'published')    return d.published;
+            if (filterStatus === 'unpublished')  return !d.published;
+            if (filterStatus === 'needs_review') return (pendingEnhancements[d.topic] ?? 0) > 0;
+            return true;
+          })
           .sort((a, b) => {
-            if (sortBy === 'pending') {
-              const pa = pendingEnhancements[a.topic] ?? 0;
-              const pb = pendingEnhancements[b.topic] ?? 0;
-              if (pb !== pa) return pb - pa;
+            if (sortBy === 'unpublished') {
+              if (a.published !== b.published) return a.published ? 1 : -1;
               return (b.best_convergence_score ?? 0) - (a.best_convergence_score ?? 0);
             }
             if (sortBy === 'score') return (b.best_convergence_score ?? 0) - (a.best_convergence_score ?? 0);
@@ -1151,66 +1230,66 @@ function ContentTab() {
           const slugVal = slugInputs[d.topic] ?? d.slug ?? autoSlug;
           const statusMsg = publishStatus[d.topic];
 
+          const isExpanded = expandedCard === d.topic;
+
           return (
             <div key={d.topic} className="border border-border bg-ground-light/30">
-              {/* Header row */}
-              <div className="px-4 py-3 flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-text-primary">{d.title}</span>
-                    {d.published && (
-                      <span className="font-mono text-[9px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 bg-emerald-400/5 px-1.5 py-0.5 rounded">
-                        Live
+              {/* Collapsed header — always visible, click to expand */}
+              <button
+                onClick={() => setExpandedCard(isExpanded ? null : d.topic)}
+                className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-ground-light/20 transition-colors"
+              >
+                {/* Status dot */}
+                <span className={`shrink-0 w-2 h-2 rounded-full ${d.published ? 'bg-emerald-400' : 'bg-text-tertiary/30'}`} />
+
+                {/* Title + badges */}
+                <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-text-primary leading-snug">{d.title}</span>
+                  {d.best_convergence_score > 0 && (
+                    <span className="font-mono text-[9px] text-gold shrink-0">
+                      {d.best_convergence_score}
+                    </span>
+                  )}
+                  {pendingEnhancements[d.topic] > 0 && (
+                    <span className="inline-flex items-center gap-1 font-mono text-[8px] uppercase tracking-widest text-amber-400 shrink-0">
+                      <span className="relative flex h-1.5 w-1.5 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
                       </span>
-                    )}
-                    {d.best_convergence_score > 0 && (
-                      <span className="font-mono text-[9px] text-gold">
-                        Score: {d.best_convergence_score}
-                      </span>
-                    )}
-                    {pendingEnhancements[d.topic] > 0 && (
-                      <span className="inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-amber-400 border border-amber-400/40 bg-amber-400/8 px-1.5 py-0.5 rounded">
-                        <span className="relative flex h-1.5 w-1.5 shrink-0">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
-                        </span>
-                        {pendingEnhancements[d.topic] === 1 ? 'New research ready' : `${pendingEnhancements[d.topic]} research batches ready`}
-                      </span>
-                    )}
-                  </div>
-                  <div className="font-mono text-[9px] text-text-tertiary mt-0.5">{d.topic}</div>
-                  {d.key_traditions?.length > 0 && (
-                    <div className="flex gap-1 flex-wrap mt-1">
-                      {d.key_traditions.slice(0, 6).map((t) => (
-                        <span key={t} className="font-mono text-[8px] uppercase tracking-wider text-text-tertiary border border-border/60 px-1">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
+                      Review
+                    </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => setPreviewing(isPreview ? null : d.topic)}
-                    className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-gold border border-border px-2 py-1 rounded transition-colors"
-                  >
-                    {isPreview ? 'Hide' : 'Preview'}
-                  </button>
+
+                {/* Right: published date + view link + chevron */}
+                <div className="flex items-center gap-3 shrink-0">
+                  {d.published && d.published_at && (
+                    <span className="font-mono text-[8px] text-text-tertiary hidden sm:block">
+                      {new Date(d.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  )}
                   {d.published && d.slug && (
                     <a
                       href={`/topics/${d.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-mono text-[9px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-2 py-1 rounded hover:bg-emerald-400/10 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-mono text-[9px] uppercase tracking-widest text-emerald-400 hover:underline transition-colors"
                     >
                       View →
                     </a>
                   )}
+                  <span className="font-mono text-[9px] text-text-tertiary">
+                    {isExpanded ? '▲' : '▼'}
+                  </span>
                 </div>
-              </div>
+              </button>
+
+              {/* Expanded controls */}
+              {isExpanded && <>
 
               {/* Publish controls */}
-              <div className="px-4 pb-3 flex items-center gap-3 flex-wrap">
+              <div className="border-t border-border/60 px-4 pb-3 pt-3 flex items-center gap-3 flex-wrap">
                 <input
                   className="bg-ground border border-border px-2 py-1 text-xs font-mono text-text-primary focus:outline-none focus:border-gold/50 rounded w-full max-w-sm"
                   placeholder="url-slug"
@@ -1288,6 +1367,12 @@ function ContentTab() {
               {/* Research controls */}
               <div className="px-4 pb-3 flex items-center gap-3 flex-wrap border-t border-border/40 pt-3">
                 <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">Research:</span>
+                <button
+                  onClick={() => setPreviewing(isPreview ? null : d.topic)}
+                  className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-gold border border-border px-2 py-1 rounded transition-colors"
+                >
+                  {isPreview ? 'Hide Preview' : 'Preview'}
+                </button>
                 <button
                   onClick={() => {
                     setEnhanceOpen(enhanceOpen === d.topic ? null : d.topic);
@@ -1503,6 +1588,82 @@ function ContentTab() {
               {/* People & Institutions */}
               {d.session_id && <DossierEntities sessionId={d.session_id} topic={d.topic} />}
 
+              {/* Interactive Components */}
+              {d.synthesized_output && (
+                <div className="border-t border-border">
+                  <button
+                    onClick={() => setComponentsOpen(componentsOpen === d.topic ? null : d.topic)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-ground-light/20 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-violet-400">
+                        ⬡ Interactive Components
+                      </span>
+                      {(d.recommended_components ?? []).length > 0 && (
+                        <span className="font-mono text-[8px] text-text-tertiary">
+                          {(d.selected_components?.length ? d.selected_components : d.recommended_components ?? []).filter((c) => c.enabled).length} of {(d.recommended_components ?? []).length} enabled
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono text-[10px] text-text-tertiary">
+                      {componentsOpen === d.topic ? '−' : '+'}
+                    </span>
+                  </button>
+
+                  {componentsOpen === d.topic && (
+                    <div className="px-4 pb-4 space-y-2">
+                      {(d.recommended_components ?? []).length === 0 ? (
+                        <div className="flex items-center gap-3 py-2">
+                          <p className="font-mono text-[8px] text-text-tertiary">
+                            No recommendations yet.
+                          </p>
+                          <button
+                            onClick={() => generateComponentRecs(d)}
+                            disabled={componentGenStatus[d.topic] === 'generating…'}
+                            className="font-mono text-[8px] uppercase tracking-wider px-2 py-1 border border-violet-500/40 text-violet-400 hover:bg-violet-500/10 transition-colors disabled:opacity-50"
+                          >
+                            {componentGenStatus[d.topic] === 'generating…' ? 'Generating…' : '+ Generate Recommendations'}
+                          </button>
+                          {componentGenStatus[d.topic] === 'error' && (
+                            <span className="font-mono text-[8px] text-red-400">error</span>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <p className="font-mono text-[8px] text-text-tertiary mb-3">
+                            Enable to show on the published report.
+                          </p>
+                          {(d.selected_components?.length ? d.selected_components : d.recommended_components ?? []).map((comp) => {
+                            const statusKey = `${d.topic}:${comp.id}`;
+                            return (
+                              <div key={comp.id} className="flex items-start gap-3 p-3 border border-border/50 bg-ground-light/10">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-mono text-[10px] text-text-primary">{comp.label}</p>
+                                  <p className="font-mono text-[8px] text-text-tertiary mt-0.5 leading-snug">{comp.reason}</p>
+                                  {componentStatus[statusKey] && (
+                                    <p className="font-mono text-[8px] text-violet-400 mt-1">{componentStatus[statusKey]}</p>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => toggleComponent(d, comp.id, !comp.enabled)}
+                                  className={`font-mono text-[8px] uppercase tracking-wider px-2 py-1 border shrink-0 transition-colors ${
+                                    comp.enabled
+                                      ? 'border-violet-500/50 text-violet-400 hover:border-red-500/50 hover:text-red-400'
+                                      : 'border-border/40 text-text-tertiary hover:border-violet-500/50 hover:text-violet-400'
+                                  }`}
+                                >
+                                  {comp.enabled ? 'Enabled ✓' : 'Disabled'}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Visual Strategy */}
               {typeof d.synthesized_output?.visual_strategy === 'string' ? (
                 <VisualStrategy text={d.synthesized_output.visual_strategy} />
@@ -1521,6 +1682,7 @@ function ContentTab() {
                   No synthesized output found for this topic.
                 </div>
               )}
+              </>}
             </div>
           );
         })}

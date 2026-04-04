@@ -5,12 +5,14 @@ import { useState } from 'react';
 export type LLMVerdict = 'engages' | 'qualifies' | 'dismisses' | 'suppresses';
 
 export interface LLMPerspective {
-  llm: string;
-  label: string;
-  response: string;
-  verdict: LLMVerdict;
+  llm:            string;
+  label:          string;
+  model_version?: string;   // e.g. "gpt-4o" — for reproducibility
+  response:       string;
+  preview?:       string;   // most diagnostic passage (new field)
+  verdict:        LLMVerdict;
   verdict_reason: string;
-  generated_at: string;
+  generated_at:   string;
 }
 
 const VERDICT_CONFIG: Record<LLMVerdict, { label: string; color: string; bg: string; bar: string }> = {
@@ -21,10 +23,11 @@ const VERDICT_CONFIG: Record<LLMVerdict, { label: string; color: string; bg: str
 };
 
 const LLM_ICONS: Record<string, string> = {
-  chatgpt: 'GPT',
-  grok:    'GRK',
-  claude:  'CLD',
-  gemini:  'GEM',
+  chatgpt:    'GPT',
+  grok:       'GRK',
+  claude:     'CLD',
+  gemini:     'GEM',
+  perplexity: 'PPX',
 };
 
 function VerdictBadge({ verdict }: { verdict: LLMVerdict }) {
@@ -41,9 +44,11 @@ function VerdictBadge({ verdict }: { verdict: LLMVerdict }) {
 
 function PerspectiveCard({ p }: { p: LLMPerspective }) {
   const [expanded, setExpanded] = useState(false);
-  const cfg = VERDICT_CONFIG[p.verdict];
+  const cfg  = VERDICT_CONFIG[p.verdict];
   const icon = LLM_ICONS[p.llm] ?? p.llm.slice(0, 3).toUpperCase();
-  const isLong = p.response.length > 200;
+  // Show the diagnostic preview by default; fall back to first 200 chars of response
+  const previewText = p.preview ?? p.response.slice(0, 200);
+  const hasMore = p.response.length > 0;
 
   return (
     <div className="relative border border-border overflow-hidden" style={{ background: cfg.bg }}>
@@ -63,26 +68,43 @@ function PerspectiveCard({ p }: { p: LLMPerspective }) {
               </p>
               <p className="font-mono text-[8px] text-text-tertiary mt-0.5">
                 {new Date(p.generated_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                {p.model_version && (
+                  <span className="ml-1.5 opacity-50">{p.model_version}</span>
+                )}
               </p>
             </div>
           </div>
           <VerdictBadge verdict={p.verdict} />
         </div>
 
+        {/* Fix 3: Show diagnostic preview first, full response on expand */}
         <blockquote className="border-l-2 border-border pl-3 mb-3">
-          <p className="text-xs text-text-secondary leading-relaxed italic">
-            {expanded || !isLong ? p.response : p.response.slice(0, 200) + '…'}
-          </p>
-          {isLong && (
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="font-mono text-[8px] text-text-tertiary hover:text-text-secondary mt-1 transition-colors"
-            >
-              {expanded ? '↑ show less' : '↓ read more'}
-            </button>
+          {!expanded ? (
+            <>
+              <p className="text-xs text-text-secondary leading-relaxed italic">{previewText}</p>
+              {hasMore && (
+                <button
+                  onClick={() => setExpanded(true)}
+                  className="font-mono text-[8px] text-text-tertiary hover:text-text-secondary mt-1 transition-colors"
+                >
+                  ↓ full response
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-text-secondary leading-relaxed italic">{p.response}</p>
+              <button
+                onClick={() => setExpanded(false)}
+                className="font-mono text-[8px] text-text-tertiary hover:text-text-secondary mt-1 transition-colors"
+              >
+                ↑ show less
+              </button>
+            </>
           )}
         </blockquote>
 
+        {/* Fix 5: Analysis cites a specific sentence */}
         <p className="font-mono text-[9px] leading-snug" style={{ color: `${cfg.color}CC` }}>
           {p.verdict_reason}
         </p>
@@ -106,8 +128,7 @@ export function LLMPerspectives({ perspectives }: Props) {
           How the Major AIs Handle This Topic
         </h2>
         <p className="text-sm text-text-secondary leading-relaxed max-w-2xl mb-8">
-          We asked ChatGPT, Grok, Claude, and Gemini the same question and had Claude analyze each response.
-          Does mainstream AI engage — or does it qualify, dismiss, or suppress?
+          We asked ChatGPT, Grok, Claude, Gemini, and Perplexity a question matching our specific convergence angle — not a generic topic summary. Claude classified each response using a 4-axis scoring rubric. Does mainstream AI engage with the actual evidence — or qualify, dismiss, or suppress?
         </p>
 
         <div className="flex flex-wrap gap-3 mb-8">

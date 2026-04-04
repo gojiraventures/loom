@@ -3,6 +3,7 @@ import { getConvergenceBySession } from '@/lib/research/storage/convergence';
 import { getDebateBySession } from '@/lib/research/storage/debates';
 import { queryClaude } from '@/lib/research/llm/claude';
 import { parseJsonResponse } from '@/lib/research/llm/parse';
+import { getTraditionGeo } from '@/lib/viz/tradition-geo';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SynthesisOutline } from '../section-prompts';
 
@@ -79,6 +80,15 @@ export async function handleSynthesisOutline(job: ResearchJob): Promise<Record<s
 
   const traditions = [...new Set(findings.flatMap((f) => f.traditions))].sort();
 
+  // Check how many traditions have geo data — informs whether map/timeline can be recommended
+  const geoResolved = traditions.filter((t) => getTraditionGeo(t) !== undefined);
+  const distinctRegions = new Set(
+    geoResolved.map((t) => getTraditionGeo(t)!.region),
+  ).size;
+  const geoNote = geoResolved.length < 4
+    ? `GEO COVERAGE NOTE: Only ${geoResolved.length} of ${traditions.length} traditions have geographic data (need ≥4 across ≥2 regions for the map/timeline visualization). When selecting traditions_analyzed, prefer traditions with distinct geographic origins — e.g. include traditions from different continents or cultural spheres if the findings support it.`
+    : `GEO COVERAGE: ${geoResolved.length} traditions have geographic data across ${distinctRegions} regions — sufficient for map/timeline visualization.`;
+
   const userPrompt = `Topic: ${topic}
 Working title: ${title}
 Traditions covered: ${traditions.join(', ')}
@@ -94,6 +104,8 @@ SKEPTIC CONFIDENCE: ${debate.skeptic_confidence}
 
 UNRESOLVED TENSIONS:
 ${debate.unresolved_tensions.slice(0, 5).map((t, i) => `${i + 1}. ${t}`).join('\n')}
+
+${geoNote}
 
 Produce the synthesis outline. For top_finding_ids_by_section, assign the 3-8 most relevant finding IDs from the list above to each section.`;
 
@@ -112,5 +124,8 @@ Produce the synthesis outline. For top_finding_ids_by_section, assign the 3-8 mo
     outline,
     finding_count: findings.length,
     tradition_count: traditions.length,
+    geo_resolved_count: geoResolved.length,
+    geo_region_count: distinctRegions,
+    geo_viz_eligible: geoResolved.length >= 4 && distinctRegions >= 2,
   };
 }

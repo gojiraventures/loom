@@ -50,15 +50,28 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
   const { topic, title } = job.params as unknown as SynthesisAssemblyPayload;
   const supabase = createServerSupabaseClient();
 
-  // Load all sections for this session
-  const { data: sections, error } = await supabase
+  // Load all sections for this session — fall back to topic-scoped query
+  // in case concurrent sessions raced and overwrote session_id on the upsert.
+  let { data: sections, error } = await supabase
     .from('dossier_sections')
     .select('section_key, content, status, word_count')
     .eq('session_id', job.session_id)
     .eq('is_current', true);
 
   if (error) throw new Error(`Failed to load sections: ${error.message}`);
-  if (!sections || sections.length === 0) throw new Error('No sections found to assemble');
+
+  if (!sections || sections.length === 0) {
+    // Fallback: query by topic — handles race condition where another session's
+    // upsert overwrote our session_id on the shared (topic, section_key, version) row
+    const { data: topicSections, error: topicError } = await supabase
+      .from('dossier_sections')
+      .select('section_key, content, status, word_count')
+      .eq('topic', topic)
+      .eq('is_current', true);
+    if (topicError) throw new Error(`Failed to load sections by topic: ${topicError.message}`);
+    if (!topicSections || topicSections.length === 0) throw new Error('No sections found to assemble');
+    sections = topicSections;
+  }
 
   const sectionMap = Object.fromEntries(
     (sections as { section_key: string; content: unknown; status: string; word_count: number }[]).map(
@@ -76,11 +89,12 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
   const presentSections = Object.keys(sectionSnapshot);
   const missingSections = SECTION_ORDER.filter((k) => !sectionMap[k]);
 
-  // Get next version number
+  // Get next version number — must query by topic (not session_id) because the
+  // unique constraint is on (topic, version_number), not (session_id, version_number).
   const { data: existingVersions } = await supabase
     .from('dossier_versions')
     .select('version_number')
-    .eq('session_id', job.session_id)
+    .eq('topic', topic)
     .order('version_number', { ascending: false })
     .limit(1);
 
