@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ThemeToggle } from './ThemeToggle';
 import { createBrowserSupabaseClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@/hooks/useUser';
 
 const NAV_LINKS = [
   { href: '/reports', label: 'Reports' },
@@ -15,6 +16,7 @@ const NAV_LINKS = [
 
 export function Header() {
   const router = useRouter();
+  const { user, loading } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const signOut = async () => {
@@ -45,12 +47,39 @@ export function Header() {
             </Link>
           ))}
           <ThemeToggle />
-          <button
-            onClick={signOut}
-            className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 border border-[rgba(200,149,108,0.4)] text-gold hover:bg-gold hover:text-ground transition-colors"
-          >
-            Sign Out
-          </button>
+          {!loading && (
+            user ? (
+              <div className="flex items-center gap-4">
+                <Link
+                  href="/account"
+                  className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-text-secondary hover:text-gold transition-colors"
+                >
+                  Account
+                </Link>
+                <button
+                  onClick={signOut}
+                  className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 border border-[rgba(200,149,108,0.4)] text-gold hover:bg-gold hover:text-ground transition-colors"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/login"
+                  className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-text-secondary hover:text-gold transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 border border-[rgba(200,149,108,0.4)] text-gold hover:bg-gold hover:text-ground transition-colors"
+                >
+                  Join Free
+                </Link>
+              </div>
+            )
+          )}
         </div>
 
         {/* Mobile right: theme toggle + hamburger */}
@@ -86,17 +115,47 @@ export function Header() {
                 key={href}
                 href={href}
                 onClick={() => setMenuOpen(false)}
-                className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors py-3 border-b border-border/50 last:border-b-0"
+                className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors py-3 border-b border-border/50"
               >
                 {label}
               </Link>
             ))}
-            <button
-              onClick={() => { setMenuOpen(false); signOut(); }}
-              className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-gold hover:text-gold/70 transition-colors py-3 text-left"
-            >
-              Sign Out
-            </button>
+            {!loading && (
+              user ? (
+                <>
+                  <Link
+                    href="/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors py-3 border-b border-border/50"
+                  >
+                    Account
+                  </Link>
+                  <button
+                    onClick={() => { setMenuOpen(false); signOut(); }}
+                    className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-gold hover:text-gold/70 transition-colors py-3 text-left"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors py-3 border-b border-border/50"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/signup"
+                    onClick={() => setMenuOpen(false)}
+                    className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-gold hover:text-gold/70 transition-colors py-3"
+                  >
+                    Join Free
+                  </Link>
+                </>
+              )
+            )}
           </div>
         </div>
       )}
