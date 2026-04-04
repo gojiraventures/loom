@@ -8,6 +8,7 @@ interface RelatedResearchProps {
 
 interface RelatedDossier {
   slug: string;
+  topic: string;
   title: string;
   summary: string | null;
   score: number;
@@ -23,7 +24,7 @@ export async function RelatedResearch({ currentSlug, traditions }: RelatedResear
 
   const { data: rows } = await supabase
     .from('topic_dossiers')
-    .select('slug, title, summary, synthesized_output')
+    .select('topic, slug, title, summary, synthesized_output')
     .eq('published', true)
     .neq('slug', currentSlug)
     .limit(30);
@@ -41,6 +42,7 @@ export async function RelatedResearch({ currentSlug, traditions }: RelatedResear
       const overlap = rowTraditions.filter((t) => currentSet.has(t.toLowerCase())).length;
       return {
         slug: row.slug as string,
+        topic: row.topic as string,
         title: row.title ?? output.title,
         summary: row.summary,
         score: output.convergence_score ?? 0,
@@ -55,24 +57,22 @@ export async function RelatedResearch({ currentSlug, traditions }: RelatedResear
 
   if (candidates.length === 0) return null;
 
-  // Fetch hero images for the top candidates
-  const slugs = candidates.map((c) => c.slug);
+  // Fetch hero images using the canonical topic strings (not slug-derived)
+  const topics = candidates.map((c) => c.topic);
   const { data: images } = await supabase
     .from('topic_images')
     .select('image_url, cropped_url, thumbnail_url, topic')
     .eq('status', 'approved')
     .eq('featured', true)
-    .in('topic', slugs.map((s) => s.replace(/-/g, ' ')));
+    .in('topic', topics);
 
-  // Build slug → imageUrl map (rough: slug→topic conversion is imperfect but ok for thumbnails)
   const imageMap = new Map<string, string>();
   for (const img of images ?? []) {
-    const approximateSlug = (img.topic as string).replace(/\s+/g, '-').toLowerCase();
-    imageMap.set(approximateSlug, img.cropped_url ?? img.thumbnail_url ?? img.image_url);
+    imageMap.set(img.topic as string, img.cropped_url ?? img.thumbnail_url ?? img.image_url);
   }
 
   for (const c of candidates) {
-    c.imageUrl = imageMap.get(c.slug) ?? null;
+    c.imageUrl = imageMap.get(c.topic) ?? null;
   }
 
   return (
