@@ -3,8 +3,6 @@ import Stripe from 'stripe';
 import { createSessionSupabaseClient } from '@/lib/supabase-session';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
 const PRICE_IDS = {
   monthly: 'price_1TlaPZ1MoP00XZKHnmRMlGzE',
   annual:  'price_1TIaQ91MoP00XZKHYwoCRBfC',
@@ -16,6 +14,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveledtruth.com
 // Body: { plan: 'monthly' | 'annual' }
 // Creates a Stripe checkout session and returns the URL to redirect to.
 export async function POST(req: NextRequest) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   const session = await createSessionSupabaseClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

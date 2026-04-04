@@ -3,12 +3,12 @@ import Stripe from 'stripe';
 import { createSessionSupabaseClient } from '@/lib/supabase-session';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveledtruth.com';
 
 // POST /api/stripe-portal
 // Creates a Stripe billing portal session and returns the URL.
 export async function POST() {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   const session = await createSessionSupabaseClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
