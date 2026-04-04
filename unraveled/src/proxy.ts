@@ -3,8 +3,34 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const ADMIN_EMAIL = 'mikeburnsinnovate@gmail.com';
 
-// Paths that don't require auth
-const PUBLIC_PATHS = new Set(['/', '/login']);
+// Paths always public — no session required
+const PUBLIC_PATH_PREFIXES = [
+  '/about',
+  '/explore',
+  '/method',
+  '/creators',
+  '/topics',
+  '/people',
+  '/institutions',
+  '/reports',
+  '/login',
+  '/signup',
+  '/auth',
+  '/api/og',
+  '/api/newsletter',
+  '/api/submissions',
+  '/api/graph',
+  '/api/ratings',      // GET (averages) is public; write enforced at route level
+  '/sitemap.xml',
+  '/robots.txt',
+];
+
+function isPublic(pathname: string): boolean {
+  if (pathname === '/') return true;
+  return PUBLIC_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + '/') || pathname.startsWith(prefix + '?'),
+  );
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -13,13 +39,14 @@ export async function proxy(request: NextRequest) {
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
-    pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico)$/)
+    pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|woff2?)$/)
   ) {
     return NextResponse.next();
   }
 
   let response = NextResponse.next({ request });
 
+  // Cookie-aware Supabase client — refreshes session tokens on every request
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -32,47 +59,55 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, options),
           );
         },
       },
-    }
+    },
   );
 
+  // Refresh session (rotates cookies if needed — keeps auth alive)
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Logged-in users don't need the login page
-  if (user && pathname === '/login') {
+  // Redirect logged-in users away from login/signup
+  if (user && (pathname === '/login' || pathname === '/signup')) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // Public paths — allow through
-  if (PUBLIC_PATHS.has(pathname)) {
+  // Public content — allow through regardless of auth
+  if (isPublic(pathname)) {
     return response;
   }
 
-  // API routes — return 401 JSON instead of redirect
-  if (pathname.startsWith('/api/')) {
+  // ── Admin protection ────────────────────────────────────────────────────────
+  const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/api/admin/');
+
+  if (isAdminPath) {
     if (!user) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('next', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (user.email !== ADMIN_EMAIL) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    return response;
+  }
+
+  // ── Authenticated-only paths (e.g. /account, /saved) ───────────────────────
+  if (!user) {
+    if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    // Admin API — email check
-    if (pathname.startsWith('/api/admin/') && user.email !== ADMIN_EMAIL) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-    return response;
-  }
-
-  // No session → send to login
-  if (!user) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  // Admin pages — email check
-  if (pathname.startsWith('/admin') && user.email !== ADMIN_EMAIL) {
-    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return response;
