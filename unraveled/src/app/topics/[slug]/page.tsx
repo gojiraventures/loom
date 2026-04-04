@@ -21,6 +21,7 @@ import { ComponentRenderer } from '@/components/interactive/ComponentRenderer';
 import { StarRating } from '@/components/StarRating';
 import { FeedbackForm } from '@/components/FeedbackForm';
 import { ContentGate } from '@/components/ContentGate';
+import { ShareButtons } from '@/components/ShareButtons';
 import type { SynthesizedOutput } from '@/lib/research/types';
 import type { TocSection } from '@/components/TopicTOC';
 import type { ComponentRecord } from '@/lib/interactive/types';
@@ -270,9 +271,12 @@ export default async function TopicPage({
               <div className="flex items-end justify-between gap-8">
                 {/* Text block — frosted glass card for extra legibility on busy images */}
                 <div className="flex-1 rounded bg-black/40 backdrop-blur-[2px] px-5 py-4 max-w-3xl">
-                  <span className="font-mono text-[8px] tracking-[0.25em] uppercase text-white/50 block mb-2">
-                    Convergence Topic
-                  </span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-[8px] tracking-[0.25em] uppercase text-white/50">
+                      Convergence Topic
+                    </span>
+                    <ShareButtons slug={slug} title={output.title} placement="top" />
+                  </div>
                   <h1 className="font-serif text-[clamp(20px,3.8vw,46px)] font-normal leading-[1.05] tracking-tight mb-2 text-white drop-shadow-sm">
                     {output.title}
                   </h1>
@@ -308,9 +312,12 @@ export default async function TopicPage({
       ) : (
         <section className="px-6 pt-16 pb-12 border-b border-border">
           <div className="max-w-[var(--spacing-content)] mx-auto">
-            <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
-              Convergence Topic
-            </span>
+            <div className="flex items-center justify-between mb-0">
+              <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
+                Convergence Topic
+              </span>
+              <ShareButtons slug={slug} title={output.title} placement="top" />
+            </div>
             <div className="flex items-start justify-between gap-8 mt-4">
               <div className="flex-1">
                 <h1 className="font-serif text-[clamp(28px,5vw,54px)] font-normal leading-[1.05] tracking-tight mb-3">
@@ -851,6 +858,16 @@ export default async function TopicPage({
           </div>
         </section>
       )}
+
+      {/* ── Share — bottom, more prominent ──────────────────────────────────── */}
+      <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-8 w-full border-t border-border/40">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary shrink-0">
+            Share this research
+          </span>
+          <ShareButtons slug={slug} title={output.title} placement="bottom" />
+        </div>
+      </div>
 
       {/* ── Creator attribution callout ──────────────────────────────────── */}
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 pb-10">

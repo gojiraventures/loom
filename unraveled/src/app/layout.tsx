@@ -44,6 +44,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: '@unraveledtruth',
     title: 'Unraveled — Cross-Tradition Evidence Index',
     description: 'When isolated civilizations describe the same phenomena independently — that\'s a pattern worth investigating.',
     images: ['/og-default.png'],
