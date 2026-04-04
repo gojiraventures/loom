@@ -80,9 +80,6 @@ function SignUpForm() {
               We sent a confirmation link to <strong className="text-text-primary">{email}</strong>.
               Click it to activate your account.
             </p>
-            <p className="font-mono text-[9px] text-text-tertiary pt-2">
-              Apple relay addresses may take a few minutes longer.
-            </p>
           </div>
         ) : (
           <>
