@@ -20,6 +20,7 @@ import { RelatedResearch } from '@/components/RelatedResearch';
 import { ComponentRenderer } from '@/components/interactive/ComponentRenderer';
 import { StarRating } from '@/components/StarRating';
 import { FeedbackForm } from '@/components/FeedbackForm';
+import { ContentGate } from '@/components/ContentGate';
 import type { SynthesizedOutput } from '@/lib/research/types';
 import type { TocSection } from '@/components/TopicTOC';
 import type { ComponentRecord } from '@/lib/interactive/types';
@@ -647,9 +648,11 @@ export default async function TopicPage({
                 <p className="text-sm text-text-secondary mb-4 leading-relaxed">
                   Node size = number of shared elements. Edge thickness = strength of connection. Click any tradition to see what it shares.
                 </p>
-                <div className="border border-border p-4">
-                  <TraditionNetwork matrix={output.shared_elements_matrix} />
-                </div>
+                <ContentGate requiredRole="paid" feature="Full relationship graph">
+                  <div className="border border-border p-4">
+                    <TraditionNetwork matrix={output.shared_elements_matrix} />
+                  </div>
+                </ContentGate>
               </div>
               <div>
                 <p className="font-mono text-[9px] tracking-[0.2em] uppercase text-text-tertiary mb-3">
@@ -830,34 +833,21 @@ export default async function TopicPage({
             </span>
             <h2 className="font-serif text-2xl sm:text-3xl mt-2 mb-6">Primary References</h2>
             <div className="space-y-0">
-              {output.sources.map((s, i) => (
-                <div key={i} className="flex items-start gap-4 py-3 border-b border-border/40 last:border-b-0">
-                  <span className="font-mono text-[9px] text-text-tertiary shrink-0 w-5 mt-0.5">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm text-text-secondary">
-                      {s.author && <span className="text-text-primary">{s.author}. </span>}
-                      <span className="italic">{s.title}</span>
-                      {s.year && <span className="text-text-tertiary"> ({s.year})</span>}
-                      {s.page_or_section && <span className="text-text-tertiary">, {s.page_or_section}</span>}
-                    </span>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="font-mono text-[8px] tracking-wider uppercase text-text-tertiary border border-border px-1">
-                        {(s.source_type ?? '').replace(/_/g, ' ')}
-                      </span>
-                      <CredibilityDots tier={s.credibility_tier} />
-                      {s.url && (
-                        <a href={s.url} target="_blank" rel="noopener noreferrer"
-                          className="font-mono text-[9px] text-gold/60 hover:text-gold truncate max-w-[200px]">
-                          {s.url}
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
+              {/* First 3 sources — visible to everyone */}
+              {output.sources.slice(0, 3).map((s, i) => (
+                <SourceRow key={i} s={s} i={i} />
               ))}
             </div>
+            {/* Remaining sources — requires free account */}
+            {output.sources.length > 3 && (
+              <ContentGate requiredRole="registered" feature="Full source bibliography">
+                <div className="space-y-0">
+                  {output.sources.slice(3).map((s, i) => (
+                    <SourceRow key={i + 3} s={s} i={i + 3} />
+                  ))}
+                </div>
+              </ContentGate>
+            )}
           </div>
         </section>
       )}
@@ -886,6 +876,38 @@ export default async function TopicPage({
       </div>
 
       <Footer />
+    </div>
+  );
+}
+
+type Source = SynthesizedOutput['sources'][number];
+
+function SourceRow({ s, i }: { s: Source; i: number }) {
+  return (
+    <div className="flex items-start gap-4 py-3 border-b border-border/40 last:border-b-0">
+      <span className="font-mono text-[9px] text-text-tertiary shrink-0 w-5 mt-0.5">
+        {String(i + 1).padStart(2, '0')}
+      </span>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm text-text-secondary">
+          {s.author && <span className="text-text-primary">{s.author}. </span>}
+          <span className="italic">{s.title}</span>
+          {s.year && <span className="text-text-tertiary"> ({s.year})</span>}
+          {s.page_or_section && <span className="text-text-tertiary">, {s.page_or_section}</span>}
+        </span>
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          <span className="font-mono text-[8px] tracking-wider uppercase text-text-tertiary border border-border px-1">
+            {(s.source_type ?? '').replace(/_/g, ' ')}
+          </span>
+          <CredibilityDots tier={s.credibility_tier} />
+          {s.url && (
+            <a href={s.url} target="_blank" rel="noopener noreferrer"
+              className="font-mono text-[9px] text-gold/60 hover:text-gold truncate max-w-[200px]">
+              {s.url}
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
