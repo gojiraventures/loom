@@ -18,6 +18,7 @@ import { MediaSection } from '@/components/media/MediaSection';
 import { TopicTOC } from '@/components/TopicTOC';
 import { RelatedResearch } from '@/components/RelatedResearch';
 import { ComponentRenderer } from '@/components/interactive/ComponentRenderer';
+import { StarRating } from '@/components/StarRating';
 import type { SynthesizedOutput } from '@/lib/research/types';
 import type { TocSection } from '@/components/TopicTOC';
 import type { ComponentRecord } from '@/lib/interactive/types';
@@ -873,6 +874,11 @@ export default async function TopicPage({
             See how →
           </a>
         </div>
+      </div>
+
+      {/* ── Star Rating ──────────────────────────────────────────────────── */}
+      <div className="max-w-[var(--spacing-content)] mx-auto px-6 w-full">
+        <StarRating articleId={slug} />
       </div>
 
       <Footer />
