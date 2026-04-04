@@ -16,6 +16,8 @@ import { getTopicMedia } from '@/lib/research/intelligence/gatherer';
 import { MediaSection } from '@/components/media/MediaSection';
 import type { SynthesizedOutput } from '@/lib/research/types';
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveled.ai';
+
 export async function generateMetadata({
   params,
 }: {
@@ -26,9 +28,51 @@ export async function generateMetadata({
   if (!topic) return {};
   const dossier = await getDossier(topic);
   if (!dossier) return {};
+
+  const output = dossier.synthesized_output as SynthesizedOutput | null;
+  const title = dossier.title ?? topic;
+  const description = (dossier.summary ?? output?.executive_summary ?? '').slice(0, 160);
+  const canonicalUrl = `${BASE_URL}/topics/${slug}`;
+
+  // Try to get hero image for OG
+  const { createServerSupabaseClient } = await import('@/lib/supabase');
+  const supabase = createServerSupabaseClient();
+  const { data: heroImg } = await supabase
+    .from('topic_images')
+    .select('image_url, cropped_url')
+    .eq('topic', topic)
+    .eq('status', 'approved')
+    .eq('featured', true)
+    .limit(1)
+    .single();
+
+  const ogImage = heroImg?.cropped_url ?? heroImg?.image_url ?? `${BASE_URL}/og-default.png`;
+  const keywords = output?.traditions_analyzed ?? [];
+
   return {
-    title: dossier.title ? `${dossier.title} — UnraveledTruth` : topic,
-    description: dossier.summary?.slice(0, 160),
+    title: `${title} — Unraveled`,
+    description,
+    keywords,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      type: 'article',
+      title,
+      description,
+      url: canonicalUrl,
+      siteName: 'Unraveled',
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+      publishedTime: (dossier as Record<string, unknown>).published_at as string | undefined,
+      modifiedTime: dossier.updated_at,
+      tags: keywords,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImage],
+    },
   };
 }
 
@@ -75,7 +119,7 @@ export default async function TopicPage({
       .limit(12),
     supabase
       .from('topic_dossiers')
-      .select('audio_url, llm_perspectives')
+      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug')
       .eq('topic', topic)
       .single(),
   ]);
@@ -88,11 +132,83 @@ export default async function TopicPage({
     : [];
   const audioUrl = dossierMeta?.audio_url ?? null;
   const llmPerspectives = (dossierMeta?.llm_perspectives ?? null) as LLMPerspective[] | null;
+  const quickBrief = (dossierMeta?.quick_brief as string | null) ?? null;
+  const publishedAt = (dossierMeta?.published_at as string | null) ?? null;
+  const updatedAt = (dossierMeta?.updated_at as string | null) ?? null;
+
+  const canonicalUrl = `${BASE_URL}/topics/${slug}`;
+
+  // ── JSON-LD schemas ────────────────────────────────────────────────────────
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'ScholarlyArticle',
+    headline: output.title,
+    description: dossier.summary?.slice(0, 160) ?? output.executive_summary?.slice(0, 160),
+    author: { '@type': 'Organization', name: 'Unraveled', url: BASE_URL },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Unraveled',
+      logo: { '@type': 'ImageObject', url: `${BASE_URL}/logo.png` },
+    },
+    mainEntityOfPage: canonicalUrl,
+    ...(publishedAt ? { datePublished: publishedAt } : {}),
+    ...(updatedAt ? { dateModified: updatedAt } : {}),
+    keywords: output.traditions_analyzed.join(', '),
+    citation: output.sources
+      .filter((s) => s.url || s.title)
+      .slice(0, 20)
+      .map((s) => ({
+        '@type': 'ScholarlyArticle',
+        name: s.title,
+        ...(s.author ? { author: s.author } : {}),
+        ...(s.url ? { url: s.url } : {}),
+      })),
+    ...(heroImage ? { image: heroImage.cropped_url ?? heroImage.image_url } : {}),
+  };
+
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: BASE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Research', item: `${BASE_URL}/topics` },
+      { '@type': 'ListItem', position: 3, name: output.title, item: canonicalUrl },
+    ],
+  };
+
+  const faqSchema = output.open_questions.length > 0 ? {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: output.open_questions.slice(0, 8).map((q) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: `This question remains open in the current research. The convergence score for this topic is ${output.convergence_score}/100. See the full evidence dossier at ${canonicalUrl} for the advocate and skeptic cases.`,
+      },
+    })),
+  } : null;
 
   const vizNarratives = getVizNarratives(slug);
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* ── Structured Data ───────────────────────────────────────────────── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      {faqSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        />
+      )}
+
       <Header />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
@@ -179,6 +295,24 @@ export default async function TopicPage({
                   Convergence<br />Score
                 </span>
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Quick Brief ──────────────────────────────────────────────────── */}
+      {(quickBrief || output.executive_summary) && (
+        <section className="border-b border-border bg-ground-light/20" id="quick-brief">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-8">
+            <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-gold block mb-3">
+              Quick Brief
+            </span>
+            <div className="prose-sm max-w-2xl">
+              {(quickBrief ?? output.executive_summary).split('\n\n').map((para, i) => (
+                <p key={i} className={`text-text-secondary leading-relaxed ${i > 0 ? 'mt-4' : ''}`}>
+                  {para}
+                </p>
+              ))}
             </div>
           </div>
         </section>

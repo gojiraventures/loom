@@ -23,6 +23,8 @@ const ibmPlexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveled.ai';
+
 export const metadata: Metadata = {
   title: {
     default: "Unraveled — Cross-Tradition Evidence Index",
@@ -30,12 +32,21 @@ export const metadata: Metadata = {
   },
   description:
     "When geographically isolated civilizations independently describe the same phenomena with structural specificity — that's not coincidence. That's a pattern worth investigating.",
+  metadataBase: new URL(BASE_URL),
   openGraph: {
     title: "Unraveled — Where Ancient Threads Meet",
     description:
       "Cross-referencing religious texts, ancient records, and physical evidence across civilizations that had no contact.",
     siteName: "Unraveled",
     type: "website",
+    url: BASE_URL,
+    images: [{ url: '/og-default.png', width: 1200, height: 630, alt: 'Unraveled — Cross-Tradition Evidence Index' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Unraveled — Cross-Tradition Evidence Index',
+    description: 'When isolated civilizations describe the same phenomena independently — that\'s a pattern worth investigating.',
+    images: ['/og-default.png'],
   },
   robots: {
     index: true,
