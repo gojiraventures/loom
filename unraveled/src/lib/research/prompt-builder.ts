@@ -125,7 +125,9 @@ CREDIBILITY TIERS: 1 = primary text/peer-reviewed journal. 2 = university press 
   const questionsSection = researchQuestions.length > 0
     ? `## RESEARCH QUESTIONS\n${researchQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}`
     : `## RESEARCH APPROACH\nNo specific questions have been provided. Conduct comprehensive domain research on this topic. Surface the most significant, surprising, and well-evidenced findings within your area of expertise.`;
-  const contextText = additionalContext ? `\n\n## ADDITIONAL CONTEXT\n${additionalContext}` : '';
+  const contextText = additionalContext
+    ? `\n\n## PRIMARY SOURCE MATERIAL — MANDATORY CITATION REQUIRED\nThe research director has provided the following documents, articles, and sources. You MUST treat these as primary inputs to your analysis:\n1. Cite them directly in your findings — include them in the "sources" array with specific page/section references where possible\n2. Quote relevant passages verbatim in "raw_excerpts"\n3. Any claim you derive from this material should reference it explicitly\n4. Do NOT contradict or ignore claims in this material without citing specific counter-evidence of equal or higher credibility tier\nFailing to engage with this material is a critical error.\n\n${additionalContext}`
+    : '';
 
   const userPrompt = `## RESEARCH TOPIC: ${topic}
 

@@ -48,12 +48,12 @@ export interface AgentDefinition {
 
 export interface SourceReference {
   title: string;
-  author: string | null;
-  year: number | null;
+  author?: string | null;
+  year?: number | null;
   source_type: 'sacred_text' | 'journal' | 'book' | 'excavation_report' | 'oral_tradition' | 'newspaper' | 'archive' | 'museum_db' | 'government_record' | 'website' | 'other';
-  url: string | null;
+  url?: string | null;
   credibility_tier: 1 | 2 | 3 | 4 | 5;
-  page_or_section: string | null;
+  page_or_section?: string | null;
 }
 
 export type EvidenceType = 'textual' | 'archaeological' | 'geological' | 'genetic' | 'oral_tradition' | 'iconographic' | 'statistical' | 'comparative';

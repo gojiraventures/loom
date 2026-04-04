@@ -96,11 +96,14 @@ function nodeRadius(n: GraphNode): number {
 
 // ── Force simulation ──────────────────────────────────────────────────────────
 function runForce(nodes: GraphNode[], edges: GraphEdge[], cx: number, cy: number, w: number, h: number) {
-  const REPEL = 18000, IDEAL = 300, DAMP = 0.68, PAD = 100;
+  // Scale repulsion so fewer nodes still spread out — minimum 40k, grows for sparse graphs
+  const REPEL = Math.max(40000, 400000 / Math.max(nodes.length, 1));
+  const IDEAL = Math.max(220, Math.min(500, 2200 / Math.max(edges.length, 1)));
+  const DAMP = 0.72, PAD = 80;
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-  for (let iter = 0; iter < 200; iter++) {
-    const alpha = Math.pow(1 - iter / 200, 1.5);
+  for (let iter = 0; iter < 300; iter++) {
+    const alpha = Math.pow(1 - iter / 300, 1.4);
 
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
@@ -118,7 +121,7 @@ function runForce(nodes: GraphNode[], edges: GraphEdge[], cx: number, cy: number
       if (!s || !t) return;
       const dx = t.x - s.x, dy = t.y - s.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
-      const f = ((d - IDEAL * (1 / (strength || 1))) / d) * 0.25 * alpha;
+      const f = ((d - IDEAL * (1 / (strength || 1))) / d) * 0.15 * alpha;
       if (!s.fx) { s.vx += dx * f; s.vy += dy * f; }
       if (!t.fx) { t.vx -= dx * f; t.vy -= dy * f; }
     });
@@ -214,6 +217,8 @@ export default function GraphExplorer() {
   const [yearRange, setYearRange] = useState<[number, number]>([1400, 2030]);
   const [timelineRange, setTimelineRange] = useState<{ min: number; max: number }>({ min: 1400, max: 2030 });
   const [showFilters, setShowFilters] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
+  const [hideIsolated, setHideIsolated] = useState(true);
 
   // Legend category filters (highlight specific subtypes)
   const [highlightedSubtypes, setHighlightedSubtypes] = useState<Set<string>>(new Set());
@@ -225,6 +230,7 @@ export default function GraphExplorer() {
   // Node dragging
   const nodeDragRef = useRef<{ nodeId: string; startScreenX: number; startScreenY: number; startNx: number; startNy: number } | null>(null);
   const userPositionedRef = useRef(false); // true once user has manually placed any node
+  const hasAutoFittedRef = useRef(false); // true after first successful auto-fit
 
   // Panel resize
   const [panelWidth, setPanelWidth] = useState(320);
@@ -245,7 +251,7 @@ export default function GraphExplorer() {
   const onGripUp = useCallback(() => { panelDragRef.current = null; }, []);
 
   // ── localStorage position persistence ─────────────────────────────────────
-  const POS_KEY = 'ut-graph-positions-v1';
+  const POS_KEY = 'ut-graph-positions-v3';
   const loadSavedPositions = (): Record<string, { x: number; y: number }> | null => {
     try { const s = localStorage.getItem(POS_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
   };
@@ -266,6 +272,27 @@ export default function GraphExplorer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dims, nodes, edges]);
 
+  // ── Auto-fit view to nodes ─────────────────────────────────────────────────
+  const autoFit = useCallback((ns: GraphNode[], canvasDims?: { w: number; h: number }) => {
+    if (ns.length === 0) return;
+    const { w, h } = canvasDims ?? dims;
+    const xs = ns.map((n) => n.x);
+    const ys = ns.map((n) => n.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const graphW = maxX - minX || 1;
+    const graphH = maxY - minY || 1;
+    const scale = Math.min(
+      (w * 0.88) / (graphW + 160),
+      (h * 0.88) / (graphH + 160),
+      1.6,
+    );
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    setView({ x: w / 2 - cx * scale, y: h / 2 - cy * scale, scale });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dims]);
+
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/graph')
@@ -280,8 +307,10 @@ export default function GraphExplorer() {
         });
         if (!saved) {
           runForce(initialized, rawEdges, cx, cy, w, h);
+          autoFit(initialized, { w, h });
         } else {
           userPositionedRef.current = true;
+          autoFit(initialized, { w, h });
         }
         setNodes(initialized);
         setEdges(rawEdges);
@@ -330,12 +359,30 @@ export default function GraphExplorer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, dims]);
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const visibleNodes = nodes.filter((n) => filters.entityTypes.has(n.type));
-  const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
+  // ── Auto-fit once: fire when real canvas dims arrive and nodes are ready ──
+  useEffect(() => {
+    if (hasAutoFittedRef.current) return;
+    if (nodes.length === 0) return;
+    // Wait until ResizeObserver has given us real dimensions (not the 1200×700 initial guess)
+    const { w, h } = dims;
+    if (w <= 300 || h <= 300) return;
+    hasAutoFittedRef.current = true;
+    // Fit to connected nodes if any exist, otherwise fit all
+    const connIds = new Set<string>();
+    edges.forEach((e) => { connIds.add(e.source); connIds.add(e.target); });
+    const target = nodes.filter((n) => connIds.has(n.id));
+    autoFit(target.length > 0 ? target : nodes);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes.length, dims]);
 
+  // ── Derived ────────────────────────────────────────────────────────────────
+  // Step 1: base nodes from entity type filter
+  const baseVisibleNodes = nodes.filter((n) => filters.entityTypes.has(n.type));
+  const baseVisibleNodeIds = new Set(baseVisibleNodes.map((n) => n.id));
+
+  // Step 2: visible edges (based on base nodes, before hideIsolated)
   const visibleEdges = edges.filter((e) => {
-    if (!visibleNodeIds.has(e.source) || !visibleNodeIds.has(e.target)) return false;
+    if (!baseVisibleNodeIds.has(e.source) || !baseVisibleNodeIds.has(e.target)) return false;
     if (filters.relTypes.size > 0 && !filters.relTypes.has(e.type)) return false;
     if (filters.membershipStatus.size > 0 && e.membership_status && !filters.membershipStatus.has(e.membership_status)) return false;
     if (mode === 'timeline') {
@@ -344,6 +391,16 @@ export default function GraphExplorer() {
     }
     return true;
   });
+
+  // Step 3: nodes that have at least one edge in the current view
+  const connectedNodeIds = new Set<string>();
+  visibleEdges.forEach((e) => { connectedNodeIds.add(e.source); connectedNodeIds.add(e.target); });
+
+  // Step 4: final visible nodes — optionally hide isolated ones
+  const visibleNodes = hideIsolated
+    ? baseVisibleNodes.filter((n) => connectedNodeIds.has(n.id))
+    : baseVisibleNodes;
+  const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
 
   const allRelTypes = Array.from(new Set(edges.map((e) => e.type))).sort();
 
@@ -504,8 +561,12 @@ export default function GraphExplorer() {
 
     const dimmedBySelection = selected.size > 0 && !isSelected && !connectedToSelected.has(n.id);
     const dimmedByLegend = highlightedSubtypes.size > 0 && !highlightedSubtypes.has(n.subtype ?? 'default');
+    const isIsolated = !connectedNodeIds.has(n.id);
     const dimmed = dimmedBySelection || dimmedByLegend;
-    const opacity = dimmed ? 0.25 : 1;
+    const opacity = dimmed ? 0.25 : (isIsolated && selected.size === 0 && highlightedSubtypes.size === 0 ? 0.55 : 1);
+    // Only show labels when: not dimmed, OR hovered. For isolated nodes, only name (no subtype) unless hovered.
+    const showLabel = !dimmed || isHov;
+    const showSubLabel = showLabel && (!isIsolated || isHov || isSelected);
 
     const borderColor = isSelected ? color : (isHov ? color + 'CC' : color + '80');
     const borderWidth = isSelected ? 3 : isHov ? 2 : 1.5;
@@ -569,21 +630,23 @@ export default function GraphExplorer() {
         {/* Center dot */}
         <circle r={r * 0.22} fill={color} opacity={isSelected ? 0.9 : 0.6} />
 
-        {/* Name label — always visible */}
-        <text
-          y={r + 16}
-          textAnchor="middle"
-          fontSize={14}
-          fill="#F5F0E8"
-          fontWeight={400}
-          className="pointer-events-none select-none"
-          style={{ fontFamily: 'var(--font-sans, sans-serif)' }}
-        >
-          {label}
-        </text>
+        {/* Name label */}
+        {showLabel && (
+          <text
+            y={r + 16}
+            textAnchor="middle"
+            fontSize={isIsolated && !isHov ? 11 : 14}
+            fill={isIsolated && !isHov ? '#7A746E' : '#F5F0E8'}
+            fontWeight={400}
+            className="pointer-events-none select-none"
+            style={{ fontFamily: 'var(--font-sans, sans-serif)' }}
+          >
+            {label}
+          </text>
+        )}
 
-        {/* Subtype label */}
-        {subLabel && (
+        {/* Subtype label — hidden for isolated nodes unless hovered */}
+        {showSubLabel && subLabel && (
           <text
             y={r + 30}
             textAnchor="middle"
@@ -662,6 +725,23 @@ export default function GraphExplorer() {
           ≡ Filter
         </button>
 
+        {/* Legend toggle */}
+        <button
+          onClick={() => setShowLegend((v) => !v)}
+          className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 border rounded transition-colors ${showLegend || highlightedSubtypes.size > 0 ? 'border-gold/40 text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+        >
+          ◈ Legend{highlightedSubtypes.size > 0 ? ` (${highlightedSubtypes.size})` : ''}
+        </button>
+
+        {/* Hide isolated toggle */}
+        <button
+          onClick={() => setHideIsolated((v) => !v)}
+          className={`font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 border rounded transition-colors ${hideIsolated ? 'border-amber-400/50 text-amber-400' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+          title={`${connectedNodeIds.size} connected · ${baseVisibleNodes.length - connectedNodeIds.size} isolated`}
+        >
+          {hideIsolated ? `◎ Connected (${connectedNodeIds.size})` : `◎ Hide isolated (${baseVisibleNodes.length - connectedNodeIds.size})`}
+        </button>
+
         {/* Search */}
         <div className="relative flex-1 max-w-[240px]">
           <input
@@ -715,18 +795,22 @@ export default function GraphExplorer() {
 
         {/* Zoom controls */}
         <div className="flex gap-1">
-          {[{ label: '+', delta: 1.2 }, { label: '−', delta: 0.83 }, { label: '⌖', delta: 0 }].map(({ label, delta }) => (
+          {([{ label: '+', delta: 1.2 }, { label: '−', delta: 0.83 }] as const).map(({ label, delta }) => (
             <button
               key={label}
-              onClick={() => {
-                if (delta === 0) setView({ x: 0, y: 0, scale: 1 });
-                else setView((v) => ({ ...v, scale: Math.max(0.2, Math.min(4, v.scale * delta)) }));
-              }}
+              onClick={() => setView((v) => ({ ...v, scale: Math.max(0.2, Math.min(4, v.scale * delta)) }))}
               className="font-mono text-[11px] text-text-tertiary border border-border w-7 h-7 rounded hover:text-gold hover:border-gold/30 transition-colors flex items-center justify-center"
             >
               {label}
             </button>
           ))}
+          <button
+            onClick={() => autoFit(visibleNodes)}
+            title="Fit all nodes in view"
+            className="font-mono text-[11px] text-text-tertiary border border-border w-7 h-7 rounded hover:text-gold hover:border-gold/30 transition-colors flex items-center justify-center"
+          >
+            ⌖
+          </button>
         </div>
       </div>
 
@@ -805,7 +889,7 @@ export default function GraphExplorer() {
       )}
 
       {/* ── Canvas + Panel ─────────────────────────────────────────────────── */}
-      <div className="flex flex-1 min-h-0 relative">
+      <div className="flex flex-1 min-h-0 relative" style={{ isolation: 'isolate' }}>
 
         {/* SVG graph */}
         <div ref={containerRef} className="flex-1 relative overflow-hidden" style={{ background: '#09080a' }}>
@@ -990,80 +1074,86 @@ export default function GraphExplorer() {
           </div>
           </>
         )}
-      </div>
 
-      {/* ── Legend ────────────────────────────────────────────────────────── */}
-      <div className="border-t border-border bg-ground flex-shrink-0 overflow-x-auto">
-        <div className="px-5 py-3 flex gap-6 items-start min-w-max">
-
-          {/* People */}
-          <div>
-            <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-2">People</p>
-            <div className="flex gap-3 flex-wrap">
-              {Object.entries(PERSON_COLORS).filter(([k]) => k !== 'default').map(([type, color]) => {
-                const active = highlightedSubtypes.has(type);
-                return (
-                  <button
-                    key={type}
-                    onClick={() => toggleSubtype(type)}
-                    className={`flex items-center gap-1.5 transition-opacity ${active ? 'opacity-100' : (highlightedSubtypes.size > 0 ? 'opacity-40' : 'opacity-80')} hover:opacity-100`}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                    <span className="font-mono text-[11px] text-text-secondary">{type.replace(/_/g, ' ')}</span>
-                  </button>
-                );
-              })}
+        {/* ── Floating legend overlay ──────────────────────────────────────── */}
+      {showLegend && (
+        <div className="absolute bottom-4 left-4 z-30 bg-ground/95 border border-border backdrop-blur-sm shadow-xl w-72 pointer-events-auto">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+            <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">Legend</span>
+            <div className="flex gap-3">
+              {highlightedSubtypes.size > 0 && (
+                <button onClick={() => setHighlightedSubtypes(new Set())} className="font-mono text-[9px] text-gold hover:text-gold/70 transition-colors">
+                  clear filter
+                </button>
+              )}
+              <button onClick={() => setShowLegend(false)} className="text-text-tertiary hover:text-text-primary text-sm leading-none">✕</button>
             </div>
           </div>
 
-          <div className="w-px self-stretch bg-border flex-shrink-0" />
-
-          {/* Institutions */}
-          <div>
-            <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-2">Institutions</p>
-            <div className="flex gap-3 flex-wrap">
-              {Object.entries(INST_COLORS).filter(([k]) => k !== 'default').map(([type, color]) => {
-                const active = highlightedSubtypes.has(type);
-                return (
-                  <button
-                    key={type}
-                    onClick={() => toggleSubtype(type)}
-                    className={`flex items-center gap-1.5 transition-opacity ${active ? 'opacity-100' : (highlightedSubtypes.size > 0 ? 'opacity-40' : 'opacity-80')} hover:opacity-100`}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: color }} />
-                    <span className="font-mono text-[11px] text-text-secondary">{type.replace(/_/g, ' ')}</span>
-                  </button>
-                );
-              })}
+          <div className="p-4 space-y-4">
+            {/* People */}
+            <div>
+              <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-2">People</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {Object.entries(PERSON_COLORS).filter(([k]) => k !== 'default').map(([type, color]) => {
+                  const active = highlightedSubtypes.has(type);
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => toggleSubtype(type)}
+                      className={`flex items-center gap-1.5 transition-opacity text-left ${active ? 'opacity-100' : (highlightedSubtypes.size > 0 ? 'opacity-35' : 'opacity-80')} hover:opacity-100`}
+                    >
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                      <span className="font-mono text-[10px] text-text-secondary">{type.replace(/_/g, ' ')}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          <div className="w-px self-stretch bg-border flex-shrink-0" />
+            <div className="h-px bg-border" />
 
-          {/* Edges key */}
-          <div>
-            <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-2">Edges</p>
-            <div className="flex gap-4 items-center">
-              <span className="flex items-center gap-1.5 font-mono text-[11px] text-text-secondary">
-                <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#7A746E" strokeWidth="1.5" /></svg>
-                confirmed
-              </span>
-              <span className="flex items-center gap-1.5 font-mono text-[11px] text-text-secondary">
-                <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="#7A746E" strokeWidth="1.5" strokeDasharray="4,3" /></svg>
-                inferred
-              </span>
-              <span className="font-mono text-[11px] text-text-tertiary">shift+click = multi-select</span>
+            {/* Institutions */}
+            <div>
+              <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-2">Institutions</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {Object.entries(INST_COLORS).filter(([k]) => k !== 'default').map(([type, color]) => {
+                  const active = highlightedSubtypes.has(type);
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => toggleSubtype(type)}
+                      className={`flex items-center gap-1.5 transition-opacity text-left ${active ? 'opacity-100' : (highlightedSubtypes.size > 0 ? 'opacity-35' : 'opacity-80')} hover:opacity-100`}
+                    >
+                      <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: color }} />
+                      <span className="font-mono text-[10px] text-text-secondary">{type.replace(/_/g, ' ')}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          {/* Clear legend filter if active */}
-          {highlightedSubtypes.size > 0 && (
-            <button onClick={() => setHighlightedSubtypes(new Set())}
-              className="ml-auto font-mono text-[10px] text-text-tertiary hover:text-gold transition-colors self-center shrink-0">
-              clear filter
-            </button>
-          )}
+            <div className="h-px bg-border" />
+
+            {/* Edge types */}
+            <div>
+              <p className="font-mono text-[9px] uppercase tracking-[0.15em] text-text-tertiary mb-2">Edges</p>
+              <div className="space-y-1.5">
+                <span className="flex items-center gap-2 font-mono text-[10px] text-text-secondary">
+                  <svg width="20" height="6"><line x1="0" y1="3" x2="20" y2="3" stroke="#7A746E" strokeWidth="1.5" /></svg>
+                  confirmed
+                </span>
+                <span className="flex items-center gap-2 font-mono text-[10px] text-text-secondary">
+                  <svg width="20" height="6"><line x1="0" y1="3" x2="20" y2="3" stroke="#7A746E" strokeWidth="1.5" strokeDasharray="4,3" /></svg>
+                  inferred / assumed
+                </span>
+              </div>
+            </div>
+
+            <p className="font-mono text-[9px] text-text-tertiary/60">shift+click to multi-select · click legend items to filter</p>
+          </div>
         </div>
+      )}
       </div>
     </div>
   );

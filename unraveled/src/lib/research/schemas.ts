@@ -3,18 +3,18 @@ import { z } from 'zod';
 // ── Source Reference ─────────────────────────────────────────────────────────
 
 export const SourceReferenceSchema = z.object({
-  title: z.string(),
-  author: z.string().nullable(),
-  year: z.number().nullable(),
+  title: z.string().catch('Unknown source'),
+  author: z.string().nullish().catch(null),
+  year: z.number().nullish().catch(null),
   source_type: z.enum([
     'sacred_text', 'journal', 'book', 'excavation_report',
     'oral_tradition', 'newspaper', 'archive', 'museum_db',
     'government_record', 'website', 'other',
   ]).catch('other'),
-  url: z.string().nullable(),
+  url: z.string().nullish().catch(null),
   credibility_tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
     .catch(3 as 1 | 2 | 3 | 4 | 5),
-  page_or_section: z.string().nullable(),
+  page_or_section: z.string().nullish().catch(null),
 });
 
 // ── Agent Finding ─────────────────────────────────────────────────────────────

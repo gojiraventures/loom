@@ -5,6 +5,9 @@ export async function createSession(params: {
   topic: string;
   title: string;
   research_questions: string[];
+  description?: string;
+  source_urls?: string;
+  session_type?: string;
 }): Promise<ResearchSession> {
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase

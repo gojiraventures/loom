@@ -84,7 +84,13 @@ export async function POST(req: NextRequest) {
   // Create session
   let session: { id: string };
   try {
-    session = await createSession({ topic: topicStr, title: titleStr, research_questions: questionsArr });
+    session = await createSession({
+      topic: topicStr,
+      title: titleStr,
+      research_questions: questionsArr,
+      description: typeof description === 'string' && description.trim() ? description.trim() : undefined,
+      source_urls: typeof source_urls === 'string' && source_urls.trim() ? source_urls.trim() : undefined,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

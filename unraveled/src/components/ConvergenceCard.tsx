@@ -24,7 +24,7 @@ export function ConvergenceCard({
   return (
     <a
       href={href}
-      className="group flex flex-col bg-[#0a0a0b] hover:bg-[#0e0e10] transition-colors duration-300"
+      className="group flex flex-col bg-ground-light hover:bg-ground-lighter transition-colors duration-300"
     >
       {/* Image area — always rendered, blank if no image */}
       <div className="relative h-[200px] shrink-0 overflow-hidden">
@@ -47,8 +47,8 @@ export function ConvergenceCard({
             </div>
           </>
         ) : (
-          /* No image — blank dark area, title below */
-          <div className="absolute inset-0 bg-[#111114]" />
+          /* No image — blank area using theme color */
+          <div className="absolute inset-0 bg-ground-lighter" />
         )}
       </div>
 

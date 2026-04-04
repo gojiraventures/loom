@@ -5,6 +5,7 @@ import { getAllAgents } from '@/lib/research/agents/definitions';
 import type { AgentDefinition } from '@/lib/research/types';
 import { SocialTab } from './SocialTab';
 import { IntelligenceTab } from './IntelligenceTab';
+import { ThreadTab } from './ThreadTab';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -119,7 +120,7 @@ const SESSION_STATUS_LABELS: Record<string, string> = {
 };
 
 const MAX_FOUNDATION_QUESTIONS = 5;
-const MAX_ENHANCE_QUESTIONS = 3;
+const MAX_ENHANCE_QUESTIONS = 9;
 
 function LaunchTab() {
   const [topic, setTopic] = useState('');
@@ -324,6 +325,7 @@ function LaunchTab() {
 
 function AgentCard({ agent }: { agent: AgentDefinition }) {
   const [open, setOpen] = useState(false);
+  const [showAllExpertise, setShowAllExpertise] = useState(false);
   const layerClass = LAYER_COLORS[agent.layer] ?? 'text-text-tertiary border-border';
 
   return (
@@ -378,15 +380,20 @@ function AgentCard({ agent }: { agent: AgentDefinition }) {
               Primary Expertise ({agent.primaryExpertise.length})
             </div>
             <ul className="space-y-0.5">
-              {agent.primaryExpertise.slice(0, 8).map((e, i) => (
+              {(showAllExpertise ? agent.primaryExpertise : agent.primaryExpertise.slice(0, 8)).map((e, i) => (
                 <li key={i} className="text-xs text-text-secondary flex gap-2">
                   <span className="text-gold/50 shrink-0">·</span>
                   <span>{e}</span>
                 </li>
               ))}
               {agent.primaryExpertise.length > 8 && (
-                <li className="text-xs text-text-tertiary pl-4">
-                  +{agent.primaryExpertise.length - 8} more
+                <li>
+                  <button
+                    onClick={() => setShowAllExpertise((s) => !s)}
+                    className="text-xs text-sky-400 hover:text-sky-300 pl-4 transition-colors"
+                  >
+                    {showAllExpertise ? '▲ show less' : `+${agent.primaryExpertise.length - 8} more`}
+                  </button>
                 </li>
               )}
             </ul>
@@ -808,6 +815,7 @@ function ContentTab() {
   const [publishStatus, setPublishStatus] = useState<Record<string, string>>({});
   const [enhanceOpen, setEnhanceOpen] = useState<string | null>(null);
   const [enhanceQuestions, setEnhanceQuestions] = useState<Record<string, string[]>>({});
+  const [enhanceSources, setEnhanceSources] = useState<Record<string, string>>({});
   const [enhanceStatus, setEnhanceStatus] = useState<Record<string, string>>({});
   const [deepDiveOpen, setDeepDiveOpen] = useState<string | null>(null);
   const [deepDiveFocus, setDeepDiveFocus] = useState<Record<string, string>>({});
@@ -987,6 +995,9 @@ function ContentTab() {
     const questions = (enhanceQuestions[d.topic] ?? ['']).filter((q) => q.trim());
     if (questions.length === 0) return;
 
+    const sources = enhanceSources[d.topic]?.trim() || undefined;
+    const batchCount = Math.ceil(questions.length / 3);
+
     setEnhanceStatus((s) => ({ ...s, [d.topic]: 'queuing…' }));
     setEnhanceOpen(null);
     try {
@@ -997,12 +1008,16 @@ function ContentTab() {
           topic: d.topic,
           title: d.title,
           research_questions: questions,
+          source_urls: sources,
         }),
       });
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error as string);
-      const sessionId = data.session_id as string;
-      setEnhanceStatus((s) => ({ ...s, [d.topic]: `running — session ${sessionId.slice(0, 8)}…` }));
+      const sessionId = (data.session_id ?? (data.session_ids as string[] | undefined)?.[0]) as string;
+      const label = batchCount > 1
+        ? `${batchCount} batches running — check Sessions tab`
+        : `running — session ${sessionId.slice(0, 8)}…`;
+      setEnhanceStatus((s) => ({ ...s, [d.topic]: label }));
 
       const poll = setInterval(async () => {
         try {
@@ -1253,7 +1268,7 @@ function ContentTab() {
                     Enhance Article — New Research Round
                   </div>
                   <p className="font-mono text-[9px] text-text-tertiary">
-                    Max {MAX_ENHANCE_QUESTIONS} questions per round. Results go to pending review before merging.
+                    Up to {MAX_ENHANCE_QUESTIONS} questions — auto-batched in groups of 3. Results go to pending review before merging.
                   </p>
                   <div className="space-y-2">
                     {(enhanceQuestions[d.topic] ?? ['']).map((q, i) => (
@@ -1290,6 +1305,18 @@ function ContentTab() {
                       + Add question
                     </button>
                   )}
+                  <div>
+                    <label className="block font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-1">
+                      Source Material <span className="normal-case tracking-normal opacity-60">(optional — articles, excerpts, or URLs agents must cite directly)</span>
+                    </label>
+                    <textarea
+                      className="w-full bg-ground border border-border px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded resize-none font-mono"
+                      rows={4}
+                      placeholder={"Paste full article text, excerpts, or URLs — one per line.\nAgents will treat this as primary source material and cite it directly.\n\nhttps://example.com/article\n\"Direct quote from source...\""}
+                      value={enhanceSources[d.topic] ?? ''}
+                      onChange={(e) => setEnhanceSources((s) => ({ ...s, [d.topic]: e.target.value }))}
+                    />
+                  </div>
                   <div className="flex gap-3 items-center">
                     <button
                       onClick={() => launchEnhance(d)}
@@ -1299,7 +1326,9 @@ function ContentTab() {
                       Launch Enhancement →
                     </button>
                     <span className="font-mono text-[9px] text-text-tertiary">
-                      Runs 3–5 min. Awaits your approval before updating the article.
+                      {Math.ceil(((enhanceQuestions[d.topic] ?? ['']).filter(q => q.trim()).length || 1) / 3) > 1
+                        ? `${Math.ceil((enhanceQuestions[d.topic] ?? ['']).filter(q => q.trim()).length / 3)} batches will run in parallel.`
+                        : 'Runs 3–5 min.'} Awaits your approval before updating the article.
                     </span>
                   </div>
                 </div>
@@ -2890,6 +2919,10 @@ function PeopleTab() {
   const [reresearchingId, setReresearchingId] = useState<string | null>(null);
   const [diffResult, setDiffResult] = useState<{ personId: string; fresh: AIResearchResult } | null>(null);
   const [applyingDiff, setApplyingDiff] = useState(false);
+  const [personEnhanceOpen, setPersonEnhanceOpen] = useState<string | null>(null);
+  const [personEnhanceQuestions, setPersonEnhanceQuestions] = useState<Record<string, string[]>>({});
+  const [personEnhanceSources, setPersonEnhanceSources] = useState<Record<string, string>>({});
+  const [personEnhanceStatus, setPersonEnhanceStatus] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -3011,6 +3044,36 @@ function PeopleTab() {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
       setReresearchingId(null);
+    }
+  };
+
+  const launchPersonEnhance = async (person: PersonRow) => {
+    const key = person.id;
+    const questions = (personEnhanceQuestions[key] ?? ['']).filter((q) => q.trim());
+    if (questions.length === 0) return;
+    const sources = personEnhanceSources[key]?.trim() || undefined;
+    const batchCount = Math.ceil(questions.length / 3);
+    setPersonEnhanceStatus((s) => ({ ...s, [key]: 'queuing…' }));
+    setPersonEnhanceOpen(null);
+    try {
+      const res = await fetch('/api/research/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: person.slug || person.full_name.toLowerCase().replace(/\s+/g, '-'),
+          title: person.full_name,
+          research_questions: questions,
+          source_urls: sources,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error as string);
+      const label = batchCount > 1
+        ? `${batchCount} batches queued — check Sessions tab`
+        : `queued — check Sessions tab`;
+      setPersonEnhanceStatus((s) => ({ ...s, [key]: label }));
+    } catch (err) {
+      setPersonEnhanceStatus((s) => ({ ...s, [key]: `error: ${err instanceof Error ? err.message : String(err)}` }));
     }
   };
 
@@ -3461,6 +3524,17 @@ function PeopleTab() {
                         </button>
                         <button
                           onClick={() => {
+                            setPersonEnhanceOpen(personEnhanceOpen === person.id ? null : person.id);
+                            if (!personEnhanceQuestions[person.id]) {
+                              setPersonEnhanceQuestions((q) => ({ ...q, [person.id]: [''] }));
+                            }
+                          }}
+                          className="font-mono text-[8px] uppercase tracking-widest text-gold border border-gold/30 px-2 py-1 rounded hover:bg-gold/5 transition-colors"
+                        >
+                          + Enhance
+                        </button>
+                        <button
+                          onClick={() => {
                             setEditingId(person.id);
                             setEditFields({
                               short_bio: person.short_bio ?? '',
@@ -3502,6 +3576,83 @@ function PeopleTab() {
                         onApply={(fields) => applyDiffFields(person.id, fields)}
                         onDismiss={() => setDiffResult(null)}
                       />
+                    )}
+
+                    {/* Enhance panel */}
+                    {personEnhanceOpen === person.id && (
+                      <div className="mt-3 pt-3 border-t border-gold/20 space-y-3 bg-gold/3 rounded-b px-1">
+                        <div className="font-mono text-[9px] uppercase tracking-widest text-gold">
+                          Enhance Research — {person.full_name}
+                        </div>
+                        <p className="font-mono text-[9px] text-text-tertiary">
+                          Up to 9 questions, auto-batched in groups of 3. Results go to Sessions tab for review.
+                        </p>
+                        <div className="space-y-2">
+                          {(personEnhanceQuestions[person.id] ?? ['']).map((q, i) => (
+                            <div key={i} className="flex gap-2">
+                              <input
+                                className="flex-1 bg-ground border border-border px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-gold/50 rounded"
+                                placeholder={`Research question ${i + 1}`}
+                                value={q}
+                                onChange={(e) => {
+                                  const updated = [...(personEnhanceQuestions[person.id] ?? [''])];
+                                  updated[i] = e.target.value;
+                                  setPersonEnhanceQuestions((s) => ({ ...s, [person.id]: updated }));
+                                }}
+                              />
+                              {(personEnhanceQuestions[person.id] ?? ['']).length > 1 && (
+                                <button
+                                  onClick={() => {
+                                    const updated = (personEnhanceQuestions[person.id] ?? ['']).filter((_, idx) => idx !== i);
+                                    setPersonEnhanceQuestions((s) => ({ ...s, [person.id]: updated }));
+                                  }}
+                                  className="px-2 text-text-tertiary hover:text-red-400 transition-colors"
+                                >×</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {(personEnhanceQuestions[person.id] ?? ['']).length < 9 && (
+                          <button
+                            onClick={() => setPersonEnhanceQuestions((s) => ({ ...s, [person.id]: [...(s[person.id] ?? ['']), ''] }))}
+                            className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
+                          >
+                            + Add question
+                          </button>
+                        )}
+                        <div>
+                          <label className="block font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-1">
+                            Source Material <span className="normal-case tracking-normal opacity-60">(paste articles, excerpts, or URLs — agents will cite these directly)</span>
+                          </label>
+                          <textarea
+                            className="w-full bg-ground border border-border px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded resize-none font-mono"
+                            rows={5}
+                            placeholder={"Paste full article text, excerpts, or URLs.\nAgents treat this as primary source material.\n\nhttps://example.com/article\n\"Direct quote from source...\""}
+                            value={personEnhanceSources[person.id] ?? ''}
+                            onChange={(e) => setPersonEnhanceSources((s) => ({ ...s, [person.id]: e.target.value }))}
+                          />
+                        </div>
+                        <div className="flex gap-3 items-center">
+                          <button
+                            onClick={() => launchPersonEnhance(person)}
+                            disabled={!(personEnhanceQuestions[person.id] ?? ['']).some((q) => q.trim())}
+                            className="font-mono text-[9px] uppercase tracking-widest text-gold border border-gold/30 bg-gold/10 hover:bg-gold/20 px-3 py-1.5 rounded transition-colors disabled:opacity-40"
+                          >
+                            Launch Enhancement →
+                          </button>
+                          <button
+                            onClick={() => setPersonEnhanceOpen(null)}
+                            className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-text-secondary transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {personEnhanceStatus[person.id] && (
+                      <div className={`mt-2 font-mono text-[9px] ${personEnhanceStatus[person.id].startsWith('error') ? 'text-red-400' : 'text-text-tertiary'}`}>
+                        {personEnhanceStatus[person.id]}
+                      </div>
                     )}
                   </>
                   )}
@@ -5154,6 +5305,7 @@ const TABS = [
   { id: 'institutions', label: 'Institutions' },
   { id: 'agents', label: 'Agents' },
   { id: 'sessions', label: 'Sessions' },
+  { id: 'thread', label: '⊙ Thread' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -5216,6 +5368,7 @@ export default function AdminPage() {
         {tab === 'institutions' && <InstitutionsTab />}
         {tab === 'agents' && <AgentsTab />}
         {tab === 'sessions' && <SessionsTab />}
+        {tab === 'thread' && <ThreadTab />}
       </div>
     </div>
   );
