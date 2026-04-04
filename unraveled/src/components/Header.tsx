@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: '/reports', label: 'Reports' },
   { href: '/people', label: 'Dossiers' },
   { href: '/explore', label: 'Relationships' },
+  { href: '/vote', label: 'Vote' },
 ];
 
 export function Header() {
