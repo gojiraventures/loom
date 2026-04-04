@@ -22,6 +22,8 @@ const PUBLIC_PATH_PREFIXES = [
   '/api/graph',
   '/api/ratings',      // GET (averages) is public; write enforced at route level
   '/upgrade',
+  '/vote',
+  '/api/votes',
   '/sitemap.xml',
   '/robots.txt',
 ];
