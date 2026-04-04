@@ -11,10 +11,11 @@ import type { SectionKey, SynthesisOutline } from '../section-prompts';
 export interface SynthesisSectionPayload {
   section_key: SectionKey;
   outline_job_id: string; // ID of the synthesis_outline job to read outline from
+  is_enhancement?: boolean; // Enhancement sessions use next version, is_current=false
 }
 
 export async function handleSynthesisSection(job: ResearchJob): Promise<Record<string, unknown>> {
-  const { section_key, outline_job_id } = job.params as unknown as SynthesisSectionPayload;
+  const { section_key, outline_job_id, is_enhancement } = job.params as unknown as SynthesisSectionPayload;
 
   // Load outline from the outline job's output
   const outlineJob = await getJob(outline_job_id);
@@ -54,6 +55,25 @@ export async function handleSynthesisSection(job: ResearchJob): Promise<Record<s
   const wordCount = response.text.split(/\s+/).filter(Boolean).length;
 
   const supabase = createServerSupabaseClient();
+
+  // Enhancement sessions get the next version number and stay is_current=false
+  // until an admin approves them. Base sessions always use version=1, is_current=true.
+  let version = 1;
+  let isCurrent = true;
+
+  if (is_enhancement) {
+    const { data: existing } = await supabase
+      .from('dossier_sections')
+      .select('version')
+      .eq('topic', job.topic)
+      .eq('section_key', section_key)
+      .order('version', { ascending: false })
+      .limit(1)
+      .single();
+    version = (existing?.version ?? 0) + 1;
+    isCurrent = false;
+  }
+
   const { data: sectionRow, error } = await supabase
     .from('dossier_sections')
     .upsert({
@@ -64,8 +84,8 @@ export async function handleSynthesisSection(job: ResearchJob): Promise<Record<s
       content: contentPayload,
       word_count: wordCount,
       status: 'draft',
-      version: 1,
-      is_current: true,
+      version,
+      is_current: isCurrent,
       updated_at: new Date().toISOString(),
     }, {
       onConflict: 'session_id,section_key',

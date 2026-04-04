@@ -171,7 +171,7 @@ async function queueEnhancementBatch(
       session_id: sessionId,
       topic: topicStr,
       job_type: 'synthesis_section' as const,
-      params: { section_key, outline_job_id: outlineJob.id },
+      params: { section_key, outline_job_id: outlineJob.id, is_enhancement: true },
       priority: 80,
       run_after_job_ids: [outlineJob.id],
     })),
