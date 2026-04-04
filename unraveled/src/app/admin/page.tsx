@@ -5558,12 +5558,20 @@ export default function AdminPage() {
               Admin
             </span>
           </div>
-          <a
-            href="/"
-            className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
-          >
-            ← Site
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="/admin/feedback"
+              className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
+            >
+              ⚑ Feedback
+            </a>
+            <a
+              href="/"
+              className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
+            >
+              ← Site
+            </a>
+          </div>
         </div>
       </div>
 

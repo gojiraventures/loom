@@ -19,6 +19,7 @@ import { TopicTOC } from '@/components/TopicTOC';
 import { RelatedResearch } from '@/components/RelatedResearch';
 import { ComponentRenderer } from '@/components/interactive/ComponentRenderer';
 import { StarRating } from '@/components/StarRating';
+import { FeedbackForm } from '@/components/FeedbackForm';
 import type { SynthesizedOutput } from '@/lib/research/types';
 import type { TocSection } from '@/components/TopicTOC';
 import type { ComponentRecord } from '@/lib/interactive/types';
@@ -875,6 +876,9 @@ export default async function TopicPage({
           </a>
         </div>
       </div>
+
+      {/* ── Feedback Form ─────────────────────────────────────────────────── */}
+      <FeedbackForm articleId={slug} articleTitle={output.title} />
 
       {/* ── Star Rating ──────────────────────────────────────────────────── */}
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 w-full">
