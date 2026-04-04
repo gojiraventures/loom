@@ -808,6 +808,9 @@ function SessionsTab() {
 
 function ContentTab() {
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
+  const [pendingEnhancements, setPendingEnhancements] = useState<Record<string, number>>({});
+  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'unpublished'>('all');
+  const [sortBy, setSortBy] = useState<'score' | 'title' | 'pending'>('pending');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [previewing, setPreviewing] = useState<string | null>(null);
@@ -869,9 +872,18 @@ function ContentTab() {
       // Fetch all sessions; build topic → most-recent session_id map
       const res = await fetch('/api/admin/sessions');
       const sessData = await res.json();
-      const completeSessions = (sessData.sessions ?? []).filter(
-        (s: { status: string }) => s.status === 'complete',
-      ) as { id: string; topic: string; created_at: string }[];
+      const allSessions = (sessData.sessions ?? []) as { id: string; topic: string; status: string; session_type: string; created_at: string }[];
+
+      // Build pending enhancement map: topic → count of pending_review enhancement sessions
+      const enhancementMap: Record<string, number> = {};
+      for (const s of allSessions) {
+        if (s.session_type === 'enhancement' && s.status === 'pending_review') {
+          enhancementMap[s.topic] = (enhancementMap[s.topic] ?? 0) + 1;
+        }
+      }
+      setPendingEnhancements(enhancementMap);
+
+      const completeSessions = allSessions.filter((s) => s.status === 'complete');
 
       // Keep most-recent session per topic (sort newest-first before iterating)
       const topicSessionMap: Record<string, string> = {};
@@ -1072,6 +1084,19 @@ function ContentTab() {
         </button>
       </div>
 
+      {Object.keys(pendingEnhancements).length > 0 && (
+        <div className="flex items-center gap-3 border border-gold/30 bg-gold/5 rounded px-4 py-3">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-gold" />
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-gold">
+            {Object.values(pendingEnhancements).reduce((a, b) => a + b, 0)} enhanced research {Object.values(pendingEnhancements).reduce((a, b) => a + b, 0) === 1 ? 'batch' : 'batches'} awaiting review
+          </span>
+          <span className="font-mono text-[9px] text-text-tertiary">→ approve in Sessions tab</span>
+        </div>
+      )}
+
       {loading && <div className="text-sm text-text-tertiary">Loading…</div>}
       {error && <div className="text-sm text-red-400">{error}</div>}
       {!loading && dossiers.length === 0 && (
@@ -1080,8 +1105,46 @@ function ContentTab() {
         </div>
       )}
 
+      {!loading && dossiers.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {(['all', 'published', 'unpublished'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilterStatus(f)}
+              className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1 border rounded transition-colors ${filterStatus === f ? 'border-gold text-gold bg-gold/5' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+            >
+              {f === 'all' ? `All (${dossiers.length})` : f === 'published' ? `Published (${dossiers.filter(d => d.published).length})` : `Drafts (${dossiers.filter(d => !d.published).length})`}
+            </button>
+          ))}
+          <div className="ml-auto flex items-center gap-2">
+            <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">Sort:</span>
+            {([['pending', '⬆ Needs Review'], ['score', 'Score'], ['title', 'A → Z']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setSortBy(val)}
+                className={`font-mono text-[9px] uppercase tracking-widest px-2 py-1 border rounded transition-colors ${sortBy === val ? 'border-gold text-gold' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
-        {dossiers.map((d) => {
+        {dossiers
+          .filter((d) => filterStatus === 'all' || (filterStatus === 'published' ? d.published : !d.published))
+          .sort((a, b) => {
+            if (sortBy === 'pending') {
+              const pa = pendingEnhancements[a.topic] ?? 0;
+              const pb = pendingEnhancements[b.topic] ?? 0;
+              if (pb !== pa) return pb - pa;
+              return (b.best_convergence_score ?? 0) - (a.best_convergence_score ?? 0);
+            }
+            if (sortBy === 'score') return (b.best_convergence_score ?? 0) - (a.best_convergence_score ?? 0);
+            return a.title.localeCompare(b.title);
+          })
+          .map((d) => {
           const isPreview = previewing === d.topic;
           const output = d.synthesized_output;
           const autoSlug = d.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ?? '';
@@ -1103,6 +1166,15 @@ function ContentTab() {
                     {d.best_convergence_score > 0 && (
                       <span className="font-mono text-[9px] text-gold">
                         Score: {d.best_convergence_score}
+                      </span>
+                    )}
+                    {pendingEnhancements[d.topic] > 0 && (
+                      <span className="inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-amber-400 border border-amber-400/40 bg-amber-400/8 px-1.5 py-0.5 rounded">
+                        <span className="relative flex h-1.5 w-1.5 shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
+                        </span>
+                        {pendingEnhancements[d.topic] === 1 ? 'New research ready' : `${pendingEnhancements[d.topic]} research batches ready`}
                       </span>
                     )}
                   </div>
