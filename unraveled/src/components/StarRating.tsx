@@ -15,25 +15,34 @@ interface RatingData {
 
 export function StarRating({ articleId }: Props) {
   const { user, loading: userLoading } = useUser();
-  const [data, setData] = useState<RatingData>({ average: null, count: 0, user_rating: null });
+  // Stable userId string — doesn't change on token refresh, only on sign-in/out
+  const userId = user?.id ?? null;
+
+  const [aggregate, setAggregate] = useState<{ average: number | null; count: number }>({ average: null, count: 0 });
+  // Committed rating is kept in separate state so background re-fetches can't wipe it
+  const [committedRating, setCommittedRating] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchRatings = useCallback(async () => {
     const res = await fetch(`/api/ratings?article_id=${encodeURIComponent(articleId)}`);
-    if (res.ok) setData(await res.json());
+    if (!res.ok) return;
+    const data: RatingData = await res.json();
+    setAggregate({ average: data.average, count: data.count });
+    // Only set committed rating from server if the user hasn't already rated in this session
+    setCommittedRating((prev) => prev ?? data.user_rating);
   }, [articleId]);
 
   useEffect(() => {
     fetchRatings();
-  }, [fetchRatings, user]); // re-fetch when auth state changes to get user_rating
+  }, [fetchRatings, userId]); // userId is stable across token refreshes
 
   const submitRating = async (rating: number) => {
     if (!user || submitting) return;
     setSubmitting(true);
 
-    // Optimistic update
-    setData((prev) => ({ ...prev, user_rating: rating }));
+    // Optimistic — set immediately, don't wait for server
+    setCommittedRating(rating);
 
     const res = await fetch('/api/ratings', {
       method: 'POST',
@@ -42,16 +51,18 @@ export function StarRating({ articleId }: Props) {
     });
 
     if (res.ok) {
-      const updated = await res.json();
-      setData(updated);
+      const updated: RatingData = await res.json();
+      setAggregate({ average: updated.average, count: updated.count });
+      setCommittedRating(updated.user_rating ?? rating);
     } else {
-      // Revert on error
+      // Revert on hard error
+      setCommittedRating(null);
       fetchRatings();
     }
     setSubmitting(false);
   };
 
-  const displayRating = hovered ?? data.user_rating ?? 0;
+  const displayRating = hovered ?? committedRating ?? 0;
   const isAuthenticated = !userLoading && !!user;
 
   return (
@@ -92,19 +103,19 @@ export function StarRating({ articleId }: Props) {
 
       {/* Average + count */}
       <div className="flex items-center gap-2 font-mono text-[11px] text-text-tertiary">
-        {data.average !== null ? (
+        {aggregate.average !== null ? (
           <>
-            <span className="text-text-secondary font-medium">{data.average.toFixed(1)}</span>
+            <span className="text-text-secondary font-medium">{aggregate.average.toFixed(1)}</span>
             <span>·</span>
-            <span>{data.count.toLocaleString()} {data.count === 1 ? 'rating' : 'ratings'}</span>
+            <span>{aggregate.count.toLocaleString()} {aggregate.count === 1 ? 'rating' : 'ratings'}</span>
           </>
         ) : (
           <span>No ratings yet</span>
         )}
-        {data.user_rating && (
+        {committedRating && (
           <>
             <span>·</span>
-            <span className="text-gold">You rated {data.user_rating}★</span>
+            <span className="text-gold">You rated {committedRating}★</span>
           </>
         )}
       </div>
