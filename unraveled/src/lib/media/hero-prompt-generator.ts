@@ -1,38 +1,74 @@
 /**
- * Hero Image Prompt Generator
+ * Hero Image Prompt Generator — v1.3
  *
- * Uses Grok (xAI) to generate 4 image prompts for a research article,
- * following the Unraveled Art Direction Style Guide v1.2.
+ * Uses the UnraveledTruth Art Direction & Hero Image Style Guide v1.3 system prompt
+ * verbatim (page 24) as the Grok system directive. Produces 4 prompts following
+ * the exact proven skeleton that generates on-brand results.
  *
- * 4 variation types:
- *   Literal      — visual representation of the topic's primary evidence/subject
- *   Symbolic     — metaphorical image capturing the article's core paradox
- *   Environmental — setting/landscape that grounds the story geographically/temporally
- *   Detail       — close-up of artifact, inscription, texture, or physical fragment
- *
- * Each prompt follows the 5-part structure:
- *   Subject + Lighting + Composition + Color + Style Keywords
- *   + standard style suffix appended for consistency
+ * Skeleton:
+ *   "High-end editorial hero illustration in UnraveledTruth house style: [scene].
+ *    Strict rule-of-thirds composition with [subject] positioned in [grid position].
+ *    [Subject detail]. [Lighting] with a single restrained warm antique gold-beige
+ *    accent (#D4B483 / #C9A66B) [illuminating what]. Deep charcoal-to-near-black
+ *    palette (#0F0F0F–#1A1A1A) with muted teal and slate-gray tones. Matte finish,
+ *    very light film grain, subtle printed-paper texture. National Geographic
+ *    museum-catalog sophistication crossed with 19th-century scientific engraving
+ *    restraint. Generous empty negative space across the entire top third for large
+ *    headline overlay. Quietly mysterious and intellectually seductive — feels like
+ *    a discovered scholarly artifact. [Atmospheric instruction]. No text, no legible
+ *    inscriptions or symbols. --stylize 225 --v 6"
  */
-
-const STYLE_SUFFIX = [
-  'cinematic documentary photography',
-  'photorealistic',
-  'editorial quality',
-  'muted earth tones with deep ochre accents',
-  'focal point in upper two-thirds of frame for text overlay compatibility',
-  'lower third intentionally uncluttered or soft-focused',
-  'historical gravitas',
-  'shallow depth of field',
-  'subtle film grain',
-  '4K',
-].join(', ');
 
 export interface HeroPrompt {
   type: 'literal' | 'symbolic' | 'environmental' | 'detail';
   label: string;
   prompt: string;
 }
+
+// Verbatim system prompt from style guide v1.3 page 24
+const SYSTEM_PROMPT = `You are the art director for UnraveledTruth.com — a premium, intellectually rigorous platform exploring cross-cultural patterns in myth, history, and evidence. Your visual identity: National Geographic editorial sophistication crossed with The Economist's clean precision, with a subtle edge of esoteric curiosity. Never sensationalist, conspiratorial, or flashy.
+
+EVERY prompt you generate MUST follow this exact skeleton structure:
+
+"High-end editorial hero illustration in UnraveledTruth house style: [wide contemplative scene description]. Strict rule-of-thirds composition with [subject] positioned in the [grid position]. [Detailed subject and material description]. [Specific lighting description] with a single restrained warm antique gold-beige accent (#D4B483 / #C9A66B) [illuminating what]. Deep charcoal-to-near-black palette (#0F0F0F–#1A1A1A) with muted teal and slate-gray tones in the shadows. Matte finish, very light film grain, subtle printed-paper texture. National Geographic museum-catalog sophistication crossed with 19th-century scientific engraving restraint. Generous empty negative space across the entire top third for large headline overlay. Quietly mysterious and intellectually seductive — feels like a discovered scholarly artifact. [Atmospheric instruction]. No text, no titles, no watermarks, no legible inscriptions, glyphs, or symbols anywhere in the image. --stylize 225 --v 6"
+
+CRITICAL RULES:
+- NEVER include text, titles, or legible writing in the image. The site overlay handles all text.
+- Always include the inline hex color codes (#D4B483, #C9A66B, #0F0F0F–#1A1A1A) in every prompt.
+- Always end with --stylize 225 --v 6
+- Focal point MUST be in the UPPER HALF of the frame. The bottom 40–50% is covered by headline text, subtitle, tradition tags, and convergence score on the live site.
+- Each prompt must capture the article's central paradox or intellectual tension, not its surface topic.
+- Images must feel "discovered" rather than "generated" — aged quality, archival feel, museum-exhibition aesthetic.
+
+ATMOSPHERIC INSTRUCTION — choose one based on subject:
+- NO ATMOSPHERE (default): "No mist, no smoke, no fog, no atmospheric veil whatsoever." — Use for artifacts, skulls, sacred geometry, scientific subjects, macro details.
+- MINIMAL MIST: "Extremely soft natural mist only — no smoke, no heavy fog." — Use for archaeological landscapes, ancient ruins, cartographic subjects.
+- JUSTIFIED FOG: "Thick atmospheric mist and soft diffused golden twilight light create depth and mystery." — Use ONLY for flood narratives, maritime themes, anatomical/mystical crossover subjects.
+Default to NO ATMOSPHERE. Escalate only when the subject demands it.
+
+WHAT WORKS (reference these aesthetic calibration points):
+- Elongated skull: bronze/amber tone on near-black, museum-specimen quality, strong focal point, excellent headline space above — Literal/Detail
+- Sacred geometry wireframe: warm gold lines on pure black, zero fog, zero clutter — Symbolic/Abstract
+- Petroglyphs under Milky Way: warm artificial light on rock face against cool starlight, no artificial fog — Environmental
+- Lone menhir on twilight hilltop: tonal layering creates depth without any fog, graduated ridges through pure value shift — EXEMPLAR for atmospheric technique
+- Flood landscape: storm light and hills in upper two-thirds, reads well under overlay — Environmental (one of few justified atmospheric uses)
+
+DON'TS:
+- No bright fantasy colors, neon, glowing effects, or high saturation
+- No overly rendered, plastic, or video-game aesthetic
+- No cliché conspiracy imagery (glowing ley lines, pyramids with lightning, UFOs)
+- No cartoonish, anime, or exaggerated illustrative styles
+- No excessive fog or mist as a default atmospheric treatment
+
+Return ONLY valid JSON (no markdown fences):
+{
+  "prompts": [
+    { "type": "literal", "label": "Literal", "prompt": "..." },
+    { "type": "symbolic", "label": "Symbolic", "prompt": "..." },
+    { "type": "environmental", "label": "Environmental", "prompt": "..." },
+    { "type": "detail", "label": "Detail", "prompt": "..." }
+  ]
+}`;
 
 export async function generateHeroPrompts(
   topic: string,
@@ -43,46 +79,26 @@ export async function generateHeroPrompts(
   const apiKey = process.env.XAI_IMAGE_API_KEY;
   if (!apiKey) throw new Error('XAI_IMAGE_API_KEY is not set');
 
-  const systemPrompt = `You are an art director generating image generation prompts for a documentary-style research publication called Unraveled.
+  const userMessage = `Article for hero image generation:
 
-Each prompt must be a single flowing sentence combining:
-[Subject: what is shown] + [Lighting: quality and direction] + [Composition: framing] + [Color: palette] + [Style: execution]
+TOPIC: ${topic}
+TITLE: ${title}
+${drivingQuestion ? `DRIVING QUESTION (the article's intellectual paradox): ${drivingQuestion}` : ''}
 
-CRITICAL RULES:
-- Focal point MUST be in the upper 60% of frame — lower third reserved for title overlay
-- Mist and fog: allowed only as background atmosphere, never obscuring the main subject
-- No text, watermarks, symbols, or graphics within the image
-- No faces in close-up (documentary style: environments, objects, landscapes, not portraits)
-- Be geographically and historically specific — avoid vague "ancient ruins" generics
-- Each prompt must end verbatim with: ${STYLE_SUFFIX}
+ARTICLE SUMMARY:
+${articleSummary.slice(0, 4000)}
 
-Return ONLY valid JSON (no markdown):
-{
-  "prompts": [
-    { "type": "literal", "label": "Literal", "prompt": "..." },
-    { "type": "symbolic", "label": "Symbolic", "prompt": "..." },
-    { "type": "environmental", "label": "Environmental", "prompt": "..." },
-    { "type": "detail", "label": "Detail", "prompt": "..." }
-  ]
-}`;
+Generate 4 hero image prompts using the exact skeleton structure, each approaching the theme from a different visual angle:
 
-  const userPrompt = `Research article:
-Topic: ${topic}
-Title: ${title}
-${drivingQuestion ? `Driving Question: ${drivingQuestion}` : ''}
+1. LITERAL — The most direct visual representation of the subject matter. Be specific about what physical thing is shown and its material quality.
 
-Article Summary:
-${articleSummary.slice(0, 3000)}
+2. SYMBOLIC — A metaphorical or abstract representation of the article's central intellectual tension or paradox. Should evoke the "why" of the article, not just the "what."
 
-Generate 4 hero image prompts. Each must be a complete, self-contained prompt — the actual text to pass to an image model, not a description of what to show.
+3. ENVIRONMENTAL — The geographic, archaeological, or historical setting that contextualizes the subject. Ground the viewer in a specific place and era.
 
-1. LITERAL — Represent the primary evidence or subject matter of this specific article. Show something concrete the article documents. Be specific.
+4. DETAIL — A close-up on a single specific texture, artifact, inscription, or physical element that synecdochally represents the whole mystery.
 
-2. SYMBOLIC — One powerful image that captures the article's central paradox or intellectual tension. A visual metaphor for the question being asked.
-
-3. ENVIRONMENTAL — The geographic or archaeological setting where this story unfolds. Ground the viewer in a specific place and era.
-
-4. DETAIL — Extreme close-up of a single artifact, inscription, texture, or physical fragment that embodies the article's central mystery. Maximum visual specificity.`;
+Each prompt must follow the exact skeleton verbatim. Include hex codes. Choose the correct atmospheric instruction for each prompt type. End every prompt with --stylize 225 --v 6.`;
 
   const res = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
@@ -93,11 +109,11 @@ Generate 4 hero image prompts. Each must be a complete, self-contained prompt �
     body: JSON.stringify({
       model: 'grok-3',
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userMessage },
       ],
-      temperature: 0.7,
-      max_tokens: 2048,
+      temperature: 0.6,
+      max_tokens: 3000,
     }),
     signal: AbortSignal.timeout(60_000),
   });
@@ -111,18 +127,25 @@ Generate 4 hero image prompts. Each must be a complete, self-contained prompt �
   const content = data.choices?.[0]?.message?.content ?? '';
 
   // Strip markdown fences if present
-  const jsonStr = content.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  const jsonStr = content
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```\s*$/, '')
+    .trim();
 
   try {
     const parsed = JSON.parse(jsonStr) as { prompts?: HeroPrompt[] };
-    return (parsed.prompts ?? []).filter((p) => p.type && p.prompt);
+    const prompts = (parsed.prompts ?? []).filter((p) => p.type && p.prompt);
+    if (prompts.length === 0) throw new Error('Empty prompts array');
+    return prompts;
   } catch {
-    // Try extracting first {...} block
+    // Try extracting first { } block
     const match = jsonStr.match(/\{[\s\S]*\}/);
     if (match) {
-      const parsed = JSON.parse(match[0]) as { prompts?: HeroPrompt[] };
-      return (parsed.prompts ?? []).filter((p) => p.type && p.prompt);
+      try {
+        const parsed = JSON.parse(match[0]) as { prompts?: HeroPrompt[] };
+        return (parsed.prompts ?? []).filter((p) => p.type && p.prompt);
+      } catch { /* fall through */ }
     }
-    throw new Error(`Grok returned unparseable response: ${content.slice(0, 200)}`);
+    throw new Error(`Grok returned unparseable response: ${content.slice(0, 300)}`);
   }
 }
