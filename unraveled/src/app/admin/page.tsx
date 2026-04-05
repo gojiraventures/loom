@@ -2794,6 +2794,8 @@ function MediaTab() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState('');
   const [filterTopic, setFilterTopic] = useState('');
+  const [validating, setValidating] = useState(false);
+  const [validateResult, setValidateResult] = useState<{ checked: number; removed: number; dead: { id: string; title: string; url: string; reason: string }[] } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2819,6 +2821,21 @@ function MediaTab() {
     const data = await res.json();
     setSyncResult(`Synced ${data.synced} items across ${data.topics?.length ?? 0} topics`);
     setSyncing(false);
+    load();
+  };
+
+  const validateLinks = async () => {
+    if (!confirm('This will check all approved media URLs and delete any that are dead. Continue?')) return;
+    setValidating(true);
+    setValidateResult(null);
+    const res = await fetch('/api/admin/media/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: filterTopic.trim() || undefined }),
+    });
+    const data = await res.json();
+    setValidateResult(data);
+    setValidating(false);
     load();
   };
 
@@ -2862,6 +2879,13 @@ function MediaTab() {
             {syncing ? 'Syncing…' : 'Sync All Anchors'}
           </button>
           <button
+            onClick={validateLinks}
+            disabled={validating}
+            className="font-mono text-[10px] uppercase tracking-widest border border-red-400/40 text-red-400 px-3 py-2 hover:bg-red-400/10 transition-colors disabled:opacity-50"
+          >
+            {validating ? 'Checking…' : 'Validate & Purge Dead Links'}
+          </button>
+          <button
             onClick={load}
             disabled={loading}
             className="font-mono text-[10px] uppercase tracking-widest border border-border text-text-tertiary px-3 py-2 hover:border-gold/30 transition-colors disabled:opacity-50"
@@ -2874,6 +2898,19 @@ function MediaTab() {
       {syncResult && (
         <div className="border border-emerald-400/30 bg-emerald-400/5 px-4 py-2 font-mono text-[11px] text-emerald-400">
           {syncResult}
+        </div>
+      )}
+
+      {validateResult && (
+        <div className={`border px-4 py-3 font-mono text-[11px] space-y-1 ${validateResult.removed > 0 ? 'border-red-400/30 bg-red-400/5' : 'border-emerald-400/30 bg-emerald-400/5'}`}>
+          <div className={validateResult.removed > 0 ? 'text-red-400' : 'text-emerald-400'}>
+            Checked {validateResult.checked} · Removed {validateResult.removed} dead links · {validateResult.checked - validateResult.removed} healthy
+          </div>
+          {validateResult.dead.map((d) => (
+            <div key={d.id} className="text-text-tertiary pl-2 border-l border-red-400/20">
+              {d.title || d.url} — <span className="text-red-400/70">{d.reason}</span>
+            </div>
+          ))}
         </div>
       )}
 

@@ -22,6 +22,7 @@ import { getWikipediaSummary } from '@/lib/external/wikipedia';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { route } from '@/lib/research/llm/router';
 import { parseJsonResponse } from '@/lib/research/llm/parse';
+import { validateMediaUrl } from '@/lib/media/validate-url';
 
 export interface RabbitHole {
   name: string;
@@ -174,10 +175,24 @@ export async function gatherTopicIntelligence(topic: string): Promise<TopicIntel
     updated_at: new Date().toISOString(),
   }, { onConflict: 'topic' });
 
-  // Store YouTube videos
+  // Store YouTube videos — validate each before inserting
   if (youtubeVideos.length > 0) {
+    const validatedYoutube = (
+      await Promise.all(
+        youtubeVideos.map(async (v) => {
+          const check = await validateMediaUrl(v.watchUrl, 'youtube');
+          if (!check.valid) {
+            console.warn(`[gatherer] Skipping dead YouTube video: ${v.watchUrl} — ${check.reason}`);
+            return null;
+          }
+          return v;
+        })
+      )
+    ).filter(Boolean) as typeof youtubeVideos;
+
+    if (validatedYoutube.length > 0) {
     await supabase.from('topic_media').upsert(
-      youtubeVideos.map((v) => ({
+      validatedYoutube.map((v) => ({
         topic,
         type: 'youtube',
         title: v.title,
@@ -199,12 +214,27 @@ export async function gatherTopicIntelligence(topic: string): Promise<TopicIntel
       })),
       { onConflict: 'url' }
     ).then(() => null, () => null);
+    }
   }
 
-  // Store podcast episodes
+  // Store podcast episodes — validate each before inserting
   if (podcasts.length > 0) {
+    const validatedPodcasts = (
+      await Promise.all(
+        podcasts.map(async (p) => {
+          const check = await validateMediaUrl(p.episodeUrl, 'podcast');
+          if (!check.valid) {
+            console.warn(`[gatherer] Skipping dead podcast: ${p.episodeUrl} — ${check.reason}`);
+            return null;
+          }
+          return p;
+        })
+      )
+    ).filter(Boolean) as typeof podcasts;
+
+    if (validatedPodcasts.length > 0) {
     await supabase.from('topic_media').upsert(
-      podcasts.map((p) => ({
+      validatedPodcasts.map((p) => ({
         topic,
         type: 'podcast',
         title: p.title,
@@ -222,6 +252,7 @@ export async function gatherTopicIntelligence(topic: string): Promise<TopicIntel
       })),
       { onConflict: 'url' }
     ).then(() => null, () => null);
+    }
   }
 
   return {
