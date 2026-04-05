@@ -25,10 +25,27 @@ CRITICAL RULES:
 - The fixed tail appended after your output handles: palette, finish, texture, aesthetic references, negative space, mood, no-fog rule, no-text rule, and --stylize params. Do NOT include any of those in your output.
 - SPATIAL AND MATERIAL INSTRUCTIONS ONLY. No narrative explanation of why you chose a composition. No sentences like "to represent the paradox of..." — Grok Imagine ignores conceptual logic and needs tonal/spatial/material instructions only.
 - Be specific about materials: "weathered limestone," "oxidized bronze," "fired clay," not "ancient stone."
-- Be specific about lighting: "low raking sidelight from the right," "single overhead shaft of warm light," not "dramatic lighting."
 - Focal point must be in the UPPER HALF — bottom 40–50% is covered by overlay on the live site.
 - Include the hex codes (#D4B483 / #C9A66B) in the lighting line of every prompt.
 - Each prompt captures the article's intellectual paradox through visual specifics — not its surface topic.
+
+LIGHTING RULES — THE SUBJECT ALWAYS EMERGES FROM DARKNESS, NEVER SITS IN DAYLIGHT:
+Every scene description MUST use one of these lighting setups (choose whichever fits the subject):
+  • "dramatic chiaroscuro lighting with deep shadows"
+  • "single volumetric shaft of warm light cutting through darkness"
+  • "soft god rays from upper right illuminating [subject] against near-black surroundings"
+  • "moody twilight atmosphere with deep impenetrable shadows"
+  • "theatrical museum-display lighting against void-black background"
+
+If the scene is outdoors, it is dusk or night. If indoors, it is a near-dark chamber with one controlled light source. The deep charcoal-to-black palette in the tail block cannot do its job if the scene description asks for a sunlit environment.
+
+BANNED LIGHTING WORDS — never use any of these:
+  ✗ "clear sky"
+  ✗ "harsh sun" / "direct sunlight" / "midday sun"
+  ✗ "morning light" / "dawn light" / "bright"
+  ✗ "under a [any weather] sky"
+  ✗ "daylight"
+  ✗ "well-lit"
 
 Return ONLY valid JSON:
 {
