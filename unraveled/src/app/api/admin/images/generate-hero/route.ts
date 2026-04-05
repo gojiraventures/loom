@@ -5,7 +5,7 @@
  *
  * Flow:
  *   1. Load dossier (title, driving_question, synthesized_output/summary)
- *   2. Claude generates 4 image prompts (Literal, Symbolic, Environmental, Detail)
+ *   2. Grok generates 4 image prompts (Literal, Symbolic, Environmental, Detail)
  *   3. Calls xAI Grok Imagine for each prompt — sequentially to respect rate limits
  *   4. Uploads each image to Supabase Storage (topic-images bucket)
  *   5. Inserts into topic_images with source='grok_generated', status='suggested'
@@ -52,10 +52,17 @@ export async function POST(req: NextRequest) {
     (dossier.summary as string | null) ??
     title;
 
-  // Step 1 — Generate prompts with Claude
-  const prompts = await generateHeroPrompts(topic, title, drivingQuestion, articleSummary);
+  // Step 1 — Generate prompts with Grok
+  let prompts;
+  try {
+    prompts = await generateHeroPrompts(topic, title, drivingQuestion, articleSummary);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[generate-hero] prompt generation failed:', msg);
+    return NextResponse.json({ error: `Prompt generation failed: ${msg}` }, { status: 500 });
+  }
   if (prompts.length === 0) {
-    return NextResponse.json({ error: 'Claude failed to generate image prompts' }, { status: 500 });
+    return NextResponse.json({ error: 'Grok returned no prompts — check XAI_IMAGE_API_KEY and model availability' }, { status: 500 });
   }
 
   // Step 2 — Generate images sequentially (xAI rate limits)
