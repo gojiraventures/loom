@@ -24,7 +24,7 @@ export async function generateImage(prompt: string): Promise<GrokImageResult> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'grok-2-image-1212',
+      model: 'grok-imagine-image',
       prompt,
       n: 1,
       response_format: 'url',
