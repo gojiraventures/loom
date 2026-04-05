@@ -2416,7 +2416,7 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
 
   const generateHero = async () => {
     setGenerating(true);
-    setGenerateMsg('Claude is writing prompts, then Grok Imagine will generate images — this takes ~2 min…');
+    setGenerateMsg('Grok is writing prompts and generating images — this takes ~2 min…');
     try {
       const res = await fetch('/api/admin/images/generate-hero', {
         method: 'POST',
