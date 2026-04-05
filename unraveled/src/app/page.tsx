@@ -381,70 +381,106 @@ export default async function HomePage() {
             Connecting the dots.
           </h2>
           <p className="text-[0.9rem] text-text-secondary max-w-[620px] mb-10 leading-relaxed">
-            Every person, institution, and topic in our database is a node. Every documented
-            connection is an edge. The relationship map lets you see how the web fits together
-            — and find paths you didn&apos;t expect.
+            Every person, group, and location in our database is a node. Every documented
+            connection is an edge. The relationship map is actively growing — tracing who
+            funded whom, who investigated what, and which institutions shaped the narrative.
           </p>
 
           {/* Graph preview */}
           <div className="border border-border overflow-hidden">
             <div
               data-dark
-              className="relative h-[380px] bg-ground-light/40"
+              className="relative h-[380px]"
               style={{
-                background: 'radial-gradient(ellipse at 40% 40%, rgba(200,149,108,0.04) 0%, transparent 50%), radial-gradient(ellipse at 70% 60%, rgba(106,173,173,0.03) 0%, transparent 50%), var(--color-ground-light)',
+                background: 'radial-gradient(ellipse at 30% 35%, rgba(200,149,108,0.06) 0%, transparent 50%), radial-gradient(ellipse at 75% 60%, rgba(106,173,173,0.05) 0%, transparent 45%), #08090a',
               }}
             >
-              {/* Static SVG graph */}
+              {/* Static SVG edges */}
               <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" aria-hidden="true" preserveAspectRatio="none">
-                {/* Lines */}
-                {[
-                  [18,30,42,15],[42,15,65,25],[18,30,30,55],[30,55,55,50],[55,50,65,25],
-                  [55,50,78,55],[30,55,22,75],[22,75,50,78],[50,78,75,80],[78,55,75,80],
-                  [42,15,55,50],[65,25,78,55],
-                ].map(([x1,y1,x2,y2],i) => (
-                  <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.08)" strokeWidth="0.3" />
-                ))}
+                {/* People ↔ People */}
+                <line x1="20" y1="22" x2="48" y2="38" stroke="rgba(200,149,108,0.2)" strokeWidth="0.25" />
+                <line x1="48" y1="38" x2="72" y2="20" stroke="rgba(200,149,108,0.2)" strokeWidth="0.25" />
+                {/* People ↔ Groups */}
+                <line x1="20" y1="22" x2="15" y2="60" stroke="rgba(106,173,173,0.18)" strokeWidth="0.25" />
+                <line x1="48" y1="38" x2="38" y2="65" stroke="rgba(106,173,173,0.18)" strokeWidth="0.25" />
+                <line x1="72" y1="20" x2="82" y2="55" stroke="rgba(106,173,173,0.18)" strokeWidth="0.25" />
+                <line x1="48" y1="38" x2="82" y2="55" stroke="rgba(106,173,173,0.15)" strokeWidth="0.25" />
+                <line x1="34" y1="42" x2="38" y2="65" stroke="rgba(106,173,173,0.15)" strokeWidth="0.25" />
+                <line x1="34" y1="42" x2="60" y2="72" stroke="rgba(139,126,200,0.15)" strokeWidth="0.25" />
+                {/* Groups ↔ Groups */}
+                <line x1="15" y1="60" x2="38" y2="65" stroke="rgba(173,106,106,0.15)" strokeWidth="0.25" />
+                <line x1="38" y1="65" x2="60" y2="72" stroke="rgba(173,106,106,0.15)" strokeWidth="0.25" />
+                <line x1="60" y1="72" x2="82" y2="55" stroke="rgba(173,106,106,0.15)" strokeWidth="0.25" />
               </svg>
 
-              {/* Nodes */}
+              {/* Nodes — People (gold/amber tones) */}
               {[
-                { x: '18%', y: '30%', color: '#C8956C', label: 'Whistleblower' },
-                { x: '42%', y: '15%', color: '#6AADAD', label: 'Agency' },
-                { x: '65%', y: '25%', color: '#8B7EC8', label: 'Researcher' },
-                { x: '30%', y: '55%', color: '#6AAD7E', label: 'Museum' },
-                { x: '55%', y: '50%', color: '#C8956C', label: 'Journalist' },
-                { x: '78%', y: '55%', color: '#AD6A6A', label: 'Archive' },
-                { x: '22%', y: '75%', color: '#6AADAD', label: 'Society' },
-                { x: '50%', y: '78%', color: '#8B7EC8', label: 'Gatekeeper' },
-                { x: '75%', y: '80%', color: '#6AAD7E', label: 'Historical' },
+                { x: '20%', y: '22%', color: '#C8956C', label: 'Whistleblower', type: 'Person' },
+                { x: '48%', y: '38%', color: '#D4B483', label: 'Researcher',    type: 'Person' },
+                { x: '72%', y: '20%', color: '#C8956C', label: 'Journalist',    type: 'Person' },
+                { x: '34%', y: '42%', color: '#AD9070', label: 'Gatekeeper',    type: 'Person' },
               ].map((node) => (
                 <div
                   key={node.label}
                   className="absolute flex items-center gap-1.5 -translate-x-1/2 -translate-y-1/2"
                   style={{ left: node.x, top: node.y }}
                 >
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: node.color, boxShadow: `0 0 8px ${node.color}40` }} />
-                  <span className="font-mono text-[0.55rem] text-text-tertiary tracking-[0.04em] whitespace-nowrap">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: node.color, boxShadow: `0 0 10px ${node.color}50` }} />
+                  <span className="font-mono text-[0.52rem] tracking-[0.04em] whitespace-nowrap" style={{ color: 'rgba(245,240,232,0.5)' }}>
                     {node.label}
                   </span>
                 </div>
               ))}
 
+              {/* Nodes — Groups (teal tones) */}
+              {[
+                { x: '15%', y: '60%', color: '#6AADAD', label: 'Government',    type: 'Group' },
+                { x: '38%', y: '65%', color: '#5A9090', label: 'Museum',         type: 'Group' },
+                { x: '60%', y: '72%', color: '#6AADAD', label: 'Academic',       type: 'Group' },
+                { x: '82%', y: '55%', color: '#8B7EC8', label: 'Religious',      type: 'Group' },
+              ].map((node) => (
+                <div
+                  key={node.label}
+                  className="absolute flex items-center gap-1.5 -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: node.x, top: node.y }}
+                >
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: node.color, boxShadow: `0 0 10px ${node.color}50` }} />
+                  <span className="font-mono text-[0.52rem] tracking-[0.04em] whitespace-nowrap" style={{ color: 'rgba(245,240,232,0.5)' }}>
+                    {node.label}
+                  </span>
+                </div>
+              ))}
+
+              {/* Legend */}
+              <div className="absolute top-4 right-4 flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#C8956C]" />
+                  <span className="font-mono text-[0.48rem] text-[rgba(245,240,232,0.35)] tracking-[0.06em] uppercase">People</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#6AADAD]" />
+                  <span className="font-mono text-[0.48rem] text-[rgba(245,240,232,0.35)] tracking-[0.06em] uppercase">Groups</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#8B7EC8]" />
+                  <span className="font-mono text-[0.48rem] text-[rgba(245,240,232,0.35)] tracking-[0.06em] uppercase">Locations</span>
+                </div>
+              </div>
+
               {/* Stats overlay */}
               <div
                 className="absolute bottom-0 left-0 right-0 flex items-end justify-between p-6"
-                style={{ background: 'linear-gradient(0deg, rgba(8,9,10,0.95) 0%, rgba(8,9,10,0.7) 60%, transparent 100%)' }}
+                style={{ background: 'linear-gradient(0deg, rgba(8,9,10,0.97) 0%, rgba(8,9,10,0.75) 55%, transparent 100%)' }}
               >
                 <div className="flex gap-6">
-                  <div className="font-mono text-[0.65rem] text-text-tertiary tracking-[0.03em]">
-                    <span className="text-text-secondary font-medium">{Math.max(stats.relationshipCount, 156)}</span> documented relationships
+                  <div className="font-mono text-[0.65rem] text-[rgba(245,240,232,0.4)] tracking-[0.03em]">
+                    <span className="text-[rgba(245,240,232,0.75)] font-medium">{stats.relationshipCount}</span> documented connections
                   </div>
-                  <div className="font-mono text-[0.65rem] text-text-tertiary tracking-[0.03em]">
-                    <span className="text-text-secondary font-medium">16</span> relationship types
+                  <div className="font-mono text-[0.65rem] text-[rgba(245,240,232,0.4)] tracking-[0.03em]">
+                    <span className="text-[rgba(245,240,232,0.75)] font-medium">{stats.relationshipTypeCount}</span> relationship types
                   </div>
-                  <div className="font-mono text-[0.65rem] text-text-tertiary tracking-[0.03em]">
-                    <span className="text-text-secondary font-medium">{Math.max(stats.entityCount, 60)}+</span> entities mapped
+                  <div className="font-mono text-[0.65rem] text-[rgba(245,240,232,0.4)] tracking-[0.03em]">
+                    <span className="text-[rgba(245,240,232,0.75)] font-medium">{stats.entityCount}</span> entities mapped
                   </div>
                 </div>
                 <Link href="/explore" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-gold hover:opacity-70 transition-opacity">

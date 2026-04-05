@@ -180,7 +180,7 @@ export function DossierTabs({
 
 // ── Relationship Filter Pills ────────────────────────────────────────────────
 
-const FILTER_PILLS = ['All', 'Mentor / Student', 'Funded', 'Investigated', 'Contradicted', 'Co-appeared', 'Employed'];
+const FILTER_PILLS = ['All', 'Funded', 'Affiliated', 'Investigated', 'Front For', 'Succeeded'];
 
 export function RelationshipFilters() {
   const [active, setActive] = useState('All');

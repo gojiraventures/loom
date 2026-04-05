@@ -65,6 +65,7 @@ export async function getDossierStats(): Promise<{
   groupCount: number;
   locationCount: number;
   relationshipCount: number;
+  relationshipTypeCount: number;
   entityCount: number;
 }> {
   const supabase = createServerSupabaseClient();
@@ -74,12 +75,21 @@ export async function getDossierStats(): Promise<{
     { count: relCount },
     { count: instRelCount },
     { count: locCount },
+    { data: peopleRelTypes },
+    { data: instRelTypes },
   ] = await Promise.all([
     supabase.from('people').select('*', { count: 'exact', head: true }),
     supabase.from('institutions').select('*', { count: 'exact', head: true }),
     supabase.from('people_relationships').select('*', { count: 'exact', head: true }),
     supabase.from('institution_relationships').select('*', { count: 'exact', head: true }),
     supabase.from('locations').select('*', { count: 'exact', head: true }),
+    supabase.from('people_relationships').select('relationship_type'),
+    supabase.from('institution_relationships').select('relationship_type'),
+  ]);
+
+  const allTypes = new Set([
+    ...(peopleRelTypes ?? []).map((r) => r.relationship_type as string),
+    ...(instRelTypes ?? []).map((r) => r.relationship_type as string),
   ]);
 
   return {
@@ -87,6 +97,7 @@ export async function getDossierStats(): Promise<{
     groupCount: instCount ?? 0,
     locationCount: locCount ?? 0,
     relationshipCount: (relCount ?? 0) + (instRelCount ?? 0),
+    relationshipTypeCount: allTypes.size,
     entityCount: (peopleCount ?? 0) + (instCount ?? 0) + (locCount ?? 0),
   };
 }
