@@ -114,8 +114,8 @@ export async function validateMediaUrl(url: string, type?: string): Promise<Vali
 export async function validateMediaUrls(
   items: { id: string; url: string; type?: string }[],
   concurrency = 5,
-): Promise<Map<string, ValidationResult & { id: string }>> {
-  const results = new Map<string, ValidationResult & { id: string }>();
+): Promise<Map<string, ValidationResult & { id: string; url: string }>> {
+  const results = new Map<string, ValidationResult & { id: string; url: string }>();
 
   for (let i = 0; i < items.length; i += concurrency) {
     const batch = items.slice(i, i + concurrency);

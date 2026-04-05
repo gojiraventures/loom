@@ -2329,6 +2329,8 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchMsg, setSearchMsg] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [generateMsg, setGenerateMsg] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
   const [cropStatus, setCropStatus] = useState<Record<string, string>>({});
@@ -2412,6 +2414,27 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
     }
   };
 
+  const generateHero = async () => {
+    setGenerating(true);
+    setGenerateMsg('Claude is writing prompts, then Grok Imagine will generate images — this takes ~2 min…');
+    try {
+      const res = await fetch('/api/admin/images/generate-hero', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Unknown error');
+      const errNote = data.errors?.length ? ` (${data.errors.length} failed)` : '';
+      setGenerateMsg(`Generated ${data.generated}/4 AI hero images${errNote} — now in Suggested ↓`);
+      load();
+    } catch (err) {
+      setGenerateMsg(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const update = async (id: string, patch: Partial<Pick<TopicImage, 'status' | 'featured'>>) => {
     await fetch('/api/admin/images', {
       method: 'PATCH',
@@ -2484,6 +2507,13 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
             >
               {searching ? 'Searching…' : images.length > 0 ? '↻ Re-search Wikimedia' : '⌕ Search Wikimedia Commons'}
             </button>
+            <button
+              onClick={generateHero}
+              disabled={generating || searching}
+              className="font-mono text-[9px] uppercase tracking-widest text-gold border border-gold/30 px-3 py-1.5 rounded hover:bg-gold/10 transition-colors disabled:opacity-40"
+            >
+              {generating ? 'Generating…' : '✦ Generate AI Hero'}
+            </button>
             {images.length > 0 && (
               <button
                 onClick={load}
@@ -2495,6 +2525,11 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
             {searchMsg && (
               <span className={`font-mono text-[9px] ${searchMsg.startsWith('Error') ? 'text-red-400' : 'text-text-tertiary'}`}>
                 {searchMsg}
+              </span>
+            )}
+            {generateMsg && (
+              <span className={`font-mono text-[9px] ${generateMsg.startsWith('Error') ? 'text-red-400' : 'text-emerald-400/80'}`}>
+                {generateMsg}
               </span>
             )}
           </div>
