@@ -50,7 +50,7 @@ export default function CookiesPage() {
 
             <section className="border-t border-border pt-8">
               <h2 className="font-serif text-xl text-text-primary mb-3">Contact</h2>
-              <p>Cookie questions: <a href="mailto:privacy@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">privacy@unraveledtruth.com</a></p>
+              <p>Cookie questions: <a href="mailto:team@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">team@unraveledtruth.com</a></p>
             </section>
 
           </div>

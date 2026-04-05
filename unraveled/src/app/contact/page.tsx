@@ -10,27 +10,27 @@ const CONTACTS = [
   {
     category: 'Research & Editorial',
     desc: 'Found something we missed? Have a source that challenges or supports our findings? That\'s the kind of message we want.',
-    email: 'research@unraveledtruth.com',
+    email: 'team@unraveledtruth.com',
   },
   {
     category: 'Corrections',
     desc: 'If you believe something we published is factually incorrect, tell us specifically what, where, and what the correct information is. Include a source if you have one.',
-    email: 'corrections@unraveledtruth.com',
+    email: 'team@unraveledtruth.com',
   },
   {
     category: 'Creator Attribution & Licensing',
     desc: 'Using our research in your content? Questions about attribution or licensing for commercial use?',
-    email: 'creators@unraveledtruth.com',
+    email: 'team@unraveledtruth.com',
   },
   {
     category: 'Subscriptions & Billing',
     desc: 'Account issues, billing questions, refund requests.',
-    email: 'support@unraveledtruth.com',
+    email: 'team@unraveledtruth.com',
   },
   {
     category: 'Privacy & Legal',
     desc: 'Data requests, privacy questions, legal correspondence.',
-    email: 'legal@unraveledtruth.com',
+    email: 'team@unraveledtruth.com',
   },
 ];
 

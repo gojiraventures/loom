@@ -85,12 +85,12 @@ export default function PrivacyPage() {
 
             <section>
               <h2 className="font-serif text-xl text-text-primary mb-4">Your Rights</h2>
-              <p>You can request a copy of your data, request correction of inaccurate data, or request deletion of your account and associated data at any time by contacting us at <a href="mailto:privacy@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">privacy@unraveledtruth.com</a>. EU and California residents have additional rights under GDPR and CCPA respectively — we honor all such requests.</p>
+              <p>You can request a copy of your data, request correction of inaccurate data, or request deletion of your account and associated data at any time by contacting us at <a href="mailto:team@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">team@unraveledtruth.com</a>. EU and California residents have additional rights under GDPR and CCPA respectively — we honor all such requests.</p>
             </section>
 
             <section>
               <h2 className="font-serif text-xl text-text-primary mb-4">Children</h2>
-              <p>UnraveledTruth is not directed at children under 13. We do not knowingly collect data from children under 13. If you believe a child has created an account, contact us at <a href="mailto:privacy@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">privacy@unraveledtruth.com</a> and we will remove it promptly.</p>
+              <p>UnraveledTruth is not directed at children under 13. We do not knowingly collect data from children under 13. If you believe a child has created an account, contact us at <a href="mailto:team@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">team@unraveledtruth.com</a> and we will remove it promptly.</p>
             </section>
 
             <section>
@@ -100,7 +100,7 @@ export default function PrivacyPage() {
 
             <section className="border-t border-border pt-8">
               <h2 className="font-serif text-xl text-text-primary mb-3">Contact</h2>
-              <p>Privacy questions: <a href="mailto:privacy@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">privacy@unraveledtruth.com</a></p>
+              <p>Privacy questions: <a href="mailto:team@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">team@unraveledtruth.com</a></p>
             </section>
 
           </div>

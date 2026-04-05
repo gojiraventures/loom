@@ -42,7 +42,7 @@ export default function TermsPage() {
               <h2 className="font-serif text-xl text-text-primary mb-4">Refunds</h2>
               <p className="mb-4">Monthly subscriptions are non-refundable once the billing period has started.</p>
               <p className="mb-4">Annual subscriptions may be refunded on a prorated basis if requested within 14 days of the billing date. Refund requests after 14 days are considered on a case-by-case basis.</p>
-              <p>To request a refund, contact <a href="mailto:support@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">support@unraveledtruth.com</a>. See our <a href="/refund" className="text-gold hover:text-gold/80 transition-colors border-b border-gold/30">Refund Policy</a> for full details.</p>
+              <p>To request a refund, contact <a href="mailto:team@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">team@unraveledtruth.com</a>. See our <a href="/refund" className="text-gold hover:text-gold/80 transition-colors border-b border-gold/30">Refund Policy</a> for full details.</p>
             </section>
 
             <section>
@@ -87,7 +87,7 @@ export default function TermsPage() {
 
             <section className="border-t border-border pt-8">
               <h2 className="font-serif text-xl text-text-primary mb-3">Contact</h2>
-              <p>Legal questions: <a href="mailto:legal@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">legal@unraveledtruth.com</a></p>
+              <p>Legal questions: <a href="mailto:team@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">team@unraveledtruth.com</a></p>
             </section>
 
           </div>

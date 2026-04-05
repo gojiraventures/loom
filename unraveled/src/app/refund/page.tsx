@@ -29,7 +29,7 @@ export default function RefundPage() {
             <section>
               <h2 className="font-serif text-xl text-text-primary mb-4">Annual Subscriptions</h2>
               <p className="mb-4">Annual subscriptions may be refunded on a prorated basis if requested within 14 days of the billing date. After 14 days, refunds are considered on a case-by-case basis.</p>
-              <p>To request a refund, email <a href="mailto:support@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">support@unraveledtruth.com</a> with your account email and the reason for your request. We aim to respond within 2 business days.</p>
+              <p>To request a refund, email <a href="mailto:team@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">team@unraveledtruth.com</a> with your account email and the reason for your request. We aim to respond within 2 business days.</p>
             </section>
 
             <section>
@@ -44,7 +44,7 @@ export default function RefundPage() {
 
             <section className="border-t border-border pt-8">
               <h2 className="font-serif text-xl text-text-primary mb-3">Contact</h2>
-              <p>Billing questions: <a href="mailto:support@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">support@unraveledtruth.com</a></p>
+              <p>Billing questions: <a href="mailto:team@unraveledtruth.com" className="text-gold hover:text-gold/80 transition-colors">team@unraveledtruth.com</a></p>
             </section>
 
           </div>
