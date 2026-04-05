@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       const imageResult = await generateImage(heroPrompt.prompt);
 
       // Upload to Supabase Storage
-      const imageBytes = Buffer.from(imageResult.b64_json, 'base64');
+      const imageBytes = imageResult.buffer;
       const slug = topic.replace(/[^a-z0-9-]/gi, '_');
       const storagePath = `${slug}/ai_${heroPrompt.type}_${Date.now()}.png`;
 

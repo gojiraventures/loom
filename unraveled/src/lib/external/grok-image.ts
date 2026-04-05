@@ -4,11 +4,12 @@
  * OpenAI-compatible API at https://api.x.ai/v1/images/generations
  * Model: grok-2-image-1212
  *
- * Returns base64-encoded PNG data for each generated image.
+ * Returns the image as a Buffer (downloaded from the xAI-hosted URL).
  */
 
 export interface GrokImageResult {
-  b64_json: string;
+  buffer: Buffer;
+  url: string;
   revised_prompt?: string;
 }
 
@@ -26,19 +27,34 @@ export async function generateImage(prompt: string): Promise<GrokImageResult> {
       model: 'grok-2-image-1212',
       prompt,
       n: 1,
-      response_format: 'b64_json',
+      response_format: 'url',
     }),
     signal: AbortSignal.timeout(120_000),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`xAI API error ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(`xAI image API ${res.status}: ${text.slice(0, 300)}`);
   }
 
-  const data = await res.json() as { data?: { b64_json?: string; revised_prompt?: string }[] };
+  const data = await res.json() as { data?: { url?: string; b64_json?: string; revised_prompt?: string }[] };
   const item = data.data?.[0];
-  if (!item?.b64_json) throw new Error('No image data returned from xAI');
 
-  return { b64_json: item.b64_json, revised_prompt: item.revised_prompt };
+  if (!item) throw new Error('xAI returned empty data array');
+
+  // Handle URL response (primary)
+  if (item.url) {
+    const imgRes = await fetch(item.url, { signal: AbortSignal.timeout(60_000) });
+    if (!imgRes.ok) throw new Error(`Failed to download image from xAI URL: ${imgRes.status}`);
+    const arrayBuffer = await imgRes.arrayBuffer();
+    return { buffer: Buffer.from(arrayBuffer), url: item.url, revised_prompt: item.revised_prompt };
+  }
+
+  // Handle b64_json fallback
+  if (item.b64_json) {
+    const buffer = Buffer.from(item.b64_json, 'base64');
+    return { buffer, url: '', revised_prompt: item.revised_prompt };
+  }
+
+  throw new Error(`xAI returned no image data. Full response: ${JSON.stringify(data).slice(0, 300)}`);
 }

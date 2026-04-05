@@ -2425,8 +2425,11 @@ function DossierImages({ topic, title }: { topic: string; title: string }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Unknown error');
-      const errNote = data.errors?.length ? ` (${data.errors.length} failed)` : '';
-      setGenerateMsg(`Generated ${data.generated}/4 AI hero images${errNote} — now in Suggested ↓`);
+      if (data.errors?.length) {
+        setGenerateMsg(`Generated ${data.generated}/4 — errors: ${(data.errors as string[]).join(' | ')}`);
+      } else {
+        setGenerateMsg(`Generated ${data.generated}/4 AI hero images — now in Suggested ↓`);
+      }
       load();
     } catch (err) {
       setGenerateMsg(`Error: ${err instanceof Error ? err.message : String(err)}`);
