@@ -6,6 +6,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { createBrowserSupabaseClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
+import { useRole } from '@/hooks/useRole';
 
 const NAV_LINKS = [
   { href: '/reports', label: 'Reports' },
@@ -17,7 +18,12 @@ const NAV_LINKS = [
 export function Header() {
   const router = useRouter();
   const { user, loading } = useUser();
+  const { role } = useRole();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const displayName = user?.user_metadata?.full_name?.split(' ')[0]
+    ?? user?.email?.split('@')[0]
+    ?? null;
 
   const signOut = async () => {
     const supabase = createBrowserSupabaseClient();
@@ -50,18 +56,25 @@ export function Header() {
           {!loading && (
             user ? (
               <div className="flex items-center gap-4">
+                {displayName && (
+                  <span className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-text-tertiary">
+                    {displayName}
+                  </span>
+                )}
+                {role === 'registered' && (
+                  <Link
+                    href="/upgrade"
+                    className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-4 py-1.5 bg-gold text-ground hover:bg-gold/90 transition-colors"
+                  >
+                    Upgrade
+                  </Link>
+                )}
                 <Link
                   href="/account"
                   className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-text-secondary hover:text-gold transition-colors"
                 >
                   Account
                 </Link>
-                <button
-                  onClick={signOut}
-                  className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 border border-[rgba(200,149,108,0.4)] text-gold hover:bg-gold hover:text-ground transition-colors"
-                >
-                  Sign Out
-                </button>
               </div>
             ) : (
               <div className="flex items-center gap-3">
@@ -123,6 +136,20 @@ export function Header() {
             {!loading && (
               user ? (
                 <>
+                  {displayName && (
+                    <span className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-text-tertiary py-3 border-b border-border/50">
+                      {displayName}
+                    </span>
+                  )}
+                  {role === 'registered' && (
+                    <Link
+                      href="/upgrade"
+                      onClick={() => setMenuOpen(false)}
+                      className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-gold hover:text-gold/70 transition-colors py-3 border-b border-border/50"
+                    >
+                      Upgrade to Member
+                    </Link>
+                  )}
                   <Link
                     href="/account"
                     onClick={() => setMenuOpen(false)}
@@ -132,7 +159,7 @@ export function Header() {
                   </Link>
                   <button
                     onClick={() => { setMenuOpen(false); signOut(); }}
-                    className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-gold hover:text-gold/70 transition-colors py-3 text-left"
+                    className="font-mono text-[0.65rem] tracking-[0.08em] uppercase text-text-tertiary hover:text-gold transition-colors py-3 text-left"
                   >
                     Sign Out
                   </button>
