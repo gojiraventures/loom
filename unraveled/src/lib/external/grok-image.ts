@@ -28,7 +28,6 @@ export async function generateImage(prompt: string): Promise<GrokImageResult> {
       prompt,
       n: 1,
       response_format: 'url',
-      aspect_ratio: '16:9',
     }),
     signal: AbortSignal.timeout(120_000),
   });
