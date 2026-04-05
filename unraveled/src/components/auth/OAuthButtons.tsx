@@ -39,9 +39,7 @@ export function OAuthButtons({ next = '/', mode = 'signin' }: Props) {
     setLoadingProvider(provider);
     const supabase = createBrowserSupabaseClient();
 
-    // Prefer explicit site URL env var so production OAuth always returns to the right domain
-    const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ?? window.location.origin;
-    const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,

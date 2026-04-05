@@ -16,6 +16,8 @@ const PUBLIC_PATH_PREFIXES = [
   '/reports',
   '/login',
   '/signup',
+  '/forgot-password',
+  '/reset-password',
   '/auth',
   '/api/og',
   '/api/newsletter',

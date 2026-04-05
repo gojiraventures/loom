@@ -103,6 +103,12 @@ function LoginForm() {
           >
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
+
+          <div className="text-right">
+            <a href="/forgot-password" className="font-mono text-[10px] text-text-tertiary hover:text-gold transition-colors">
+              Forgot password?
+            </a>
+          </div>
         </form>
 
         {/* Divider */}
