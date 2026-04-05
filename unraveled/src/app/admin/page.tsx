@@ -6,6 +6,7 @@ import type { AgentDefinition } from '@/lib/research/types';
 import { SocialTab } from './SocialTab';
 import { IntelligenceTab } from './IntelligenceTab';
 import { ThreadTab } from './ThreadTab';
+import { AnalyticsTab } from './AnalyticsTab';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -5527,6 +5528,7 @@ function InboxTab() {
 // ── Admin Page ────────────────────────────────────────────────────────────────
 
 const TABS = [
+  { id: 'analytics', label: '↗ Analytics' },
   { id: 'inbox', label: 'Inbox' },
   { id: 'backlog', label: 'Backlog' },
   { id: 'jobs', label: 'Jobs' },
@@ -5598,6 +5600,7 @@ export default function AdminPage() {
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-10">
+        {tab === 'analytics' && <AnalyticsTab />}
         {tab === 'inbox' && <InboxTab />}
         {tab === 'backlog' && <BacklogTab />}
         {tab === 'jobs' && <JobsTab />}
