@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { retryJob } from '@/lib/research/storage/jobs';
+import { requireAdmin } from '@/lib/auth';
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   const { id: jobId } = await params;
   try {
     await retryJob(jobId);

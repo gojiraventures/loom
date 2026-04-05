@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/research/storage/sessions';
 import { getJobsForSession, createJobs } from '@/lib/research/storage/jobs';
 import type { SectionKey } from '@/lib/research/jobs/section-prompts';
+import { requireAdmin } from '@/lib/auth';
 
 const SECTION_KEYS: SectionKey[] = [
   'executive_summary',
@@ -29,9 +30,12 @@ const SECTION_KEYS: SectionKey[] = [
 ];
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   const { sessionId } = await params;
 
   const session = await getSession(sessionId);

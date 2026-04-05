@@ -18,6 +18,7 @@ import { createJobs } from '@/lib/research/storage/jobs';
 import { assignRaci } from '@/lib/research/raci';
 import { RESEARCH_AGENTS } from '@/lib/research/agents/definitions';
 import type { SectionKey } from '@/lib/research/jobs/section-prompts';
+import { requireAdmin } from '@/lib/auth';
 
 const SECTION_KEYS: SectionKey[] = [
   'executive_summary',
@@ -203,6 +204,9 @@ async function queueEnhancementBatch(
 }
 
 export async function POST(req: NextRequest) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   let body: unknown;
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });

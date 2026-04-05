@@ -7,6 +7,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, updateSessionStatus, logSessionError, claimSessionForContinue, releaseSessionLock } from '@/lib/research/storage/sessions';
+import { requireAdmin } from '@/lib/auth';
 import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { getConvergenceBySession } from '@/lib/research/storage/convergence';
 import { buildCrossValidationPlan } from '@/lib/research/pipeline';
@@ -21,6 +22,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   const { sessionId } = await params;
 
   const session = await getSession(sessionId);

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+// Single source of truth for admin emails — also used in /lib/auth.ts
 const ADMIN_EMAILS = new Set(['mikeburnsinnovate@gmail.com', 'mike@xfuel.ai']);
 
 // Paths always public — no session required

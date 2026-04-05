@@ -15,10 +15,14 @@ import { after } from 'next/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { createSession, updateSessionStatus, logSessionError } from '@/lib/research/storage/sessions';
 import { runLayer1 } from '@/lib/research/pipeline';
+import { requireAdmin } from '@/lib/auth';
 
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   let body: unknown;
   try {
     body = await req.json();

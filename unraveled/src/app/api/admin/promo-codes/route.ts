@@ -1,20 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { createSessionSupabaseClient } from '@/lib/supabase-session';
-
-const ADMIN_EMAILS = new Set(['mikeburnsinnovate@gmail.com', 'mike@xfuel.ai']);
-
-async function requireAdmin() {
-  const session = await createSessionSupabaseClient();
-  const { data: { user } } = await session.auth.getUser();
-  if (!user || !user.email || !ADMIN_EMAILS.has(user.email)) return null;
-  return user;
-}
+import { requireAdmin } from '@/lib/auth';
 
 // GET /api/admin/promo-codes — list all codes
 export async function GET() {
-  const user = await requireAdmin();
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
 
   const admin = createServerSupabaseClient();
   const { data } = await admin
@@ -27,8 +18,8 @@ export async function GET() {
 
 // POST /api/admin/promo-codes — create a code
 export async function POST(req: NextRequest) {
-  const user = await requireAdmin();
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
 
   const body = await req.json() as {
     code?: string;
@@ -62,8 +53,8 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/admin/promo-codes — toggle active
 export async function PATCH(req: NextRequest) {
-  const user = await requireAdmin();
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
 
   const { id, active } = await req.json() as { id: string; active: boolean };
   const admin = createServerSupabaseClient();

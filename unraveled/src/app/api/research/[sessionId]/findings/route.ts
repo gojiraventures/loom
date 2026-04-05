@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { getValidationsBySession } from '@/lib/research/storage/validations';
+import { requireAdmin } from '@/lib/auth';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   const { sessionId } = await params;
   const url = new URL(req.url);
   const includeValidations = url.searchParams.get('validations') === 'true';

@@ -13,6 +13,7 @@ import {
   claimSessionForContinue,
   releaseSessionLock,
 } from '@/lib/research/storage/sessions';
+import { requireAdmin } from '@/lib/auth';
 import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { getValidationsBySession } from '@/lib/research/storage/validations';
 import { getConvergenceBySession } from '@/lib/research/storage/convergence';
@@ -24,9 +25,12 @@ import type { AgentFinding } from '@/lib/research/types';
 export const maxDuration = 300;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> },
 ) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   const { sessionId } = await params;
 
   const session = await getSession(sessionId);

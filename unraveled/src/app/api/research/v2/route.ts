@@ -18,6 +18,7 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 import { createSession } from '@/lib/research/storage/sessions';
 import { createJobs } from '@/lib/research/storage/jobs';
 import { assignRaci, getActiveAgents } from '@/lib/research/raci';
+import { requireAdmin } from '@/lib/auth';
 import { RESEARCH_AGENTS } from '@/lib/research/agents/definitions';
 import type { SectionKey } from '@/lib/research/jobs/section-prompts';
 
@@ -38,6 +39,9 @@ const SECTION_KEYS: SectionKey[] = [
 ];
 
 export async function POST(req: NextRequest) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   let body: unknown;
   try {
     body = await req.json();

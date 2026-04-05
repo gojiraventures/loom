@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { requireAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -153,6 +154,9 @@ export async function POST(req: NextRequest) {
 // ── PATCH /api/submissions ────────────────────────────────────────────────────
 
 export async function PATCH(req: NextRequest) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   let body: unknown;
   try { body = await req.json(); } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
@@ -180,6 +184,9 @@ export async function PATCH(req: NextRequest) {
 // ── DELETE /api/submissions?id=... ────────────────────────────────────────────
 
 export async function DELETE(req: NextRequest) {
+  const { error: authError } = await requireAdmin();
+  if (authError) return authError;
+
   const id = req.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
   const supabase = createServerSupabaseClient();
