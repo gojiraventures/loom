@@ -11,6 +11,15 @@ export function HeroVideo() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+
+    // React doesn't reliably apply the `muted` prop as a DOM property,
+    // which causes browsers to block autoplay on production. Set it explicitly.
+    video.muted = true;
+    video.play().catch(() => {
+      // Autoplay still blocked (e.g. data-saver mode) — skip straight to done
+      setPhase('done');
+    });
+
     const handleEnded = () => setPhase('fading');
     video.addEventListener('ended', handleEnded);
     return () => video.removeEventListener('ended', handleEnded);
