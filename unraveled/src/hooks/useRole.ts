@@ -32,7 +32,7 @@ export function useRole(): RoleState {
         .from('profiles')
         .select('role')
         .eq('id', user.id)
-        .single();
+        .maybeSingle(); // returns null (not 406) when no row exists
 
       setState({
         role: (profile?.role as Role) ?? 'registered',
