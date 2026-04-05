@@ -40,7 +40,7 @@ Script rules:
   ...
 - No stage directions, no [pause], no asterisks. Plain dialogue only.`;
 
-function buildScriptPrompt(output: SynthesizedOutput): string {
+function buildScriptPrompt(output: SynthesizedOutput, drivingQuestion?: string | null): string {
   const layers = (output.jaw_drop_layers ?? [])
     .slice(0, 4)
     .map((l) => `• ${l.title}: ${l.content?.slice(0, 200) ?? ''}`)
@@ -49,7 +49,7 @@ function buildScriptPrompt(output: SynthesizedOutput): string {
   return `Write a podcast script for this article. Use the exact Host:/Co-Host: format.
 
 ARTICLE TITLE: ${output.title}
-SUBTITLE: ${output.subtitle ?? ''}
+SUBTITLE: ${output.subtitle ?? ''}${drivingQuestion ? `\nDRIVING QUESTION (the central question the research investigates — open the episode with this): ${drivingQuestion}` : ''}
 
 EXECUTIVE SUMMARY:
 ${output.executive_summary?.slice(0, 600) ?? ''}
@@ -155,12 +155,12 @@ export interface PodcastResult {
   wavBuffer: Buffer;
 }
 
-export async function generatePodcast(output: SynthesizedOutput): Promise<PodcastResult> {
+export async function generatePodcast(output: SynthesizedOutput, drivingQuestion?: string | null): Promise<PodcastResult> {
   // Step 1: Script via Claude
   const scriptResponse = await queryClaude({
     provider: 'claude',
     systemPrompt: SCRIPT_SYSTEM,
-    userPrompt: buildScriptPrompt(output),
+    userPrompt: buildScriptPrompt(output, drivingQuestion),
     jsonMode: false,
     maxTokens: 4096,
     temperature: 0.7,

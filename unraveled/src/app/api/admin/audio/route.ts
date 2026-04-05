@@ -48,10 +48,10 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServerSupabaseClient();
 
-  // Load synthesized_output
+  // Load synthesized_output + driving_question
   const { data: dossier, error: loadErr } = await supabase
     .from('topic_dossiers')
-    .select('synthesized_output, title')
+    .select('synthesized_output, title, driving_question')
     .eq('topic', topic)
     .single();
 
@@ -60,9 +60,10 @@ export async function POST(req: NextRequest) {
   }
 
   const output = dossier.synthesized_output as SynthesizedOutput;
+  const drivingQuestion = (dossier.driving_question as string | null) ?? null;
 
   // Generate script + audio
-  const { script, wavBuffer } = await generatePodcast(output);
+  const { script, wavBuffer } = await generatePodcast(output, drivingQuestion);
 
   // Upload WAV to Supabase Storage
   const fileName = `${topic.replace(/[^a-z0-9-]/gi, '_')}_${Date.now()}.wav`;
