@@ -4,8 +4,8 @@ import { createSessionSupabaseClient } from '@/lib/supabase-session';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
 const PRICE_IDS = {
-  monthly: 'price_1TlaPZ1MoP00XZKHnmRMlGzE',
-  annual:  'price_1TIaQ91MoP00XZKHYwoCRBfC',
+  monthly: 'price_1TIfCN0twpkeumjyAsljnnKJ',
+  annual:  'price_1TIfCR0twpkeumjymgOYNPBI',
 } as const;
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveledtruth.com';
