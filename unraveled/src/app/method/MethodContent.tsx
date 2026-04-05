@@ -117,6 +117,21 @@ export function MethodContent() {
           </div>
         </section>
 
+        {/* Agent note */}
+        <section className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-8 pb-10">
+            <div className="border border-border/50 bg-ground-light/20 px-6 py-6">
+              <span className="font-mono text-[8px] tracking-[0.25em] uppercase text-text-tertiary block mb-4">A Note on the Agents</span>
+              <div className="space-y-3 text-sm text-text-secondary leading-[1.8]">
+                <p>Our research pipeline runs on a fully orchestrated network of specialized AI agents — an expanding collaborative intelligence designed to investigate the way no single mind can. Each agent holds a specific role: source analyst, cross-cultural comparator, linguistic historian, skeptical challenger, archaeological interpreter, and dozens more.</p>
+                <p>They work in concert but without shared context — isolated by design so that when independent agents converge on the same finding, that convergence means something. They challenge each other. They pressure-test conclusions. They read between the lines of what sources say and don&apos;t say.</p>
+                <p>The result is a synthesis that emerges from genuine adversarial collaboration, not a single perspective dressed up as research.</p>
+                <p className="font-mono text-[10px] tracking-[0.06em] uppercase text-text-tertiary pt-1">No agent publishes autonomously. Every report is reviewed by a human editor before it appears on this site.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Convergence score */}
         <section className="border-b border-border">
           <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
@@ -157,6 +172,19 @@ export function MethodContent() {
           </div>
         </section>
 
+        {/* Human oversight */}
+        <section className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-10 pb-10">
+            <div className="flex items-start gap-5">
+              <div className="w-1 h-full bg-gold/30 shrink-0 self-stretch rounded-full" />
+              <div>
+                <span className="font-mono text-[8px] tracking-[0.25em] uppercase text-text-tertiary block mb-2">Human Editorial Oversight</span>
+                <p className="text-sm text-text-secondary leading-relaxed">Every piece of research that appears on UnraveledTruth has been reviewed by a human editor. <span className="text-text-primary">Agents investigate. Humans decide what gets published.</span></p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* What we don't do */}
         <section>
           <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-16">
@@ -180,6 +208,11 @@ export function MethodContent() {
           </div>
         </section>
       </main>
+
+        {/* Last updated */}
+        <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-6">
+          <p className="font-mono text-[9px] tracking-[0.1em] text-text-tertiary">Method last updated: April 2026</p>
+        </div>
 
       <Footer />
     </div>

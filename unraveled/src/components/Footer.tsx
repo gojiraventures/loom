@@ -5,7 +5,7 @@ export function Footer() {
   return (
     <footer className="border-t border-border">
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-12">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8 mb-12">
 
           {/* Explore — no header, just links */}
           <div>
@@ -42,9 +42,38 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="mailto:team@unraveledtruth.com" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                <Link href="/contact" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
                   Contact
-                </a>
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h4 className="font-mono text-[9px] tracking-[0.2em] uppercase text-text-tertiary mb-4">
+              Legal
+            </h4>
+            <ul className="space-y-2">
+              <li>
+                <Link href="/privacy" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link href="/cookies" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                  Cookie Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/refund" className="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                  Refund Policy
+                </Link>
               </li>
             </ul>
           </div>
