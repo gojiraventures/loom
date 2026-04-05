@@ -1,5 +1,6 @@
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { CopyButton } from './CopyButton';
 
 export const metadata = {
   title: 'For Creators — UnraveledTruth',
@@ -124,14 +125,7 @@ export default function CreatorsPage() {
                     <span className="font-mono text-[10px] tracking-[0.1em] uppercase text-gold">
                       {block.platform}
                     </span>
-                    {/* Copy button — client-side only, graceful without JS */}
-                    <button
-                      onClick={undefined}
-                      data-copy={block.content}
-                      className="font-mono text-[10px] px-3 py-1 border border-border text-text-secondary hover:border-gold/40 hover:text-text-primary transition-colors copy-btn"
-                    >
-                      Copy
-                    </button>
+                    <CopyButton text={block.content} />
                   </div>
                   <pre className="px-5 py-4 font-mono text-[12px] text-text-primary leading-relaxed whitespace-pre-wrap break-all">
                     {block.content}
@@ -140,24 +134,6 @@ export default function CreatorsPage() {
               ))}
             </div>
 
-            {/* Copy button script */}
-            <script dangerouslySetInnerHTML={{ __html: `
-              document.querySelectorAll('.copy-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                  navigator.clipboard.writeText(btn.dataset.copy).then(() => {
-                    const orig = btn.textContent;
-                    btn.textContent = 'Copied';
-                    btn.style.color = '#D4B483';
-                    btn.style.borderColor = 'rgba(212,180,131,0.4)';
-                    setTimeout(() => {
-                      btn.textContent = orig;
-                      btn.style.color = '';
-                      btn.style.borderColor = '';
-                    }, 2000);
-                  });
-                });
-              });
-            ` }} />
           </section>
 
           {/* ── Brand assets ───────────────────────────────────────────────── */}

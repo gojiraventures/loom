@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { NewsletterForm } from './NewsletterForm';
 
-export async function Footer() {
+export function Footer() {
   return (
     <footer className="border-t border-border">
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-12">
