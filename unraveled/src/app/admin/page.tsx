@@ -843,6 +843,7 @@ function ContentTab() {
   const [featureStatus, setFeatureStatus] = useState<Record<string, string>>({});
   const [drivingQuestions, setDrivingQuestions] = useState<Record<string, string>>({});
   const [drivingQuestionStatus, setDrivingQuestionStatus] = useState<Record<string, string>>({});
+  const [drivingQuestionGenerating, setDrivingQuestionGenerating] = useState<Record<string, boolean>>({});
   const [llmStatus, setLlmStatus] = useState<Record<string, string>>({});
   const [componentStatus, setComponentStatus] = useState<Record<string, string>>({});
   const [componentsOpen, setComponentsOpen] = useState<string | null>(null);
@@ -879,6 +880,27 @@ function ContentTab() {
       setTimeout(() => setDrivingQuestionStatus((s) => ({ ...s, [topic]: '' })), 2500);
     } catch {
       setDrivingQuestionStatus((s) => ({ ...s, [topic]: 'error' }));
+    }
+  };
+
+  const generateDrivingQuestion = async (topic: string) => {
+    setDrivingQuestionGenerating((s) => ({ ...s, [topic]: true }));
+    setDrivingQuestionStatus((s) => ({ ...s, [topic]: 'generating…' }));
+    try {
+      const res = await fetch('/api/admin/dossier/driving-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      const data = await res.json() as { ok?: boolean; driving_question?: string; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Failed');
+      setDrivingQuestions((s) => ({ ...s, [topic]: data.driving_question ?? '' }));
+      setDrivingQuestionStatus((s) => ({ ...s, [topic]: 'generated ✓' }));
+      setTimeout(() => setDrivingQuestionStatus((s) => ({ ...s, [topic]: '' })), 3000);
+    } catch (err) {
+      setDrivingQuestionStatus((s) => ({ ...s, [topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    } finally {
+      setDrivingQuestionGenerating((s) => ({ ...s, [topic]: false }));
     }
   };
 
@@ -1400,6 +1422,13 @@ function ContentTab() {
                     onChange={(e) => setDrivingQuestions((s) => ({ ...s, [d.topic]: e.target.value }))}
                     onKeyDown={(e) => { if (e.key === 'Enter') saveDrivingQuestion(d.topic); }}
                   />
+                  <button
+                    onClick={() => generateDrivingQuestion(d.topic)}
+                    disabled={drivingQuestionGenerating[d.topic]}
+                    className="font-mono text-[9px] uppercase tracking-widest text-teal-400 border border-teal-400/30 bg-teal-400/5 hover:bg-teal-400/10 px-3 py-1 rounded transition-colors disabled:opacity-40 shrink-0"
+                  >
+                    {drivingQuestionGenerating[d.topic] ? '…' : '✦ Generate'}
+                  </button>
                   <button
                     onClick={() => saveDrivingQuestion(d.topic)}
                     disabled={drivingQuestionStatus[d.topic] === 'saving…'}
