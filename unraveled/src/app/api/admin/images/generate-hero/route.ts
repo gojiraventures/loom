@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
           source: 'grok_generated',
           search_query: heroPrompt.type,
           title: `${heroPrompt.label} — AI Hero`,
-          description: heroPrompt.prompt.slice(0, 500),
+          description: heroPrompt.prompt,
           image_url: publicUrl,
           thumbnail_url: publicUrl,
           source_page_url: null,
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
           featured: false,
           gemini_verdict: null,
           gemini_caption: null,
-          gemini_literal: heroPrompt.prompt.slice(0, 300),
+          gemini_literal: heroPrompt.prompt,
           updated_at: new Date().toISOString(),
         })
         .select('id')
