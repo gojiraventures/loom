@@ -1,18 +1,17 @@
 /**
- * Hero Image Prompt Generator — v1.3
+ * Hero Image Prompt Generator — v1.4
  *
  * Grok generates ONLY the variable part of each prompt (opener + scene + subject +
  * lighting/accent) — kept under ~600 chars so the fixed tail block always fits.
  *
  * The TAIL_BLOCK is appended verbatim by code, never by Grok. This guarantees the
  * style DNA (palette, finish, texture, aesthetic references, negative space, mood
- * phrase, atmospheric rule, no-text rule, and --stylize params) is never compressed,
- * paraphrased, or truncated.
+ * phrase, atmospheric rules, no-text rule) is never compressed, paraphrased, or truncated.
  */
 
-// Verbatim fixed tail — appended to every prompt in code. ~750 chars. Never modify.
+// Verbatim fixed tail — appended to every prompt in code. Never modify.
 const TAIL_BLOCK =
-  'Deep charcoal-to-near-black palette (#0F0F0F–#1A1A1A) with muted teal and slate-gray tones in the shadows. Matte finish, very light film grain, subtle printed-paper texture. National Geographic museum-catalog sophistication crossed with 19th-century scientific engraving restraint. Generous empty negative space across the entire top third for large headline overlay. Quietly mysterious and intellectually seductive — feels like a discovered scholarly artifact. No mist, no smoke, no fog, no atmospheric veil whatsoever. No text, no titles, no watermarks, no legible inscriptions, glyphs, or symbols anywhere in the image. --stylize 225 --v 6';
+  'Deep charcoal-to-near-black palette (#0F0F0F–#1A1A1A) with muted teal and slate-gray tones in the shadows. Matte finish, very light film grain. National Geographic museum-catalog sophistication crossed with 19th-century scientific engraving restraint. Atmospheric elements (mist, volumetric haze, drifting smoke) used purposefully for cinematic depth — never as generic filler, always serving the composition. Generous empty negative space across the entire top third for large headline overlay. Quietly mysterious and intellectually seductive — feels like a discovered scholarly artifact. No text, no titles, no watermarks, no legible inscriptions, glyphs, or symbols anywhere in the image. Landscape 16:9 widescreen format.';
 
 const SYSTEM_PROMPT = `You are the art director for UnraveledTruth.com — a premium editorial platform exploring cross-cultural patterns in myth, history, and evidence.
 
@@ -22,7 +21,7 @@ The variable portion you generate must follow this exact structure and stay UNDE
 "High-end editorial hero illustration in UnraveledTruth house style: [scene description, 1–2 sentences max]. Strict rule-of-thirds composition with [subject] positioned in the [grid position — e.g. upper-center third]. [Material/subject detail, 1 sentence]. [Specific lighting direction] with a single restrained warm antique gold-beige accent (#D4B483 / #C9A66B) [illuminating what specifically]."
 
 CRITICAL RULES:
-- The fixed tail appended after your output handles: palette, finish, texture, aesthetic references, negative space, mood, no-fog rule, no-text rule, and --stylize params. Do NOT include any of those in your output.
+- The fixed tail appended after your output handles: palette, finish, texture, aesthetic references, negative space, mood, atmospheric rules, no-text rule, and format. Do NOT include any of those in your output.
 - SPATIAL AND MATERIAL INSTRUCTIONS ONLY. No narrative explanation of why you chose a composition. No sentences like "to represent the paradox of..." — Grok Imagine ignores conceptual logic and needs tonal/spatial/material instructions only.
 - Be specific about materials: "weathered limestone," "oxidized bronze," "fired clay," not "ancient stone."
 - Focal point must be in the UPPER HALF — bottom 40–50% is covered by overlay on the live site.
