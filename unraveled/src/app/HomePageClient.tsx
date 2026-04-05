@@ -39,7 +39,7 @@ const PEOPLE_CATEGORIES = [
   },
 ];
 
-const INSTITUTION_CATEGORIES = [
+const GROUP_CATEGORIES = [
   {
     key: 'government',
     dot: '#AD6A6A',
@@ -66,57 +66,90 @@ const INSTITUTION_CATEGORIES = [
   },
 ];
 
+const LOCATION_CATEGORIES = [
+  {
+    key: 'site',
+    dot: '#C8956C',
+    label: 'Archaeological site',
+    desc: 'Excavation sites and ruins whose findings challenge or complicate accepted timelines',
+  },
+  {
+    key: 'structure',
+    dot: '#6AADAD',
+    label: 'Structure',
+    desc: 'Ancient constructions whose origin, purpose, or builders remain disputed',
+  },
+  {
+    key: 'region',
+    dot: '#8B7EC8',
+    label: 'Region',
+    desc: 'Geographic areas with concentrated anomalies across multiple disciplines',
+  },
+];
+
+type ActiveTab = 'people' | 'groups' | 'locations';
+
 export function DossierTabs({
   peopleCount,
-  institutionCount,
+  groupCount,
+  locationCount,
 }: {
   peopleCount: number;
-  institutionCount: number;
+  groupCount: number;
+  locationCount: number;
 }) {
-  const [active, setActive] = useState<'people' | 'institutions'>('people');
+  const [active, setActive] = useState<ActiveTab>('people');
 
-  const categories = active === 'people' ? PEOPLE_CATEGORIES : INSTITUTION_CATEGORIES;
-  const totalCount = active === 'people' ? peopleCount : institutionCount;
+  const tabConfig: Record<ActiveTab, { categories: typeof PEOPLE_CATEGORIES; count: number; noun: string }> = {
+    people:    { categories: PEOPLE_CATEGORIES,   count: peopleCount,   noun: 'profiles' },
+    groups:    { categories: GROUP_CATEGORIES,     count: groupCount,    noun: 'groups' },
+    locations: { categories: LOCATION_CATEGORIES,  count: locationCount, noun: 'locations' },
+  };
 
-  // Distribute total count across categories proportionally (best-effort)
+  const { categories, count: totalCount, noun } = tabConfig[active];
   const perCat = Math.max(Math.floor(totalCount / categories.length), 1);
   const remainder = totalCount - perCat * (categories.length - 1);
+
+  function tabClass(id: ActiveTab) {
+    return `flex items-center gap-2 px-6 py-3 font-mono text-[0.7rem] tracking-[0.06em] uppercase border-b-2 transition-colors -mb-px ${
+      active === id
+        ? 'border-gold text-gold'
+        : 'border-transparent text-text-tertiary hover:text-text-secondary'
+    }`;
+  }
+
+  function badgeClass(id: ActiveTab) {
+    return `text-[0.6rem] px-1.5 py-0.5 border ${
+      active === id
+        ? 'border-[rgba(200,149,108,0.4)] text-gold bg-[rgba(200,149,108,0.05)]'
+        : 'border-border text-text-tertiary bg-ground-light/40'
+    }`;
+  }
 
   return (
     <div>
       {/* Tab bar */}
       <div className="flex border-b border-border mb-0">
-        <button
-          onClick={() => setActive('people')}
-          className={`flex items-center gap-2 px-6 py-3 font-mono text-[0.7rem] tracking-[0.06em] uppercase border-b-2 transition-colors -mb-px ${
-            active === 'people'
-              ? 'border-gold text-gold'
-              : 'border-transparent text-text-tertiary hover:text-text-secondary'
-          }`}
-        >
+        <button onClick={() => setActive('people')} className={tabClass('people')}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
             <circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>
           </svg>
           People
-          <span className={`text-[0.6rem] px-1.5 py-0.5 border ${active === 'people' ? 'border-[rgba(200,149,108,0.4)] text-gold bg-[rgba(200,149,108,0.05)]' : 'border-border text-text-tertiary bg-ground-light/40'}`}>
-            {peopleCount}
-          </span>
+          <span className={badgeClass('people')}>{peopleCount}</span>
         </button>
-        <button
-          onClick={() => setActive('institutions')}
-          className={`flex items-center gap-2 px-6 py-3 font-mono text-[0.7rem] tracking-[0.06em] uppercase border-b-2 transition-colors -mb-px ${
-            active === 'institutions'
-              ? 'border-gold text-gold'
-              : 'border-transparent text-text-tertiary hover:text-text-secondary'
-          }`}
-        >
+        <button onClick={() => setActive('groups')} className={tabClass('groups')}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h18"/>
           </svg>
-          Institutions
-          <span className={`text-[0.6rem] px-1.5 py-0.5 border ${active === 'institutions' ? 'border-[rgba(200,149,108,0.4)] text-gold bg-[rgba(200,149,108,0.05)]' : 'border-border text-text-tertiary bg-ground-light/40'}`}>
-            {institutionCount}
-          </span>
+          Groups
+          <span className={badgeClass('groups')}>{groupCount}</span>
+        </button>
+        <button onClick={() => setActive('locations')} className={tabClass('locations')}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/>
+          </svg>
+          Locations
+          <span className={badgeClass('locations')}>{locationCount}</span>
         </button>
       </div>
 
@@ -134,7 +167,7 @@ export function DossierTabs({
                 {cat.label}
               </div>
               <div className="font-mono text-[0.65rem] text-gold tracking-[0.04em] whitespace-nowrap">
-                {count} {active === 'people' ? 'profiles' : 'institutions'}
+                {count} {noun}
               </div>
               <div className="text-[0.8rem] text-text-secondary leading-[1.45]">{cat.desc}</div>
             </div>

@@ -62,7 +62,8 @@ export async function getFeaturedTopics(): Promise<{
  */
 export async function getDossierStats(): Promise<{
   peopleCount: number;
-  institutionCount: number;
+  groupCount: number;
+  locationCount: number;
   relationshipCount: number;
   entityCount: number;
 }> {
@@ -72,18 +73,21 @@ export async function getDossierStats(): Promise<{
     { count: instCount },
     { count: relCount },
     { count: instRelCount },
+    { count: locCount },
   ] = await Promise.all([
     supabase.from('people').select('*', { count: 'exact', head: true }),
     supabase.from('institutions').select('*', { count: 'exact', head: true }),
     supabase.from('people_relationships').select('*', { count: 'exact', head: true }),
     supabase.from('institution_relationships').select('*', { count: 'exact', head: true }),
+    supabase.from('locations').select('*', { count: 'exact', head: true }),
   ]);
 
   return {
     peopleCount: peopleCount ?? 0,
-    institutionCount: instCount ?? 0,
+    groupCount: instCount ?? 0,
+    locationCount: locCount ?? 0,
     relationshipCount: (relCount ?? 0) + (instRelCount ?? 0),
-    entityCount: (peopleCount ?? 0) + (instCount ?? 0),
+    entityCount: (peopleCount ?? 0) + (instCount ?? 0) + (locCount ?? 0),
   };
 }
 

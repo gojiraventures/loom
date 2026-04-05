@@ -358,7 +358,8 @@ export default async function HomePage() {
 
           <DossierTabs
             peopleCount={stats.peopleCount}
-            institutionCount={stats.institutionCount}
+            groupCount={stats.groupCount}
+            locationCount={stats.locationCount}
           />
         </div>
       </section>
