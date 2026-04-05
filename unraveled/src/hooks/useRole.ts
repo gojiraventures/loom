@@ -30,14 +30,17 @@ export function useRole(): RoleState {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, promo_expires_at')
         .eq('id', user.id)
         .maybeSingle(); // returns null (not 406) when no row exists
 
-      setState({
-        role: (profile?.role as Role) ?? 'registered',
-        loading: false,
-      });
+      let role: Role = (profile?.role as Role) ?? 'registered';
+      // Downgrade expired promo access
+      if (role === 'paid' && profile?.promo_expires_at && new Date(profile.promo_expires_at) < new Date()) {
+        role = 'registered';
+      }
+
+      setState({ role, loading: false });
     }
 
     load();

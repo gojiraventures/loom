@@ -1,6 +1,7 @@
 import { PaywallPrompt } from '@/components/PaywallPrompt';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { PromoCodeInput } from './PromoCodeInput';
 
 export default function UpgradePage() {
   return (
@@ -17,6 +18,10 @@ export default function UpgradePage() {
             Members get everything — the full relationship graph, all dossiers, raw research files, deep reports, and topic voting.
           </p>
           <PaywallPrompt feature="Full member access" />
+
+          <div className="mt-12 border-t border-border pt-10">
+            <PromoCodeInput />
+          </div>
         </div>
       </main>
       <Footer />

@@ -7,6 +7,7 @@ import { SocialTab } from './SocialTab';
 import { IntelligenceTab } from './IntelligenceTab';
 import { ThreadTab } from './ThreadTab';
 import { AnalyticsTab } from './AnalyticsTab';
+import { PromoCodesTab } from './PromoCodesTab';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -5542,6 +5543,7 @@ const TABS = [
   { id: 'agents', label: 'Agents' },
   { id: 'sessions', label: 'Sessions' },
   { id: 'thread', label: '⊙ Thread' },
+  { id: 'promo', label: 'Promo Codes' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -5614,6 +5616,7 @@ export default function AdminPage() {
         {tab === 'agents' && <AgentsTab />}
         {tab === 'sessions' && <SessionsTab />}
         {tab === 'thread' && <ThreadTab />}
+        {tab === 'promo' && <PromoCodesTab />}
       </div>
     </div>
   );
