@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useRole } from '@/hooks/useRole';
+import Link from 'next/link';
 
 // ── Dossier Tabs — People / Institutions ─────────────────────────────────────
 
@@ -275,6 +277,39 @@ function SubmissionCard({ formKey }: { formKey: FormKey }) {
 }
 
 export function CommunitySignal() {
+  const { role, loading } = useRole();
+
+  if (loading) return null;
+
+  if (role === 'anonymous') {
+    return (
+      <div className="border border-border p-10 text-center">
+        <p className="font-serif text-lg mb-2">Members only</p>
+        <p className="text-sm text-text-secondary mb-6">Sign in or subscribe to submit leads, flag institutions, and request research.</p>
+        <div className="flex items-center justify-center gap-3">
+          <Link href="/login" className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 border border-border text-text-secondary hover:text-gold hover:border-gold/40 transition-colors">
+            Sign in
+          </Link>
+          <Link href="/join" className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 bg-gold text-ground hover:bg-gold/90 transition-colors">
+            Join
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (role === 'registered') {
+    return (
+      <div className="border border-border p-10 text-center">
+        <p className="font-serif text-lg mb-2">Subscribers only</p>
+        <p className="text-sm text-text-secondary mb-6">Community Signal is available to paid subscribers. Upgrade to submit leads and shape what gets investigated next.</p>
+        <Link href="/upgrade" className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 bg-gold text-ground hover:bg-gold/90 transition-colors">
+          Become a member
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
       <SubmissionCard formKey="person" />
@@ -288,16 +323,28 @@ export function CommunitySignal() {
 
 export function EmailSignup() {
   const [email, setEmail] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
-    setSubmitted(true);
-    setEmail('');
+    if (!email.trim() || state === 'loading') return;
+    setState('loading');
+    try {
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      setState('done');
+      setEmail('');
+    } catch {
+      setState('error');
+      setTimeout(() => setState('idle'), 3000);
+    }
   };
 
-  if (submitted) {
+  if (state === 'done') {
     return (
       <p className="font-mono text-[0.8rem] tracking-wider uppercase text-gold py-3">
         You&apos;re on the list.
@@ -312,13 +359,15 @@ export function EmailSignup() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="your@email.com"
+        required
         className="flex-1 bg-ground-light border border-r-0 border-border px-4 py-3 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-[rgba(200,149,108,0.4)] transition-colors"
       />
       <button
         type="submit"
-        className="font-mono text-[0.65rem] tracking-[0.1em] uppercase px-7 py-3 bg-gold text-ground border border-gold hover:bg-[#d9a87a] transition-colors shrink-0 font-medium"
+        disabled={state === 'loading'}
+        className="font-mono text-[0.65rem] tracking-[0.1em] uppercase px-7 py-3 bg-gold text-ground border border-gold hover:bg-[#d9a87a] transition-colors shrink-0 font-medium disabled:opacity-60"
       >
-        Request access
+        {state === 'loading' ? 'Saving…' : state === 'error' ? 'Try again' : 'Subscribe'}
       </button>
     </form>
   );

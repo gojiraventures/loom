@@ -71,10 +71,10 @@ export default async function HomePage() {
             <Link href="/explore" className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-text-secondary hover:text-gold transition-colors hidden sm:block">Relationships</Link>
             <ThemeToggle />
             <Link
-              href="/login"
+              href="/join"
               className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 border border-[rgba(200,149,108,0.4)] text-gold hover:bg-gold hover:text-ground transition-colors"
             >
-              Request access
+              Join
             </Link>
           </div>
         </div>
@@ -237,44 +237,38 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {reportGrid.map((topic, i) => {
                 const dots = buildConnectionDots(topic.key_traditions, i);
                 return (
                   <Link
                     key={topic.slug}
                     href={`/topics/${topic.slug}`}
-                    className="group p-8 bg-ground-light/40 hover:bg-ground-light/70 transition-colors flex flex-col min-h-[320px]"
+                    className="group block border border-border bg-ground-light hover:border-gold/30 transition-colors rounded p-5 flex flex-col"
                   >
-                    <div className="font-mono text-[0.55rem] tracking-[0.12em] text-text-tertiary mb-4">
+                    <div className="font-mono text-[0.55rem] tracking-[0.12em] text-text-tertiary mb-3">
                       Report {String(i + 2).padStart(3, '0')}
                     </div>
 
                     {topic.key_traditions.length > 0 && (
-                      <div className="font-mono text-[0.55rem] tracking-[0.1em] uppercase text-teal/70 mb-3">
-                        {topic.key_traditions.slice(0, 4).join(' · ')}
-                        {topic.key_traditions.length > 4 && ` · +${topic.key_traditions.length - 4}`}
+                      <div className="font-mono text-[0.55rem] tracking-[0.08em] uppercase text-teal/70 mb-2 line-clamp-2">
+                        {topic.key_traditions.slice(0, 3).join(' · ')}
+                        {topic.key_traditions.length > 3 && ` · +${topic.key_traditions.length - 3}`}
                       </div>
                     )}
 
-                    <h3 className="font-serif text-[1.3rem] font-normal leading-[1.3] tracking-tight mb-3 group-hover:text-gold transition-colors flex-1">
+                    <h3 className="font-serif text-[1.15rem] font-normal leading-[1.3] tracking-tight mb-2 group-hover:text-gold transition-colors flex-1">
                       {topic.title}
                     </h3>
 
                     {topic.summary && (
-                      <p className="text-[0.82rem] leading-[1.6] text-text-secondary mb-5 line-clamp-1">
+                      <p className="text-xs leading-[1.6] text-text-secondary mb-4 line-clamp-2">
                         {topic.summary}
                       </p>
                     )}
 
-                    {/* Convergence score + connection dots */}
-                    {topic.convergence_score > 0 && (
-                      <div className="font-mono text-[0.55rem] tracking-[0.08em] text-text-tertiary mb-3">
-                        Convergence <span className="text-gold">{topic.convergence_score}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 mt-auto">
-                      <div className="flex gap-[3px] flex-wrap max-w-[120px]">
+                    <div className="mt-auto pt-3 border-t border-border flex items-center gap-3">
+                      <div className="flex gap-[3px] flex-wrap max-w-[80px]">
                         {Array.from({ length: dots.traditions }).map((_, j) => (
                           <div key={`g-${j}`} className="w-1.5 h-1.5 rounded-full bg-gold/50 group-hover:bg-gold/80 transition-colors" />
                         ))}
@@ -291,10 +285,11 @@ export default async function HomePage() {
                           <div key={`r-${j}`} className="w-1.5 h-1.5 rounded-full bg-[#AD6A6A]/50 group-hover:bg-[#AD6A6A]/80 transition-colors" />
                         ))}
                       </div>
-                      <div className="font-mono text-[0.6rem] text-text-tertiary leading-[1.4] tracking-[0.04em]">
-                        <span className="text-text-secondary">{dots.total}</span> connections ·{' '}
-                        <span className="text-text-secondary">{dots.purple}</span> reports ·{' '}
-                        <span className="text-text-secondary">{dots.green}</span> people
+                      <div className="font-mono text-[9px] text-text-tertiary leading-[1.4]">
+                        {topic.convergence_score > 0 && (
+                          <span>Convergence <span className="text-gold">{topic.convergence_score}</span> · </span>
+                        )}
+                        <span className="text-text-secondary">{dots.total}</span> connections
                       </div>
                     </div>
                   </Link>
@@ -389,6 +384,7 @@ export default async function HomePage() {
             <div className="flex items-center gap-3">
               <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
               <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Dossiers</span>
+              <span className="font-mono text-[0.55rem] tracking-[0.1em] uppercase px-2 py-0.5 border border-gold/30 text-gold/60">Included with subscription</span>
             </div>
             <Link href="/people" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-text-tertiary hover:text-gold transition-colors">
               Browse all dossiers →
@@ -414,6 +410,7 @@ export default async function HomePage() {
             <div className="flex items-center gap-3">
               <div className="w-6 h-px bg-[rgba(200,149,108,0.4)]" />
               <span className="font-mono text-[0.65rem] tracking-[0.12em] uppercase text-gold">Relationships</span>
+              <span className="font-mono text-[0.55rem] tracking-[0.1em] uppercase px-2 py-0.5 border border-gold/30 text-gold/60">Included with subscription</span>
             </div>
             <Link href="/explore" className="font-mono text-[0.65rem] tracking-[0.06em] uppercase text-text-tertiary hover:text-gold transition-colors">
               Open the full map →
