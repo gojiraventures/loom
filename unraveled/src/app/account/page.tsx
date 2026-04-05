@@ -15,6 +15,8 @@ interface Profile {
   subscription_status: string | null;
   subscription_expires_at: string | null;
   stripe_customer_id: string | null;
+  promo_expires_at: string | null;
+  redeemed_promo_code: string | null;
   created_at: string;
 }
 
@@ -55,9 +57,9 @@ function AccountContent() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('display_name, username, role, subscription_status, subscription_expires_at, stripe_customer_id, created_at')
+        .select('display_name, username, role, subscription_status, subscription_expires_at, stripe_customer_id, promo_expires_at, redeemed_promo_code, created_at')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       setProfile(profile as Profile | null);
       setLoading(false);
@@ -100,8 +102,12 @@ function AccountContent() {
   }
 
   const isPaid = profile?.role === 'paid' || profile?.role === 'admin';
+  const isPromo = isPaid && !!profile?.redeemed_promo_code;
+  const isStripe = isPaid && !!profile?.stripe_customer_id;
   const name = profile?.display_name || user?.email?.split('@')[0] || 'Member';
   const roleLabel = ROLE_LABEL[profile?.role ?? 'registered'] ?? profile?.role;
+  // Access expiry: prefer promo_expires_at for promo users, else subscription_expires_at
+  const accessUntil = profile?.promo_expires_at ?? profile?.subscription_expires_at ?? null;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -146,39 +152,60 @@ function AccountContent() {
               {isPaid && (
                 <div>
                   <span className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Access until</span>
-                  <span className="text-sm text-text-secondary">{formatDate(profile?.subscription_expires_at ?? null)}</span>
+                  <span className="text-sm text-text-secondary">{accessUntil ? formatDate(accessUntil) : 'Permanent'}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Subscription management */}
+          {/* Subscription / access management */}
           {isPaid ? (
             <div className="border border-border bg-ground-light/20 px-6 py-6 space-y-4">
-              <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">Subscription</span>
+              <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
+                {isPromo ? 'Promo Access' : 'Subscription'}
+              </span>
 
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal" />
                 <span className="text-sm text-text-secondary capitalize">
-                  {profile?.subscription_status ?? 'active'}
+                  {isPromo ? `Code: ${profile?.redeemed_promo_code}` : (profile?.subscription_status ?? 'active')}
                 </span>
               </div>
 
-              <p className="text-xs text-text-tertiary leading-relaxed">
-                Manage your plan, update payment method, download invoices, or cancel via the Stripe billing portal.
-              </p>
-
-              {portalError && (
-                <p className="font-mono text-[10px] text-red-400">{portalError}</p>
+              {isPromo && (
+                <p className="text-xs text-text-tertiary leading-relaxed">
+                  {accessUntil
+                    ? `Your promo access expires ${formatDate(accessUntil)}. Upgrade to a paid plan to keep uninterrupted access.`
+                    : 'Your promo code grants permanent member access.'}
+                </p>
               )}
 
-              <button
-                onClick={openPortal}
-                disabled={portalWorking}
-                className="font-mono text-[11px] uppercase tracking-widest border border-border text-text-secondary px-5 py-2.5 hover:border-border/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {portalWorking ? 'Opening portal…' : 'Manage subscription →'}
-              </button>
+              {isStripe && (
+                <>
+                  <p className="text-xs text-text-tertiary leading-relaxed">
+                    Manage your plan, update payment method, download invoices, or cancel via the Stripe billing portal.
+                  </p>
+                  {portalError && (
+                    <p className="font-mono text-[10px] text-red-400">{portalError}</p>
+                  )}
+                  <button
+                    onClick={openPortal}
+                    disabled={portalWorking}
+                    className="font-mono text-[11px] uppercase tracking-widest border border-border text-text-secondary px-5 py-2.5 hover:border-border/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {portalWorking ? 'Opening portal…' : 'Manage subscription →'}
+                  </button>
+                </>
+              )}
+
+              {isPromo && accessUntil && (
+                <a
+                  href="/upgrade"
+                  className="inline-block font-mono text-[11px] uppercase tracking-widest bg-gold/10 border border-gold/40 text-gold px-6 py-2.5 hover:bg-gold/20 transition-colors"
+                >
+                  Upgrade to paid plan →
+                </a>
+              )}
             </div>
           ) : (
             <div className="border border-border bg-ground-light/20 px-6 py-6 space-y-3">
