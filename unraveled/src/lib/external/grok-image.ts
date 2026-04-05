@@ -13,8 +13,8 @@ export interface GrokImageResult {
 }
 
 export async function generateImage(prompt: string): Promise<GrokImageResult> {
-  const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey) throw new Error('XAI_API_KEY is not set');
+  const apiKey = process.env.XAI_IMAGE_API_KEY;
+  if (!apiKey) throw new Error('XAI_IMAGE_API_KEY is not set');
 
   const res = await fetch('https://api.x.ai/v1/images/generations', {
     method: 'POST',
