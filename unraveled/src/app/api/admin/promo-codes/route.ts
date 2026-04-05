@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { createSessionSupabaseClient } from '@/lib/supabase-session';
 
-const ADMIN_EMAIL = 'mikeburnsinnovate@gmail.com';
+const ADMIN_EMAILS = new Set(['mikeburnsinnovate@gmail.com', 'mike@xfuel.ai']);
 
 async function requireAdmin() {
   const session = await createSessionSupabaseClient();
   const { data: { user } } = await session.auth.getUser();
-  if (!user || user.email !== ADMIN_EMAIL) return null;
+  if (!user || !user.email || !ADMIN_EMAILS.has(user.email)) return null;
   return user;
 }
 

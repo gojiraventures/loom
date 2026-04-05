@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const ADMIN_EMAIL = 'mikeburnsinnovate@gmail.com';
+const ADMIN_EMAILS = new Set(['mikeburnsinnovate@gmail.com', 'mike@xfuel.ai']);
 
 // Paths always public — no session required
 const PUBLIC_PATH_PREFIXES = [
@@ -95,7 +95,7 @@ export async function proxy(request: NextRequest) {
       loginUrl.searchParams.set('next', pathname);
       return NextResponse.redirect(loginUrl);
     }
-    if (user.email !== ADMIN_EMAIL) {
+    if (!user.email || !ADMIN_EMAILS.has(user.email)) {
       if (pathname.startsWith('/api/')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }

@@ -3,6 +3,8 @@ import { getFeaturedTopics, getPublishedTopics, getDossierStats, getTopicHeroIma
 import { Footer } from '@/components/Footer';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { HeroVideo } from '@/components/HeroVideo';
+import { ConvergenceCard } from '@/components/ConvergenceCard';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import {
   DossierTabs,
   RelationshipFilters,
@@ -21,22 +23,6 @@ export const metadata = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Generate connection dot arrays for report cards based on tradition count
-function buildConnectionDots(traditions: string[], index: number) {
-  // Deterministic extras based on card index (seeded, not random)
-  const extraCounts = [
-    { teal: 3, purple: 2, green: 2, red: 1 },
-    { teal: 4, purple: 3, green: 3, red: 2 },
-    { teal: 2, purple: 2, green: 3, red: 0 },
-    { teal: 3, purple: 2, green: 2, red: 1 },
-    { teal: 2, purple: 3, green: 2, red: 1 },
-    { teal: 4, purple: 2, green: 3, red: 2 },
-  ][index % 6];
-
-  const total = traditions.length + extraCounts.teal + extraCounts.purple + extraCounts.green + extraCounts.red;
-  return { traditions: traditions.length, ...extraCounts, total };
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default async function HomePage() {
@@ -53,6 +39,24 @@ export default async function HomePage() {
     ? [...featured.slice(1), ...published.filter((p) => !featured.find((f) => f.slug === p.slug))]
     : published.filter((p) => p.slug !== heroReport?.slug);
   const reportGrid = gridPool.slice(0, 3);
+
+  // Bulk-fetch hero images for grid cards
+  const gridImageMap: Record<string, { url: string; position: string }> = {};
+  if (reportGrid.length > 0) {
+    const supabase = createServerSupabaseClient();
+    const { data: imgRows } = await supabase
+      .from('topic_images')
+      .select('topic, image_url, cropped_url, hero_position, featured')
+      .in('topic', reportGrid.map((t) => t.topic))
+      .eq('status', 'approved')
+      .order('featured', { ascending: false });
+    for (const row of imgRows ?? []) {
+      if (!gridImageMap[row.topic]) {
+        const url = row.cropped_url ?? row.image_url;
+        if (url) gridImageMap[row.topic] = { url, position: row.hero_position ?? 'center' };
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-ground text-text-primary flex flex-col">
@@ -237,64 +241,20 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {reportGrid.map((topic, i) => {
-                const dots = buildConnectionDots(topic.key_traditions, i);
-                return (
-                  <Link
-                    key={topic.slug}
-                    href={`/topics/${topic.slug}`}
-                    className="group block border border-border bg-ground-light hover:border-gold/30 transition-colors rounded p-5 flex flex-col"
-                  >
-                    <div className="font-mono text-[0.55rem] tracking-[0.12em] text-text-tertiary mb-3">
-                      Report {String(i + 2).padStart(3, '0')}
-                    </div>
-
-                    {topic.key_traditions.length > 0 && (
-                      <div className="font-mono text-[0.55rem] tracking-[0.08em] uppercase text-teal/70 mb-2 line-clamp-2">
-                        {topic.key_traditions.slice(0, 3).join(' · ')}
-                        {topic.key_traditions.length > 3 && ` · +${topic.key_traditions.length - 3}`}
-                      </div>
-                    )}
-
-                    <h3 className="font-serif text-[1.15rem] font-normal leading-[1.3] tracking-tight mb-2 group-hover:text-gold transition-colors flex-1">
-                      {topic.title}
-                    </h3>
-
-                    {topic.summary && (
-                      <p className="text-xs leading-[1.6] text-text-secondary mb-4 line-clamp-2">
-                        {topic.summary}
-                      </p>
-                    )}
-
-                    <div className="mt-auto pt-3 border-t border-border flex items-center gap-3">
-                      <div className="flex gap-[3px] flex-wrap max-w-[80px]">
-                        {Array.from({ length: dots.traditions }).map((_, j) => (
-                          <div key={`g-${j}`} className="w-1.5 h-1.5 rounded-full bg-gold/50 group-hover:bg-gold/80 transition-colors" />
-                        ))}
-                        {Array.from({ length: dots.teal }).map((_, j) => (
-                          <div key={`t-${j}`} className="w-1.5 h-1.5 rounded-full bg-teal/50 group-hover:bg-teal/80 transition-colors" />
-                        ))}
-                        {Array.from({ length: dots.purple }).map((_, j) => (
-                          <div key={`p-${j}`} className="w-1.5 h-1.5 rounded-full bg-[#8B7EC8]/50 group-hover:bg-[#8B7EC8]/80 transition-colors" />
-                        ))}
-                        {Array.from({ length: dots.green }).map((_, j) => (
-                          <div key={`n-${j}`} className="w-1.5 h-1.5 rounded-full bg-[#6AAD7E]/50 group-hover:bg-[#6AAD7E]/80 transition-colors" />
-                        ))}
-                        {dots.red > 0 && Array.from({ length: dots.red }).map((_, j) => (
-                          <div key={`r-${j}`} className="w-1.5 h-1.5 rounded-full bg-[#AD6A6A]/50 group-hover:bg-[#AD6A6A]/80 transition-colors" />
-                        ))}
-                      </div>
-                      <div className="font-mono text-[9px] text-text-tertiary leading-[1.4]">
-                        {topic.convergence_score > 0 && (
-                          <span>Convergence <span className="text-gold">{topic.convergence_score}</span> · </span>
-                        )}
-                        <span className="text-text-secondary">{dots.total}</span> connections
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px border border-border">
+              {reportGrid.map((topic, i) => (
+                <ConvergenceCard
+                  key={topic.slug}
+                  index={i}
+                  title={topic.title}
+                  score={topic.convergence_score}
+                  traditions={topic.key_traditions}
+                  jawDrop={topic.summary ?? ''}
+                  href={`/topics/${topic.slug}`}
+                  heroImageUrl={gridImageMap[topic.topic]?.url ?? null}
+                  heroPosition={gridImageMap[topic.topic]?.position ?? 'center'}
+                />
+              ))}
             </div>
           </div>
         </section>
