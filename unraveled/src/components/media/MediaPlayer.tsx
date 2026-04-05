@@ -37,6 +37,7 @@ export function MediaPlayer({ embedUrl, watchUrl, title, type, thumbnailUrl }: M
               src={thumbnailUrl}
               alt={title}
               className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           )}
           {/* Play button overlay */}
@@ -63,15 +64,17 @@ export function MediaPlayer({ embedUrl, watchUrl, title, type, thumbnailUrl }: M
     );
   }
 
-  // Podcast embed (Listen Notes)
-  if (type === 'podcast' && embedUrl.includes('listennotes')) {
+  // Podcast embed — Spotify or Listen Notes
+  if (type === 'podcast') {
+    const isSpotify = embedUrl.includes('open.spotify.com');
     return (
       <div className="space-y-2">
         <iframe
           src={embedUrl}
-          height="180"
+          height={isSpotify ? 232 : 180}
           width="100%"
-          style={{ border: 'none' }}
+          style={{ border: 'none', borderRadius: isSpotify ? 12 : 0 }}
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
           loading="lazy"
           title={title}
         />

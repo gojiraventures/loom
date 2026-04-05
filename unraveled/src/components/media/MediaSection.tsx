@@ -52,7 +52,16 @@ function MediaCard({ item, onExpand, expanded }: { item: MediaItem; onExpand: ()
         <div className="shrink-0 w-24 h-16 bg-ground border border-border/50 overflow-hidden rounded">
           {item.thumbnail_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" />
+            <img
+              src={item.thumbnail_url}
+              alt={item.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const el = e.currentTarget;
+                el.style.display = 'none';
+                el.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-text-tertiary text-2xl">${item.type === 'youtube' ? '▶' : '🎧'}</div>`;
+              }}
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-text-tertiary text-2xl">
               {item.type === 'youtube' ? '▶' : '🎧'}
