@@ -22,6 +22,7 @@ import { StarRating } from '@/components/StarRating';
 import { FeedbackForm } from '@/components/FeedbackForm';
 import { ContentGate } from '@/components/ContentGate';
 import { ShareButtons } from '@/components/ShareButtons';
+import { DrivingQuestion } from '@/components/DrivingQuestion';
 import type { SynthesizedOutput } from '@/lib/research/types';
 import type { TocSection } from '@/components/TopicTOC';
 import type { ComponentRecord } from '@/lib/interactive/types';
@@ -129,7 +130,7 @@ export default async function TopicPage({
       .limit(12),
     supabase
       .from('topic_dossiers')
-      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug, selected_components')
+      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug, selected_components, driving_question')
       .eq('topic', topic)
       .single(),
   ]);
@@ -143,6 +144,7 @@ export default async function TopicPage({
   const audioUrl = dossierMeta?.audio_url ?? null;
   const llmPerspectives = (dossierMeta?.llm_perspectives ?? null) as LLMPerspective[] | null;
   const quickBrief = (dossierMeta?.quick_brief as string | null) ?? null;
+  const drivingQuestion = (dossierMeta?.driving_question as string | null) ?? null;
   const publishedAt = (dossierMeta?.published_at as string | null) ?? null;
   const updatedAt = (dossierMeta?.updated_at as string | null) ?? null;
   const selectedComponents = ((dossierMeta?.selected_components ?? []) as ComponentRecord[]).filter((c) => c.enabled);
@@ -249,6 +251,8 @@ export default async function TopicPage({
       <TopicTOC sections={tocSections} />
 
       <Header />
+
+      <DrivingQuestion question={drivingQuestion} />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       {heroImage ? (

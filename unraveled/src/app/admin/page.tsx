@@ -50,6 +50,7 @@ interface Dossier {
   llm_perspectives: unknown[] | null;
   recommended_components: ComponentRecord[] | null;
   selected_components: ComponentRecord[] | null;
+  driving_question?: string | null;
   session_id?: string;
 }
 
@@ -840,6 +841,8 @@ function ContentTab() {
   const [deepDiveStatus, setDeepDiveStatus] = useState<Record<string, string>>({});
   const [resynthStatus, setResynthStatus] = useState<Record<string, string>>({});
   const [featureStatus, setFeatureStatus] = useState<Record<string, string>>({});
+  const [drivingQuestions, setDrivingQuestions] = useState<Record<string, string>>({});
+  const [drivingQuestionStatus, setDrivingQuestionStatus] = useState<Record<string, string>>({});
   const [llmStatus, setLlmStatus] = useState<Record<string, string>>({});
   const [componentStatus, setComponentStatus] = useState<Record<string, string>>({});
   const [componentsOpen, setComponentsOpen] = useState<string | null>(null);
@@ -859,6 +862,23 @@ function ContentTab() {
       load();
     } catch {
       setFeatureStatus((s) => ({ ...s, [topic]: 'error' }));
+    }
+  };
+
+  const saveDrivingQuestion = async (topic: string) => {
+    const q = drivingQuestions[topic] ?? '';
+    setDrivingQuestionStatus((s) => ({ ...s, [topic]: 'saving…' }));
+    try {
+      const res = await fetch('/api/admin/dossier', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, driving_question: q }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setDrivingQuestionStatus((s) => ({ ...s, [topic]: 'saved ✓' }));
+      setTimeout(() => setDrivingQuestionStatus((s) => ({ ...s, [topic]: '' })), 2500);
+    } catch {
+      setDrivingQuestionStatus((s) => ({ ...s, [topic]: 'error' }));
     }
   };
 
@@ -1231,6 +1251,7 @@ function ContentTab() {
           const autoSlug = d.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ?? '';
           const slugVal = slugInputs[d.topic] ?? d.slug ?? autoSlug;
           const statusMsg = publishStatus[d.topic];
+          const dqVal = d.topic in drivingQuestions ? drivingQuestions[d.topic] : (d.driving_question ?? '');
 
           const isExpanded = expandedCard === d.topic;
 
@@ -1363,6 +1384,39 @@ function ContentTab() {
                   <span className={`font-mono text-[9px] ${statusMsg.startsWith('error') ? 'text-red-400' : statusMsg.startsWith('live') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
                     {statusMsg}
                   </span>
+                )}
+              </div>
+
+              {/* Driving Question */}
+              <div className="border-t border-border/40 px-4 pb-3 pt-3 space-y-2">
+                <label className="block font-mono text-[9px] uppercase tracking-widest text-text-tertiary">
+                  Driving Question <span className="normal-case tracking-normal opacity-60 ml-1">— shown above the article title. Leave blank to hide.</span>
+                </label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    className="flex-1 bg-ground border border-border px-2 py-1 text-xs text-text-primary focus:outline-none focus:border-gold/50 rounded font-mono"
+                    placeholder="The single question this research investigates. Plain language. Genuine question. 15–35 words."
+                    value={dqVal}
+                    onChange={(e) => setDrivingQuestions((s) => ({ ...s, [d.topic]: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveDrivingQuestion(d.topic); }}
+                  />
+                  <button
+                    onClick={() => saveDrivingQuestion(d.topic)}
+                    disabled={drivingQuestionStatus[d.topic] === 'saving…'}
+                    className="font-mono text-[9px] uppercase tracking-widest text-gold border border-gold/30 bg-gold/5 hover:bg-gold/10 px-3 py-1 rounded transition-colors disabled:opacity-40 shrink-0"
+                  >
+                    Save
+                  </button>
+                  {drivingQuestionStatus[d.topic] && (
+                    <span className={`font-mono text-[9px] shrink-0 ${drivingQuestionStatus[d.topic].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {drivingQuestionStatus[d.topic]}
+                    </span>
+                  )}
+                </div>
+                {dqVal && (
+                  <p className="font-mono text-[9px] text-text-tertiary">
+                    {dqVal.trim().split(/\s+/).length} words
+                  </p>
                 )}
               </div>
 
