@@ -72,10 +72,10 @@ export function Header() {
                   Sign In
                 </Link>
                 <Link
-                  href="/signup"
+                  href="/join"
                   className="font-mono text-[0.65rem] tracking-[0.08em] uppercase px-5 py-2 border border-[rgba(200,149,108,0.4)] text-gold hover:bg-gold hover:text-ground transition-colors"
                 >
-                  Join Free
+                  Join
                 </Link>
               </div>
             )
@@ -147,11 +147,11 @@ export function Header() {
                     Sign In
                   </Link>
                   <Link
-                    href="/signup"
+                    href="/join"
                     onClick={() => setMenuOpen(false)}
                     className="font-mono text-[0.7rem] tracking-[0.06em] uppercase text-gold hover:text-gold/70 transition-colors py-3"
                   >
-                    Join Free
+                    Join
                   </Link>
                 </>
               )

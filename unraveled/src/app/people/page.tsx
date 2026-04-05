@@ -1,11 +1,14 @@
 export const dynamic = 'force-dynamic';
 
+import { redirect } from 'next/navigation';
 import { listPeople } from '@/lib/people';
 import { listInstitutions } from '@/lib/institutions';
 import { listLocations } from '@/lib/locations';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PeopleGrid } from './PeopleGrid';
+import { createSessionSupabaseClient } from '@/lib/supabase-session';
+import { createServerSupabaseClient } from '@/lib/supabase';
 
 export const metadata = {
   title: 'Dossiers — UnraveledTruth',
@@ -13,6 +16,16 @@ export const metadata = {
 };
 
 export default async function PeoplePage() {
+  // Gate: paid members only
+  const session = await createSessionSupabaseClient();
+  const { data: { user } } = await session.auth.getUser();
+  if (!user) redirect('/join');
+
+  const admin = createServerSupabaseClient();
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  const role = profile?.role ?? 'registered';
+  if (role !== 'paid' && role !== 'admin') redirect('/upgrade');
+
   const [people, institutions, locations] = await Promise.all([
     listPeople({ status: 'published' }),
     listInstitutions(),
