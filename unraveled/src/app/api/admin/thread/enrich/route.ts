@@ -105,11 +105,12 @@ export async function POST(req: Request) {
     dry_run?: boolean;
   };
 
-  // Fetch people to enrich
+  // Fetch people to enrich — only those not yet enriched by THREAD
   let query = supabase
     .from('people_cards')
     .select('id, full_name, short_bio, status')
     .eq('status', 'published')
+    .is('bio_enriched_at', null)
     .order('full_name');
 
   if (entity_ids?.length) {
@@ -182,13 +183,16 @@ Be specific with names and years. This is for an investigative knowledge graph.`
       let connectionsAdded = 0;
 
       if (!dry_run) {
-        // 3. Update bio if richer
-        if (extracted.short_bio && extracted.short_bio.length > currentBio.length) {
-          await supabase
-            .from('people_cards')
-            .update({ short_bio: extracted.short_bio })
-            .eq('id', person.id);
-        }
+        // 3. Update bio + stamp enrichment timestamp on underlying table (view is non-updatable due to FROM-level JOINs)
+        await supabase
+          .from('people')
+          .update({
+            ...(extracted.short_bio && extracted.short_bio.length > currentBio.length
+              ? { short_bio: extracted.short_bio }
+              : {}),
+            bio_enriched_at: new Date().toISOString(),
+          })
+          .eq('id', person.id);
 
         // 4. Write institution affiliations
         for (const aff of (extracted.institution_affiliations ?? [])) {

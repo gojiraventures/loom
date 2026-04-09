@@ -17,7 +17,7 @@
 import type { WikimediaImage } from './wikimedia-images';
 
 const LUNA_API = 'https://www.davidrumsey.com/luna/servlet/as/search';
-const UA = 'Unraveled/1.0 (https://unraveled.ai; contact@unraveled.ai)';
+const UA = 'Unraveled/1.0 (https://unraveledtruth.com; contact@unraveledtruth.com)';
 
 interface LunaField {
   name: string;

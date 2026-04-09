@@ -18,6 +18,10 @@ export async function GET() {
     { count: approvedSuggestions },
     { count: totalLeads },
     { count: newLeads },
+    { count: totalPeople },
+    { count: enrichedPeople },
+    { count: totalInstitutions },
+    { count: enrichedInstitutions },
     { data: topLead },
     { data: recentCandidate },
   ] = await Promise.all([
@@ -28,6 +32,10 @@ export async function GET() {
     supabase.from('discovery_suggestions').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
     supabase.from('research_leads').select('*', { count: 'exact', head: true }),
     supabase.from('research_leads').select('*', { count: 'exact', head: true }).eq('status', 'new'),
+    supabase.from('people_cards').select('*', { count: 'exact', head: true }).eq('status', 'published'),
+    supabase.from('people_cards').select('*', { count: 'exact', head: true }).eq('status', 'published').not('bio_enriched_at', 'is', null),
+    supabase.from('institution_cards').select('*', { count: 'exact', head: true }).eq('status', 'published'),
+    supabase.from('institution_cards').select('*', { count: 'exact', head: true }).eq('status', 'published').not('bio_enriched_at', 'is', null),
     supabase.from('research_leads')
       .select('title, research_potential_score, entity_a_name:suggestion_id(entity_a_name), entity_b_name:suggestion_id(entity_b_name)')
       .order('research_potential_score', { ascending: false })
@@ -71,6 +79,12 @@ export async function GET() {
     leads: {
       total: totalLeads ?? 0,
       new: newLeads ?? 0,
+    },
+    enrichment: {
+      people_total: totalPeople ?? 0,
+      people_enriched: enrichedPeople ?? 0,
+      institutions_total: totalInstitutions ?? 0,
+      institutions_enriched: enrichedInstitutions ?? 0,
     },
     ghost_nodes: ghostNodes,
     last_scan_at: recentCandidate?.[0]?.created_at ?? null,

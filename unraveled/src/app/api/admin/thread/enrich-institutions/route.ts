@@ -161,11 +161,12 @@ export async function POST(req: Request) {
     dry_run?: boolean;
   };
 
-  // Fetch institutions to enrich
+  // Fetch institutions to enrich — only those not yet enriched by THREAD
   let query = supabase
     .from('institution_cards')
     .select('id, name, short_bio, bio, institution_type, status')
     .eq('status', 'published')
+    .is('bio_enriched_at', null)
     .order('name');
 
   if (institution_ids?.length) {
@@ -245,17 +246,15 @@ Be specific with names, dates, and documented facts. This is for an investigativ
       let sectionsAdded = 0, eventsAdded = 0, departmentsAdded = 0, personnelLinked = 0, connectionsAdded = 0;
 
       if (!dry_run) {
-        // 3. Update bio fields if richer
-        const updates: Record<string, string> = {};
+        // 3. Update bio fields + stamp enrichment timestamp (always)
+        const updates: Record<string, string> = { bio_enriched_at: new Date().toISOString() };
         if (extracted.bio && extracted.bio.length > ((inst.bio as string) ?? '').length) {
           updates.bio = extracted.bio;
         }
         if (extracted.short_bio && extracted.short_bio.length > currentBio.length) {
           updates.short_bio = extracted.short_bio;
         }
-        if (Object.keys(updates).length > 0) {
-          await supabase.from('institution_cards').update(updates).eq('id', inst.id);
-        }
+        await supabase.from('institution_cards').update(updates).eq('id', inst.id);
 
         // 4. Write bio sections
         for (const section of (extracted.bio_sections ?? [])) {

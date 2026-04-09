@@ -13,7 +13,7 @@
 import type { WikimediaImage } from './wikimedia-images';
 
 const SI_API = 'https://api.si.edu/openaccess/api/v1.0';
-const UA = 'Unraveled/1.0 (https://unraveled.ai; contact@unraveled.ai)';
+const UA = 'Unraveled/1.0 (https://unraveledtruth.com; contact@unraveledtruth.com)';
 
 interface SIMedia {
   type: string;

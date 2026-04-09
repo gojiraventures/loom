@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   // Download original
   const res = await fetch(img.image_url, {
-    headers: { 'User-Agent': 'Unraveled/1.0 (contact@unraveled.ai)' },
+    headers: { 'User-Agent': 'Unraveled/1.0 (contact@unraveledtruth.com)' },
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) return NextResponse.json({ error: `Failed to fetch image: ${res.status}` }, { status: 502 });

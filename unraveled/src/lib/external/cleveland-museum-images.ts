@@ -9,7 +9,7 @@
 import type { WikimediaImage } from './wikimedia-images';
 
 const CMA_API = 'https://openaccess-api.clevelandart.org/api';
-const UA = 'Unraveled/1.0 (https://unraveled.ai; contact@unraveled.ai)';
+const UA = 'Unraveled/1.0 (https://unraveledtruth.com; contact@unraveledtruth.com)';
 
 interface CMAImage {
   url: string;

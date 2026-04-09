@@ -26,8 +26,16 @@ import { DrivingQuestion } from '@/components/DrivingQuestion';
 import type { SynthesizedOutput } from '@/lib/research/types';
 import type { TocSection } from '@/components/TopicTOC';
 import type { ComponentRecord } from '@/lib/interactive/types';
+import { ViewToggle } from '@/components/topic/ViewToggle';
+import { AudioHero } from '@/components/topic/AudioHero';
+import { OverviewSummary } from '@/components/topic/OverviewSummary';
+import { TopFindings } from '@/components/topic/TopFindings';
+import { DebateTeaser } from '@/components/topic/DebateTeaser';
+import { TraditionSamples } from '@/components/topic/TraditionSamples';
+import { AIConsensusTeaser } from '@/components/topic/AIConsensusTeaser';
+import { SignupCTA } from '@/components/topic/SignupCTA';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveled.ai';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveledtruth.com';
 
 export async function generateMetadata({
   params,
@@ -99,10 +107,13 @@ const FLOOD_SLUGS = new Set([
 
 export default async function TopicPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ view?: string }>;
 }) {
-  const { slug } = await params;
+  const [{ slug }, { view }] = await Promise.all([params, searchParams]);
+  const viewMode: 'overview' | 'deep' = view === 'deep' ? 'deep' : 'overview';
   const topic = await slugToTopic(slug);
   if (!topic) notFound();
 
@@ -130,7 +141,7 @@ export default async function TopicPage({
       .limit(12),
     supabase
       .from('topic_dossiers')
-      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug, selected_components, driving_question')
+      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug, selected_components, driving_question, overview_summary, overview_advocate_summary, overview_skeptic_summary, overview_findings')
       .eq('topic', topic)
       .single(),
   ]);
@@ -148,6 +159,17 @@ export default async function TopicPage({
   const publishedAt = (dossierMeta?.published_at as string | null) ?? null;
   const updatedAt = (dossierMeta?.updated_at as string | null) ?? null;
   const selectedComponents = ((dossierMeta?.selected_components ?? []) as ComponentRecord[]).filter((c) => c.enabled);
+
+  // Overview mode fields (fall back to existing content if not yet populated)
+  const overviewSummary: string =
+    (dossierMeta?.overview_summary as string | null) ??
+    quickBrief ??
+    output.executive_summary.split('\n\n').slice(0, 3).join('\n\n');
+  const overviewAdvocate = (dossierMeta?.overview_advocate_summary as string | null) ?? null;
+  const overviewSkeptic = (dossierMeta?.overview_skeptic_summary as string | null) ?? null;
+  const overviewFindings = (dossierMeta?.overview_findings as string[] | null) ?? undefined;
+  const traditionEntries = Object.entries(output.how_cultures_describe) as [string, string][];
+  const traditionSamples = traditionEntries.slice(0, 2) as [string, string][];
 
   // Helper: pull a specific component for contextual inline placement
   function getComponent(id: string): ComponentRecord | undefined {
@@ -248,11 +270,11 @@ export default async function TopicPage({
         />
       )}
 
-      <TopicTOC sections={tocSections} />
+      {viewMode === 'deep' && <TopicTOC sections={tocSections} />}
 
       <Header />
 
-      <DrivingQuestion question={drivingQuestion} />
+      {viewMode === 'deep' && <DrivingQuestion question={drivingQuestion} />}
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       {heroImage ? (
@@ -276,9 +298,7 @@ export default async function TopicPage({
                 {/* Text block — frosted glass card for extra legibility on busy images */}
                 <div className="flex-1 rounded bg-black/40 backdrop-blur-[2px] px-5 py-4 max-w-3xl">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-[8px] tracking-[0.25em] uppercase text-white/50">
-                      Convergence Topic
-                    </span>
+                    <ViewToggle slug={slug} currentView={viewMode} />
                     <ShareButtons slug={slug} title={output.title} placement="top" />
                   </div>
                   <h1 className="font-serif text-[clamp(20px,3.8vw,46px)] font-normal leading-[1.05] tracking-tight mb-2 text-white drop-shadow-sm">
@@ -317,9 +337,7 @@ export default async function TopicPage({
         <section className="px-6 pt-16 pb-12 border-b border-border">
           <div className="max-w-[var(--spacing-content)] mx-auto">
             <div className="flex items-center justify-between mb-0">
-              <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
-                Convergence Topic
-              </span>
+              <ViewToggle slug={slug} currentView={viewMode} />
               <ShareButtons slug={slug} title={output.title} placement="top" />
             </div>
             <div className="flex items-start justify-between gap-8 mt-4">
@@ -348,6 +366,38 @@ export default async function TopicPage({
           </div>
         </section>
       )}
+
+      {/* ── Overview Mode ────────────────────────────────────────────────── */}
+      {viewMode === 'overview' && (
+        <>
+          {audioUrl && <AudioHero audioUrl={audioUrl} title={output.title} />}
+          <OverviewSummary summary={overviewSummary} />
+          <TopFindings layers={output.jaw_drop_layers} slug={slug} overviewExplanations={overviewFindings} />
+          <DebateTeaser
+            advocateCase={output.advocate_case ?? ''}
+            skepticCase={output.skeptic_case ?? ''}
+            slug={slug}
+            advocateSummary={overviewAdvocate}
+            skepticSummary={overviewSkeptic}
+          />
+          {traditionSamples.length > 0 && (
+            <TraditionSamples
+              traditions={traditionSamples}
+              slug={slug}
+              totalCount={traditionEntries.length}
+            />
+          )}
+          <AIConsensusTeaser
+            score={output.convergence_score}
+            traditionsCount={output.traditions_analyzed.length}
+          />
+          <SignupCTA topicTitle={output.title} slug={slug} />
+        </>
+      )}
+
+      {/* ── Deep Dive Mode ───────────────────────────────────────────────── */}
+      {viewMode === 'deep' && (
+        <>
 
       {/* ── Quick Brief ──────────────────────────────────────────────────── */}
       {(quickBrief || output.executive_summary) && (
@@ -895,6 +945,9 @@ export default async function TopicPage({
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 w-full">
         <StarRating articleId={slug} />
       </div>
+
+        </>
+      )}
 
       <Footer />
     </div>

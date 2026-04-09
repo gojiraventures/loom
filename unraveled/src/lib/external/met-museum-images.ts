@@ -12,7 +12,7 @@
 import type { WikimediaImage } from './wikimedia-images';
 
 const MET_API = 'https://collectionapi.metmuseum.org/public/collection/v1';
-const UA = 'Unraveled/1.0 (https://unraveled.ai; contact@unraveled.ai)';
+const UA = 'Unraveled/1.0 (https://unraveledtruth.com; contact@unraveledtruth.com)';
 
 interface MetObject {
   objectID: number;

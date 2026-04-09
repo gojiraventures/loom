@@ -8,6 +8,12 @@ interface SetiStats {
   candidates: { total: number; pending_tier2: number };
   suggestions: { total: number; pending_review: number; approved: number };
   leads: { total: number; new: number };
+  enrichment: {
+    people_total: number;
+    people_enriched: number;
+    institutions_total: number;
+    institutions_enriched: number;
+  };
   ghost_nodes: Array<{ name: string; count: number }>;
   last_scan_at: string | null;
   top_lead: { title: string; research_potential_score: number } | null;
@@ -332,24 +338,66 @@ function PulseSection() {
       {loadingStats ? (
         <p className="font-mono text-sm text-text-tertiary animate-pulse">Loading…</p>
       ) : stats ? (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="border border-border bg-ground-light/20 px-4 py-3 space-y-1">
-            <div className="font-serif text-2xl text-gold">{stats.candidates.total.toLocaleString()}</div>
-            <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Total Candidates</div>
-            <div className="font-mono text-[9px] text-amber-400">{stats.candidates.pending_tier2} awaiting Tier 2</div>
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="border border-border bg-ground-light/20 px-4 py-3 space-y-1">
+              <div className="font-serif text-2xl text-gold">{stats.candidates.total.toLocaleString()}</div>
+              <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Total Candidates</div>
+              <div className="font-mono text-[9px] text-amber-400">{stats.candidates.pending_tier2} awaiting Tier 2</div>
+            </div>
+            <div className="border border-border bg-ground-light/20 px-4 py-3 space-y-1">
+              <div className="font-serif text-2xl text-gold">{stats.suggestions.total.toLocaleString()}</div>
+              <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Suggestions Generated</div>
+              <div className="font-mono text-[9px] text-amber-400">{stats.suggestions.pending_review} pending review</div>
+              <div className="font-mono text-[9px] text-emerald-400">{stats.suggestions.approved} approved</div>
+            </div>
+            <div className="border border-border bg-ground-light/20 px-4 py-3 space-y-1">
+              <div className="font-serif text-2xl text-gold">{stats.leads.total.toLocaleString()}</div>
+              <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Research Leads</div>
+              <div className="font-mono text-[9px] text-amber-400">{stats.leads.new} new</div>
+            </div>
           </div>
-          <div className="border border-border bg-ground-light/20 px-4 py-3 space-y-1">
-            <div className="font-serif text-2xl text-gold">{stats.suggestions.total.toLocaleString()}</div>
-            <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Suggestions Generated</div>
-            <div className="font-mono text-[9px] text-amber-400">{stats.suggestions.pending_review} pending review</div>
-            <div className="font-mono text-[9px] text-emerald-400">{stats.suggestions.approved} approved</div>
-          </div>
-          <div className="border border-border bg-ground-light/20 px-4 py-3 space-y-1">
-            <div className="font-serif text-2xl text-gold">{stats.leads.total.toLocaleString()}</div>
-            <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Research Leads</div>
-            <div className="font-mono text-[9px] text-amber-400">{stats.leads.new} new</div>
-          </div>
-        </div>
+
+          {/* Enrichment progress */}
+          {stats.enrichment && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="border border-border bg-ground-light/20 px-4 py-3 space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">People Enriched</div>
+                  <div className="font-mono text-[10px] text-text-secondary">
+                    {stats.enrichment.people_enriched} / {stats.enrichment.people_total}
+                  </div>
+                </div>
+                <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gold rounded-full transition-all"
+                    style={{ width: stats.enrichment.people_total > 0 ? `${(stats.enrichment.people_enriched / stats.enrichment.people_total) * 100}%` : '0%' }}
+                  />
+                </div>
+                <div className="font-mono text-[9px] text-amber-400">
+                  {stats.enrichment.people_total - stats.enrichment.people_enriched} remaining
+                </div>
+              </div>
+              <div className="border border-border bg-ground-light/20 px-4 py-3 space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Institutions Enriched</div>
+                  <div className="font-mono text-[10px] text-text-secondary">
+                    {stats.enrichment.institutions_enriched} / {stats.enrichment.institutions_total}
+                  </div>
+                </div>
+                <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gold rounded-full transition-all"
+                    style={{ width: stats.enrichment.institutions_total > 0 ? `${(stats.enrichment.institutions_enriched / stats.enrichment.institutions_total) * 100}%` : '0%' }}
+                  />
+                </div>
+                <div className="font-mono text-[9px] text-amber-400">
+                  {stats.enrichment.institutions_total - stats.enrichment.institutions_enriched} remaining
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       ) : null}
 
       {/* Last scan */}
@@ -375,7 +423,12 @@ function PulseSection() {
           <div>
             <p className="font-mono text-[9px] uppercase tracking-widest text-gold">Full Auto Pipeline</p>
             <p className="font-mono text-[8px] text-text-tertiary mt-0.5">
-              Scan → Tier 2/3 → Lead Gen → Enrich Bios (10) → Enrich Institutions (5). Runs daily at 1–2 AM UTC automatically.
+              Scan → Tier 2/3 → Lead Gen → Enrich Bios (10 at a time) → Enrich Institutions (5 at a time). Runs daily at 1–2 AM UTC automatically.
+              {stats?.enrichment && (stats.enrichment.people_total - stats.enrichment.people_enriched > 0 || stats.enrichment.institutions_total - stats.enrichment.institutions_enriched > 0) && (
+                <span className="text-amber-400 ml-1">
+                  — {stats.enrichment.people_total - stats.enrichment.people_enriched} people + {stats.enrichment.institutions_total - stats.enrichment.institutions_enriched} institutions still need enrichment.
+                </span>
+              )}
             </p>
           </div>
           <button

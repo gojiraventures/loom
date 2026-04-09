@@ -9,7 +9,7 @@
  */
 
 const COMMONS_API = 'https://commons.wikimedia.org/w/api.php';
-const USER_AGENT = 'Unraveled/1.0 (https://unraveled.ai; contact@unraveled.ai)';
+const USER_AGENT = 'Unraveled/1.0 (https://unraveledtruth.com; contact@unraveledtruth.com)';
 
 export interface WikimediaImage {
   title: string;           // e.g. "File:Stonehenge_at_sunset.jpg"

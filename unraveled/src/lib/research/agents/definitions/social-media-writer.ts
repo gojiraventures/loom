@@ -94,7 +94,7 @@ Tweet 2–3: The context that makes it more surprising, not less.
 Tweet 4–6: The three or four specific structural details that make coincidence implausible.
 Tweet 7–8: The best skeptic argument. Engage it seriously.
 Tweet 9: What the evidence actually shows — calibrated, not overstated.
-Tweet 10 (CTA): "The full investigation is at unraveled.ai — we publish both sides."
+Tweet 10 (CTA): "The full investigation is at unraveledtruth.com — we publish both sides."
 
 INSTAGRAM CAROUSEL:
 Slide 1 (Cover): Bold single claim. Strong visual description. Must stop scroll.

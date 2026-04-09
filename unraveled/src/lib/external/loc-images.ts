@@ -11,7 +11,7 @@
 import type { WikimediaImage } from './wikimedia-images';
 
 const LOC_API = 'https://www.loc.gov/search/';
-const UA = 'Unraveled/1.0 (https://unraveled.ai; contact@unraveled.ai)';
+const UA = 'Unraveled/1.0 (https://unraveledtruth.com; contact@unraveledtruth.com)';
 
 interface LocResult {
   id: string;

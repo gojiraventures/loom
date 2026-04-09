@@ -51,6 +51,7 @@ interface Dossier {
   recommended_components: ComponentRecord[] | null;
   selected_components: ComponentRecord[] | null;
   driving_question?: string | null;
+  overview_summary?: string | null;
   session_id?: string;
 }
 
@@ -844,6 +845,8 @@ function ContentTab() {
   const [drivingQuestions, setDrivingQuestions] = useState<Record<string, string>>({});
   const [drivingQuestionStatus, setDrivingQuestionStatus] = useState<Record<string, string>>({});
   const [drivingQuestionGenerating, setDrivingQuestionGenerating] = useState<Record<string, boolean>>({});
+  const [overviewGenerating, setOverviewGenerating] = useState<Record<string, boolean>>({});
+  const [overviewStatus, setOverviewStatus] = useState<Record<string, string>>({});
   const [llmStatus, setLlmStatus] = useState<Record<string, string>>({});
   const [componentStatus, setComponentStatus] = useState<Record<string, string>>({});
   const [componentsOpen, setComponentsOpen] = useState<string | null>(null);
@@ -901,6 +904,26 @@ function ContentTab() {
       setDrivingQuestionStatus((s) => ({ ...s, [topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
     } finally {
       setDrivingQuestionGenerating((s) => ({ ...s, [topic]: false }));
+    }
+  };
+
+  const generateOverview = async (topic: string) => {
+    setOverviewGenerating((s) => ({ ...s, [topic]: true }));
+    setOverviewStatus((s) => ({ ...s, [topic]: 'generating…' }));
+    try {
+      const res = await fetch('/api/admin/dossier/overview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      const data = await res.json() as { overview_summary?: string; error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? 'Failed');
+      setOverviewStatus((s) => ({ ...s, [topic]: 'generated ✓' }));
+      setTimeout(() => setOverviewStatus((s) => ({ ...s, [topic]: '' })), 30000);
+    } catch (err) {
+      setOverviewStatus((s) => ({ ...s, [topic]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    } finally {
+      setOverviewGenerating((s) => ({ ...s, [topic]: false }));
     }
   };
 
@@ -1446,6 +1469,26 @@ function ContentTab() {
                   <p className="font-mono text-[9px] text-text-tertiary">
                     {dqVal.trim().split(/\s+/).length} words
                   </p>
+                )}
+              </div>
+
+              {/* Overview content generation */}
+              <div className="border-t border-border/40 px-4 pb-3 pt-3 flex items-center gap-3 flex-wrap">
+                <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary shrink-0">Overview:</span>
+                <button
+                  onClick={() => generateOverview(d.topic)}
+                  disabled={overviewGenerating[d.topic]}
+                  className="font-mono text-[9px] uppercase tracking-widest text-purple-400 border border-purple-400/30 bg-purple-400/5 hover:bg-purple-400/10 px-3 py-1 rounded transition-colors disabled:opacity-40 shrink-0"
+                >
+                  {overviewGenerating[d.topic] ? '⏳ Generating…' : d.overview_summary ? '↺ Re-generate Overview' : '✦ Generate Plain-Language Overview'}
+                </button>
+                {d.overview_summary && !overviewStatus[d.topic] && (
+                  <span className="font-mono text-[9px] text-emerald-400/60 shrink-0">overview ready</span>
+                )}
+                {overviewStatus[d.topic] && (
+                  <span className={`font-mono text-[9px] shrink-0 ${overviewStatus[d.topic].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {overviewStatus[d.topic]}
+                  </span>
                 )}
               </div>
 
@@ -5025,7 +5068,7 @@ function JobsTab() {
     setTickLoading(true);
     setTickResult(null);
     try {
-      const res = await fetch('/api/jobs/tick', { method: 'POST' });
+      const res = await fetch('/api/admin/jobs/tick', { method: 'POST' });
       const data = await res.json();
       const fired = data.jobs_fired ?? 0;
       const running = counts['running'] ?? 0;

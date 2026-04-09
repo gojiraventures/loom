@@ -44,7 +44,7 @@ export interface EvaluatedImage extends WikimediaImage {
 async function fetchImageBase64(url: string): Promise<{ base64: string; mimeType: string } | null> {
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'Unraveled/1.0 (https://unraveled.ai; contact@unraveled.ai)' },
+      headers: { 'User-Agent': 'Unraveled/1.0 (https://unraveledtruth.com; contact@unraveledtruth.com)' },
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return null;

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from('topic_dossiers')
-    .select('topic, title, slug, published, featured, best_convergence_score, key_traditions, summary, synthesized_output, last_researched_at, published_at, llm_perspectives, recommended_components, selected_components, driving_question')
+    .select('topic, title, slug, published, featured, best_convergence_score, key_traditions, summary, synthesized_output, last_researched_at, published_at, llm_perspectives, recommended_components, selected_components, driving_question, overview_summary')
     .eq('topic', topic)
     .single();
 
