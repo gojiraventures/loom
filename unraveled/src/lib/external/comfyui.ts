@@ -9,13 +9,28 @@
 
 const COMFYUI_URL = process.env.COMFYUI_URL ?? 'http://192.168.86.249:8000';
 
+/** Returns true if the ComfyUI server is reachable. Used for graceful fallback. */
+export async function checkAvailable(): Promise<boolean> {
+  try {
+    const res = await fetch(`${COMFYUI_URL}/queue`, { signal: AbortSignal.timeout(3000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export interface ComfyUIResult {
   buffer: Buffer;
   filename: string;
 }
 
+// Imported from the canonical source so all pipelines share the same negative prompt
+import { COMFYUI_NEGATIVE_PROMPT } from '@/lib/media/hero-prompt-generator';
+
+const DEFAULT_NEGATIVE = COMFYUI_NEGATIVE_PROMPT;
+
 /** Build the API-format prompt payload for Flux.2 Klein 4B */
-function buildPrompt(text: string, width = 1024, height = 1024): Record<string, unknown> {
+function buildPrompt(text: string, width = 1024, height = 1024, negative = DEFAULT_NEGATIVE): Record<string, unknown> {
   const seed = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
   return {
     '9':     { class_type: 'SaveImage',                inputs: { filename_prefix: 'unraveled', images: ['75:65', 0] } },
@@ -26,7 +41,7 @@ function buildPrompt(text: string, width = 1024, height = 1024): Record<string, 
     '75:64': { class_type: 'SamplerCustomAdvanced',     inputs: { noise: ['75:73', 0], guider: ['75:63', 0], sampler: ['75:61', 0], sigmas: ['75:62', 0], latent_image: ['75:66', 0] } },
     '75:65': { class_type: 'VAEDecode',                 inputs: { samples: ['75:64', 0], vae: ['75:72', 0] } },
     '75:66': { class_type: 'EmptyFlux2LatentImage',     inputs: { width: ['75:68', 0], height: ['75:69', 0], batch_size: 1 } },
-    '75:67': { class_type: 'CLIPTextEncode',            inputs: { text: '', clip: ['75:71', 0] } },
+    '75:67': { class_type: 'CLIPTextEncode',            inputs: { text: negative, clip: ['75:71', 0] } },
     '75:68': { class_type: 'PrimitiveInt',              inputs: { value: width } },
     '75:69': { class_type: 'PrimitiveInt',              inputs: { value: height } },
     '75:70': { class_type: 'UNETLoader',                inputs: { unet_name: 'flux-2-klein-base-4b-fp8.safetensors', weight_dtype: 'default' } },
@@ -108,4 +123,96 @@ export async function generateImageComfyUI(
 
   const buffer = Buffer.from(await imgRes.arrayBuffer());
   return { buffer, filename: outputFilename };
+}
+
+// ── Validated generation loop ─────────────────────────────────────────────────
+
+export interface ValidationAttempt {
+  attempt: number;
+  filename: string;
+  approved: boolean;
+  identified_subject?: string;
+  issues: string[];
+  summary: string;
+}
+
+export interface ValidatedResult extends ComfyUIResult {
+  attempts: number;
+  history: ValidationAttempt[];
+}
+
+/**
+ * Generates an image and validates it with Gemini 2.5 Pro.
+ * If issues are found, appends corrective instructions and regenerates.
+ * Returns the first approved result, or the last attempt if maxAttempts is reached.
+ *
+ * @param prompt       Full prompt (variable + tail block)
+ * @param intent       Short plain-English description of what the image should look like
+ *                     (used as the validation brief — distinct from the full prompt)
+ * @param width        Image width in pixels
+ * @param height       Image height in pixels
+ * @param maxAttempts  Max generation cycles before returning best result (default 3)
+ * @param generateFn   Image generation backend — defaults to ComfyUI. Pass generateImageFalAI to use fal.ai.
+ */
+export async function generateWithValidation(
+  prompt: string,
+  intent: string,
+  width = 1024,
+  height = 1024,
+  maxAttempts = 3,
+  generateFn: (p: string, w: number, h: number) => Promise<ComfyUIResult> = generateImageComfyUI,
+): Promise<ValidatedResult> {
+  const { validateImage, quickRejectCheck } = await import('@/lib/media/image-validator');
+
+  const history: ValidationAttempt[] = [];
+  let currentPrompt = prompt;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`[comfyui] Attempt ${attempt}/${maxAttempts}...`);
+    const result = await generateFn(currentPrompt, width, height);
+
+    // Stage 1: cheap pixel-level check — catches black frames, blank outputs
+    const quickCheck = await quickRejectCheck(result.buffer);
+    if (quickCheck.reject) {
+      console.warn(`[comfyui] Quick reject (attempt ${attempt}): ${quickCheck.reason}`);
+      history.push({
+        attempt,
+        filename: result.filename,
+        approved: false,
+        issues: [quickCheck.reason],
+        summary: `Pixel check failed: ${quickCheck.reason}`,
+      });
+      if (attempt < maxAttempts) continue; // regenerate without wasting a Gemini call
+      // Last attempt — return the bad image (caller will handle)
+      return { ...result, attempts: attempt, history };
+    }
+
+    // Stage 2: Gemini Flash visual inspection
+    console.log(`[comfyui] Validating with Gemini Flash...`);
+    const validation = await validateImage(result.buffer, intent, currentPrompt);
+
+    history.push({
+      attempt,
+      filename: result.filename,
+      approved: validation.approved,
+      identified_subject: validation.identified_subject,
+      issues: validation.issues,
+      summary: validation.summary,
+    });
+
+    console.log(`[comfyui] Attempt ${attempt}: ${validation.approved ? 'APPROVED' : 'FAILED'} — ${validation.summary}${validation.identified_subject ? ` [Identified: ${validation.identified_subject}]` : ''}`);
+
+    if (validation.approved || attempt === maxAttempts) {
+      return { ...result, attempts: attempt, history };
+    }
+
+    // Build corrected prompt for next attempt — append Gemini's specific fixes
+    if (validation.prompt_additions) {
+      currentPrompt = `${currentPrompt} ${validation.prompt_additions}`;
+      console.log(`[comfyui] Corrections appended. Prompt length: ${currentPrompt.length} chars`);
+    }
+  }
+
+  // Unreachable — TypeScript requires it
+  throw new Error('generateWithValidation: exceeded maxAttempts without returning');
 }

@@ -33,6 +33,7 @@ interface DesignVariant {
 interface DesignBriefSummary {
   visual_note?: string;
   image_prompt?: string;
+  identified_subject?: string;
 }
 
 interface ContentPiece {
@@ -57,7 +58,9 @@ interface ContentPiece {
   _qaRunning?: boolean;
   _designs?: DesignVariant[];
   _designRunning?: boolean;
+  _designError?: string;
   _designBrief?: DesignBriefSummary;
+  _visualQA?: QAResult | null;
 }
 
 interface Dossier {
@@ -114,6 +117,7 @@ const CHAR_LIMITS: Record<string, number> = {
   x: 280,
   instagram: 2200,
   facebook: 63206,
+  youtube: 5000, // community post / description limit
 };
 
 const DAY_LABELS = ['Day 0 — Publish', 'Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6'];
@@ -150,8 +154,8 @@ function ThreadPreview({ posts }: { posts: string[] }) {
           <span className="font-mono text-[9px] text-text-tertiary shrink-0 mt-0.5 w-5">{i + 1}</span>
           <div className="flex-1">
             <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">{post}</p>
-            <span className={`font-mono text-[8px] ${post.length > 280 ? 'text-red-400' : 'text-text-tertiary'}`}>
-              {post.length}/280
+            <span className={`font-mono text-[8px] ${post.length > CHAR_LIMITS.x ? 'text-red-400' : 'text-text-tertiary'}`}>
+              {post.length}/{CHAR_LIMITS.x}
             </span>
           </div>
         </div>
@@ -191,24 +195,38 @@ function CarouselPreview({ slides }: { slides: { header?: string; body: string }
 function DesignGallery({
   variants,
   brief,
+  visualQA,
   onSelect,
 }: {
   variants: DesignVariant[];
   brief?: DesignBriefSummary;
+  visualQA?: QAResult | null;
   onSelect: (id: string) => void;
 }) {
   const [active, setActive] = useState(0);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [showQA, setShowQA] = useState(false);
   if (variants.length === 0) return null;
 
   const current = variants[active];
   const isSquare = current.width === current.height;
 
+  const qaColor = visualQA
+    ? visualQA.result === 'pass' ? 'text-emerald-400 border-emerald-400/40'
+    : visualQA.result === 'flag' ? 'text-amber-400 border-amber-400/40'
+    : 'text-red-400 border-red-400/40'
+    : '';
+  const qaLabel = visualQA
+    ? visualQA.result === 'pass' ? '✓ QA Pass'
+    : visualQA.result === 'flag' ? '⚑ QA Flag'
+    : '✗ QA Block'
+    : '';
+
   return (
     <div className="mt-3 space-y-2">
       {/* Image preview */}
       <div className="border border-border bg-ground overflow-hidden relative"
-        style={{ paddingBottom: isSquare ? '100%' : '56.25%', maxWidth: isSquare ? 280 : '100%' }}>
+        style={{ paddingBottom: isSquare ? '100%' : '56.25%' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={current.image_url}
@@ -232,11 +250,19 @@ function DesignGallery({
         </div>
       )}
 
-      {/* Metadata + select */}
+      {/* Metadata + QA badge + select */}
       <div className="flex items-center gap-3">
         <span className="font-mono text-[8px] text-text-tertiary">
           {current.template_type} · {current.width}×{current.height}
         </span>
+        {visualQA && (
+          <button
+            onClick={() => setShowQA(!showQA)}
+            className={`font-mono text-[8px] uppercase tracking-widest px-2 py-0.5 border transition-colors ${qaColor}`}
+          >
+            {qaLabel}
+          </button>
+        )}
         <button
           onClick={() => onSelect(current.id)}
           className={`font-mono text-[8px] uppercase tracking-widest px-2 py-1 border transition-colors ml-auto ${current.selected ? 'border-emerald-400/40 text-emerald-400 bg-emerald-400/5' : 'border-border text-text-tertiary hover:text-gold'}`}
@@ -245,6 +271,27 @@ function DesignGallery({
         </button>
       </div>
 
+      {/* Visual QA detail */}
+      {visualQA && showQA && (
+        <div className={`border px-3 py-2 space-y-1 ${
+          visualQA.result === 'pass' ? 'border-emerald-400/20 bg-emerald-400/3' :
+          visualQA.result === 'flag' ? 'border-amber-400/20 bg-amber-400/3' :
+          'border-red-400/20 bg-red-400/3'
+        }`}>
+          <p className="font-mono text-[8px] text-text-secondary">{visualQA.summary}</p>
+          {visualQA.issues.map((issue, i) => (
+            <div key={i} className="pl-2 border-l border-border/50">
+              <p className={`font-mono text-[8px] ${issue.severity === 'block' ? 'text-red-400' : 'text-amber-400'}`}>
+                [{issue.category}] {issue.description}
+              </p>
+              {issue.suggestion && (
+                <p className="font-mono text-[8px] text-text-tertiary mt-0.5">{issue.suggestion}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Art direction notes */}
       {brief?.visual_note && (
         <p className="font-mono text-[8px] text-text-tertiary border-l border-gold/30 pl-2 italic">
@@ -252,14 +299,21 @@ function DesignGallery({
         </p>
       )}
 
-      {/* Image prompt (Midjourney) */}
+      {/* What Gemini identified in the image */}
+      {brief?.identified_subject && (
+        <p className="font-mono text-[8px] text-text-tertiary border-l border-border pl-2">
+          <span className="text-text-tertiary/60">Identified: </span>{brief.identified_subject}
+        </p>
+      )}
+
+      {/* Image prompt (Flux/ComfyUI) */}
       {brief?.image_prompt && (
         <div>
           <button
             onClick={() => setShowPrompt(!showPrompt)}
             className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
           >
-            {showPrompt ? '↑ Hide image prompt' : '↓ Midjourney prompt'}
+            {showPrompt ? '↑ Hide image prompt' : '↓ Image prompt'}
           </button>
           {showPrompt && (
             <div className="mt-1 border border-border/50 bg-ground-light/30 p-2">
@@ -445,8 +499,16 @@ function PieceCard({
         <DesignGallery
           variants={piece._designs}
           brief={piece._designBrief}
+          visualQA={piece._visualQA}
           onSelect={(variantId) => onSelectDesignVariant(piece.id, variantId)}
         />
+      )}
+
+      {/* Design error */}
+      {piece._designError && (
+        <p className="font-mono text-[9px] text-red-400 mt-2 border border-red-400/20 px-2 py-1 rounded">
+          {piece._designError}
+        </p>
       )}
 
       {/* QA result */}
@@ -565,14 +627,34 @@ export function SocialTab() {
     load();
   }, []);
 
-  // Load pieces for selected topic
+  // Load pieces for selected topic, then hydrate each piece with its existing design variants
   const loadPieces = useCallback(async (topic: string) => {
     setLoadingPieces(true);
     const params = new URLSearchParams({ topic });
     const res = await fetch(`/api/admin/social/pieces?${params}`);
     const data = await res.json();
-    setPieces(data.pieces ?? []);
+    const pieces: ContentPiece[] = data.pieces ?? [];
+    setPieces(pieces);
     setLoadingPieces(false);
+
+    // Fetch existing design variants for all pieces in parallel (non-blocking)
+    if (pieces.length === 0) return;
+    const designResults = await Promise.allSettled(
+      pieces.map(p =>
+        fetch(`/api/admin/social/design?piece_id=${encodeURIComponent(p.id)}`)
+          .then(r => r.ok ? r.json() : { variants: [] })
+          .then(d => ({ id: p.id, variants: (d.variants ?? []) as DesignVariant[] }))
+      )
+    );
+    const designMap: Record<string, DesignVariant[]> = {};
+    for (const result of designResults) {
+      if (result.status === 'fulfilled' && result.value.variants.length > 0) {
+        designMap[result.value.id] = result.value.variants;
+      }
+    }
+    if (Object.keys(designMap).length > 0) {
+      setPieces(prev => prev.map(p => designMap[p.id] ? { ...p, _designs: designMap[p.id] } : p));
+    }
   }, []);
 
   useEffect(() => {
@@ -603,7 +685,7 @@ export function SocialTab() {
   }
 
   async function runDesignForPiece(pieceId: string) {
-    setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _designRunning: true } : p));
+    setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _designRunning: true, _designError: undefined } : p));
     try {
       const res = await fetch('/api/admin/social/design', {
         method: 'POST',
@@ -617,17 +699,20 @@ export function SocialTab() {
             ...p,
             _designs: data.variants,
             _designRunning: false,
+            _designError: undefined,
             _designBrief: data.brief ? {
               visual_note: data.brief.visual_note,
               image_prompt: data.brief.image_prompt,
+              identified_subject: data.identified_subject ?? undefined,
             } : undefined,
+            _visualQA: data.visual_qa ?? null,
           } : p
         ));
       } else {
-        setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _designRunning: false } : p));
+        setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _designRunning: false, _designError: data.error ?? 'Design failed' } : p));
       }
-    } catch {
-      setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _designRunning: false } : p));
+    } catch (err) {
+      setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _designRunning: false, _designError: err instanceof Error ? err.message : 'Request failed' } : p));
     }
   }
 

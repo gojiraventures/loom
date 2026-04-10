@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { requireAdmin } from '@/lib/auth';
 import { generateImageComfyUI } from '@/lib/external/comfyui';
+import { COMFYUI_TAIL_BLOCK } from '@/lib/media/hero-prompt-generator';
 
 export const maxDuration = 300;
 
@@ -30,9 +31,14 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServerSupabaseClient();
 
+  // Apply the same art direction DNA used for Grok hero images
+  const styledPrompt = prompt.trimEnd().endsWith(COMFYUI_TAIL_BLOCK.slice(-40).trim())
+    ? prompt
+    : `${prompt.trimEnd()} ${COMFYUI_TAIL_BLOCK}`;
+
   let result;
   try {
-    result = await generateImageComfyUI(prompt);
+    result = await generateImageComfyUI(styledPrompt);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `ComfyUI generation failed: ${msg}` }, { status: 500 });
@@ -61,7 +67,7 @@ export async function POST(req: NextRequest) {
       source: 'comfyui_generated',
       search_query: 'social',
       title: 'Social — ComfyUI',
-      description: prompt,
+      description: styledPrompt,
       image_url: publicUrl,
       thumbnail_url: publicUrl,
       source_page_url: null,
@@ -78,7 +84,7 @@ export async function POST(req: NextRequest) {
       featured: false,
       gemini_verdict: null,
       gemini_caption: null,
-      gemini_literal: prompt,
+      gemini_literal: styledPrompt,
       updated_at: new Date().toISOString(),
     })
     .select('id')
@@ -89,5 +95,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `DB error: ${dbError.message}` }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, id: inserted.id, url: publicUrl, prompt });
+  return NextResponse.json({ ok: true, id: inserted.id, url: publicUrl, prompt: styledPrompt });
 }

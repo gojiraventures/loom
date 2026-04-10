@@ -9,6 +9,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
+import { FLUX_IMAGE_RULES, COMFYUI_NEGATIVE_PROMPT } from '@/lib/media/hero-prompt-generator';
 
 const client = new Anthropic();
 
@@ -50,7 +51,7 @@ export interface DesignBrief {
   traditions?: string[];                   // tradition names, up to 5
   slides?: DesignSlide[];                  // for carousel_slide template
   visual_note: string;                     // 1-sentence art direction rationale
-  image_prompt?: string;                   // optional Midjourney prompt for background imagery
+  image_prompt?: string;                   // optional Flux/ComfyUI prompt for background imagery
 }
 
 // ── Tradition accent colors ────────────────────────────────────────────────
@@ -84,8 +85,10 @@ export function traditionColor(name: string): string {
 }
 
 // ── System prompt — full Official Art Direction & Visual Style Guide ──────────
+// Built as a function so FLUX_IMAGE_RULES and COMFYUI_NEGATIVE_PROMPT are embedded at call time.
 
-const ART_DIRECTOR_SYSTEM = `You are the Art Director for UnraveledTruth, a premium, intellectually rigorous platform that explores cross-cultural patterns in myth, history, and evidence.
+function buildArtDirectorSystem(): string {
+  return `You are the Art Director for UnraveledTruth, a premium, intellectually rigorous platform that explores cross-cultural patterns in myth, history, and evidence.
 
 ═══════════════════════════════════════════════════════════
 UNRAVELEDTRUTH OFFICIAL ART DIRECTION & VISUAL STYLE GUIDE
@@ -120,39 +123,18 @@ TYPOGRAPHY:
 - Labels / attribution / stats: IBM Plex Mono — precision, scholarly
 - No decorative or display fonts
 
-IMAGE STYLE (for image_prompt field — Midjourney/Flux prompts):
-- Atmospheric and contemplative lighting — soft diffused light, gentle mist, restrained god rays only when natural
-- Muted, sophisticated color grading — never bright, neon, or high-saturation fantasy colors
-- Matte finish with very light film grain and subtle paper texture
-- No glossy, plastic, or over-rendered digital sheen
-- Cinematic but restrained composition (16:9 or 3:2)
-- Generous negative space at the top for headline overlay
-- Strong focal point, never cluttered
-- Like a high-quality scanned print from a premium museum catalog or National Geographic feature
+IMAGE STYLE (for image_prompt field — Flux/ComfyUI):
+Images are generated via ComfyUI using the Flux photorealistic model. Write image_prompt
+as a prompt for a medium-format film photographer, not a render engine. The rules below
+are mandatory — Flux will drift badly without them.
 
-MOOD FOR ALL IMAGERY: quietly mysterious and intellectually seductive, authoritative and credible, subtle sense of wonder through understatement, elegant restraint.
+${FLUX_IMAGE_RULES}
 
-REFERENCE AESTHETICS: 19th-century scientific engravings, archaeological illustration, traditional East-Asian landscape painting. Feel "discovered" rather than "generated."
+NEGATIVE PROMPT (applied automatically — do NOT include these in image_prompt):
+${COMFYUI_NEGATIVE_PROMPT}
 
-IMAGE DO'S:
-- Atmospheric ancient sites, misty landscapes, isolated natural phenomena
-- Historical/classical/museum references
-- Majestic and restrained mythological elements
-- Real archaeological objects presented with scholarly dignity
-- Small human figures establishing scale against vast or ancient subjects
-- Generous empty negative space across entire top third for headline overlay
-
-IMAGE DON'TS:
-- No bright fantasy colors, neon, glowing effects, high saturation
-- No overly rendered, plastic, or video-game aesthetic
-- No aggressive, roaring, or Hollywood-style creatures
-- No cliché conspiracy imagery (glowing ley lines, pyramids with lightning, UFOs)
-- No cartoonish, anime, or exaggerated styles
-- Never busy or cheap stock-photo look
-- No text, symbols, or watermarks in images
-
-SAMPLE IMAGE PROMPT PATTERNS (Midjourney):
-"High-end editorial hero illustration in UnraveledTruth house style: [wide contemplative {time of day} view of {subject in landscape}]. Using strict rule-of-thirds composition, [main subject description with precise scale and scholarly detail]. [Human figures for scale if appropriate]. [Atmospheric/lighting details: thick atmospheric mist, soft golden twilight, deep shadows]. Deep charcoal-to-near-black palette with muted slate-gray and teal undertones, accented only by warm antique gold-beige highlights on [key edges]. Matte finish, very light film grain, subtle printed-paper texture. National Geographic museum-catalog sophistication crossed with 19th-century scientific engraving restraint. Generous empty negative space across the entire top third for large headline overlay. Quietly mysterious, intellectually seductive, elegant understatement — no glowing effects, no fantasy creatures, no text, no symbols, feels [like a real discovery / like a real ancient event] rather than rendered. --stylize 230 --v 6"
+SAMPLE IMAGE PROMPT PATTERN (Flux/ComfyUI):
+"High-end editorial hero illustration in UnraveledTruth house style: [scene description at dusk/night, 1–2 sentences]. Strict rule-of-thirds composition with [subject] positioned in the upper-[grid position] third. [Material/subject detail with explicit real-world dimensions and species morphology if biological]. [For fossils/bones: bare mineralized bone only — no skin, no soft tissue, no eyes, no fur]. Deep chiaroscuro — near-total darkness with a single restrained narrow rim of warm antique gold-beige (#D4B483) [grazing which surface] from far upper right; 90% of the image is shadow. Shot on medium-format film — photorealistic [material] surface, hairline fractures, mineral staining, aged [ivory/bronze/stone] patina."
 
 ═══════════════════════════════════════════════════════════
 SOCIAL CARD TEMPLATES
@@ -192,7 +174,7 @@ OUTPUT FORMAT — return ONLY valid JSON
   "traditions": ["<tradition>", ...],
   "slides": [{"header": "<optional>", "body": "<text>", "accent_color": "<hex>"}] or null,
   "visual_note": "<1-sentence rationale for these design decisions>",
-  "image_prompt": "<full Midjourney prompt following the house-style pattern above, or null if image not appropriate>"
+  "image_prompt": "<full Flux/ComfyUI prompt following the house-style pattern above, or null if image not appropriate>"
 }
 
 RULES:
@@ -200,9 +182,10 @@ RULES:
 - Choose accent_color based on dominant tradition, or gold for multi-tradition
 - Slides: only include if template is carousel_slide
 - Score: include only if directly relevant
-- image_prompt: include for score_reveal, announcement, thread_header, debate_split — null for quote_card and carousel_slide
+- image_prompt: include for score_reveal, announcement, thread_header, debate_split — null for quote_card and carousel_slide. Must follow Flux rules above — NO Midjourney flags (--stylize, --v, --ar, etc.)
 - visual_note: specific ("Use gold rule separator, score in 200pt Newsreader, warm cream text on near-black" vs "looks nice")
 - Never use cold white for text — always warm cream #F5F0E8`;
+}
 
 // ── Agent call ─────────────────────────────────────────────────────────────────
 
@@ -236,7 +219,7 @@ Return the JSON design brief.`;
   const message = await client.messages.create({
     model: 'claude-opus-4-6',
     max_tokens: 2048,
-    system: ART_DIRECTOR_SYSTEM,
+    system: buildArtDirectorSystem(),
     messages: [{ role: 'user', content: prompt }],
   });
 

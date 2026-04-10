@@ -5045,6 +5045,8 @@ function JobsTab() {
   const [filterStatus, setFilterStatus] = useState<string>('active');
   const [tickLoading, setTickLoading] = useState(false);
   const [tickResult, setTickResult] = useState<string | null>(null);
+  const [autoTick, setAutoTick] = useState(false);
+  const autoTickRef = useRef(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [queuePhasesStatus, setQueuePhasesStatus] = useState<Record<string, string>>({});
   const [stopStatus, setStopStatus] = useState<Record<string, string>>({});
@@ -5085,6 +5087,25 @@ function JobsTab() {
       setTickLoading(false);
     }
   };
+
+  const toggleAutoTick = () => {
+    const next = !autoTickRef.current;
+    autoTickRef.current = next;
+    setAutoTick(next);
+    if (next) {
+      const tick = async () => {
+        if (!autoTickRef.current) return;
+        try {
+          await fetch('/api/admin/jobs/tick', { method: 'POST' });
+          await load();
+        } catch { /* ignore */ }
+        if (autoTickRef.current) setTimeout(tick, 8000);
+      };
+      void tick();
+    }
+  };
+
+  useEffect(() => () => { autoTickRef.current = false; }, []);
 
   const approve = async (jobId: string) => {
     setActionLoading(jobId);
@@ -5211,6 +5232,12 @@ function JobsTab() {
             className="font-mono text-[10px] uppercase tracking-widest px-4 py-2 border border-sky-400/30 text-sky-400 hover:bg-sky-400/5 rounded transition-colors disabled:opacity-50"
           >
             {tickLoading ? 'Ticking…' : 'Run Tick'}
+          </button>
+          <button
+            onClick={toggleAutoTick}
+            className={`font-mono text-[10px] uppercase tracking-widest px-4 py-2 border rounded transition-colors ${autoTick ? 'border-emerald-400/50 text-emerald-400 bg-emerald-400/10 animate-pulse' : 'border-border text-text-tertiary hover:text-text-secondary'}`}
+          >
+            {autoTick ? 'Auto ●' : 'Auto'}
           </button>
           <button
             onClick={() => void load()}
