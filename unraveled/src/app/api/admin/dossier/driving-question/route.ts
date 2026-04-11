@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     '';
 
   const response = await queryClaude({
+    provider: 'claude',
     model: 'claude-sonnet-4-6',
     systemPrompt: `You write driving questions for UnraveledTruth.com — a premium editorial platform exploring cross-cultural patterns in myth, history, and evidence.
 

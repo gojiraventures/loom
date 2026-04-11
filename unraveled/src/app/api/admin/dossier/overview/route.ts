@@ -32,11 +32,11 @@ OVERVIEW SUMMARY (3 short paragraphs, ~100-120 words total):
   GOOD: "There was no single global flood. The geology is clear on that. But the real story is stranger."
 - Third paragraph (optional) = one or two sentences teasing the most compelling unresolved tension.
 - Max sentence length: 20 words. Break every compound sentence into two simple ones.
-- BANNED: "systematic analysis", "yields a conclusion", "it should be noted", "the evidence suggests", "cross-disciplinary", sentences with more than one em dash, hedging chains.
+- BANNED: "systematic analysis", "yields a conclusion", "it should be noted", "the evidence suggests", "cross-disciplinary", em dashes (—), en dashes (–), hedging chains. Use hyphens (-) or rewrite the sentence.
 
 ADVOCATE TEASER (2-3 sentences only):
 - State the single strongest claim for the convergence/significance being real.
-- End with impact — the reader should feel the weight of the argument.
+- End with impact. The reader should feel the weight of the argument.
 - Do NOT build a full argument. Create tension.
 - Example format: "[Strongest claim]. [Why it matters or what it implies]. [The part that's hardest to explain away]."
 
@@ -71,16 +71,16 @@ export async function POST(req: NextRequest) {
 
   const userPrompt = `Topic: "${dossier.title}"
 
-DEEP DIVE RESEARCH SUMMARY (source material — rewrite, don't copy):
+DEEP DIVE RESEARCH SUMMARY (source material - rewrite, don't copy):
 ${output.executive_summary}
 
 QUICK BRIEF (may overlap with summary):
 ${(dossier.quick_brief as string | null) ?? '(none)'}
 
-ADVOCATE CASE (full version — extract the single strongest claim only):
+ADVOCATE CASE (full version - extract the single strongest claim only):
 ${output.advocate_case}
 
-SKEPTIC CASE (full version — extract the single strongest objection only):
+SKEPTIC CASE (full version - extract the single strongest objection only):
 ${output.skeptic_case}
 
 TOP 3 EVIDENCE FINDINGS (for each, write a plain-language 2-3 sentence explanation):

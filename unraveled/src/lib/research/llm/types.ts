@@ -19,6 +19,7 @@ export interface LLMResponse {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  stopReason?: string;        // 'end_turn' | 'max_tokens' | etc.
   provider: LLMProvider;
   durationMs: number;
 }

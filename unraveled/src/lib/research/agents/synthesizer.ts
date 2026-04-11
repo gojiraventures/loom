@@ -32,7 +32,10 @@ MANDATORY SECTIONS — DO NOT OMIT:
 INSTITUTIONAL SUPPRESSION CLAIMS:
 If findings include evidence of institutional involvement in suppressing, reinterpreting, or discrediting physical evidence (Smithsonian policies, museum collection practices, archaeological record gaps, specific named researchers), surface these prominently. Do not bury them as footnotes. They are part of the evidence record. Apply the same evidential standards you would to any other claim — document what evidence exists for and against.
 
-THE TEST: Would a sceptical professor of ancient history read this and think "this is the most serious treatment of this question I have seen outside a journal"? If yes, you have succeeded.`;
+THE TEST: Would a sceptical professor of ancient history read this and think "this is the most serious treatment of this question I have seen outside a journal"? If yes, you have succeeded.
+
+TYPOGRAPHY RULE — MANDATORY:
+Never use em dashes (—) or en dashes (–) anywhere in your output. Use a hyphen (-) or rewrite the sentence. This applies to every field without exception.`;
 
 function buildSynthesizerPrompt(
   topic: string,
@@ -204,7 +207,7 @@ export async function runSynthesis(
         systemPrompt: SYNTHESIZER_SYSTEM_PROMPT,
         userPrompt: buildSynthesizerPrompt(topic, findings, validations, convergenceAnalyses, debate),
         jsonMode: true,
-        maxTokens: 16000,
+        maxTokens: 32000,
         temperature: 0.60,
         sessionId,
       },
@@ -217,14 +220,33 @@ export async function runSynthesis(
     };
   }
 
+  console.log(`[synthesizer] stopReason=${response.stopReason} outputTokens=${response.outputTokens} inputTokens=${response.inputTokens} textLength=${response.text.length}`);
+  console.log(`[synthesizer] text preview (first 300): ${response.text.slice(0, 300)}`);
+  console.log(`[synthesizer] text tail (last 200): ${response.text.slice(-200)}`);
+
+  // Write raw response to temp file for inspection when parse fails
+  try {
+    const { writeFileSync } = await import('fs');
+    writeFileSync('/tmp/synthesizer_last_response.json', response.text, 'utf8');
+    console.log('[synthesizer] Raw response written to /tmp/synthesizer_last_response.json');
+  } catch { /* non-critical */ }
+
+  if (response.stopReason === 'max_tokens') {
+    console.error(`[synthesizer] Response truncated at max_tokens (${response.outputTokens} tokens). Input may be too large.`);
+  }
+
   try {
     const raw = parseJsonResponse(response);
     const output = SynthesizedOutputSchema.parse(raw) as SynthesizedOutput;
     return { output };
   } catch (err) {
+    const truncationNote = response.stopReason === 'max_tokens'
+      ? ` [TRUNCATED at ${response.outputTokens} output tokens — reduce input size or increase maxTokens]`
+      : '';
+    console.error(`[synthesizer] parse error: ${err instanceof Error ? err.message : String(err)}`);
     return {
       output: null,
-      error: `Synthesizer schema validation failed: ${err instanceof Error ? err.message : String(err)}`,
+      error: `Synthesizer schema validation failed: ${err instanceof Error ? err.message : String(err)}${truncationNote}`,
     };
   }
 }
