@@ -95,6 +95,12 @@ export async function proxy(request: NextRequest) {
   const isAdminPath = pathname.startsWith('/admin') || pathname.startsWith('/api/admin/');
 
   if (isAdminPath) {
+    // Allow internal scripts via secret header (set ADMIN_SCRIPT_SECRET in .env.local)
+    const scriptSecret = process.env.ADMIN_SCRIPT_SECRET;
+    if (scriptSecret && request.headers.get('x-admin-secret') === scriptSecret) {
+      return response;
+    }
+
     if (!user) {
       if (pathname.startsWith('/api/')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
