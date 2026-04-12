@@ -29,6 +29,7 @@ import type { ComponentRecord } from '@/lib/interactive/types';
 import { ViewToggle } from '@/components/topic/ViewToggle';
 import { AudioHero } from '@/components/topic/AudioHero';
 import { OverviewSummary } from '@/components/topic/OverviewSummary';
+import { OriginContext } from '@/components/topic/OriginContext';
 import { TopFindings } from '@/components/topic/TopFindings';
 import { DebateTeaser } from '@/components/topic/DebateTeaser';
 import { TraditionSamples } from '@/components/topic/TraditionSamples';
@@ -141,7 +142,7 @@ export default async function TopicPage({
       .limit(12),
     supabase
       .from('topic_dossiers')
-      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug, selected_components, driving_question, overview_summary, overview_advocate_summary, overview_skeptic_summary, overview_findings, narrative_bridge, finding_connectors, debate_intro, section_transitions')
+      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug, selected_components, driving_question, overview_summary, overview_advocate_summary, overview_skeptic_summary, overview_findings, narrative_bridge, finding_connectors, debate_intro, section_transitions, origin_context')
       .eq('topic', topic)
       .single(),
   ]);
@@ -172,6 +173,7 @@ export default async function TopicPage({
   const findingConnectors = (dossierMeta?.finding_connectors as string[] | null) ?? null;
   const debateIntro = (dossierMeta?.debate_intro as string | null) ?? null;
   const sectionTransitions = (dossierMeta?.section_transitions as string[] | null) ?? null;
+  const originContext = (dossierMeta?.origin_context as string | null) ?? null;
   const traditionEntries = Object.entries(output.how_cultures_describe) as [string, string][];
   const traditionSamples = traditionEntries.slice(0, 2) as [string, string][];
 
@@ -376,6 +378,7 @@ export default async function TopicPage({
         <>
           {audioUrl && <AudioHero audioUrl={audioUrl} title={output.title} />}
           <OverviewSummary summary={overviewSummary} />
+          {originContext && <OriginContext text={originContext} />}
           <TopFindings
             layers={output.jaw_drop_layers}
             slug={slug}

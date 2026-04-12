@@ -73,7 +73,21 @@ SECTION TRANSITIONS (exactly 2 strings, JSON array):
   BAD: "Here is how different cultures see it." GOOD: "That split is not new. Communities across history have been circling this same question from angles that have almost nothing in common."
 
 EVIDENCE EXPLANATIONS — for each of the top 3 findings, 2-3 sentences (~40-60 words):
-- Plain language. Why does this matter? Accessible explanation, not a copy of the finding.`;
+- Plain language. Why does this matter? Accessible explanation, not a copy of the finding.
+
+ORIGIN CONTEXT (150-300 words, two or three short paragraphs maximum):
+- Appears immediately after the "What This Is About" hook, before the evidence section.
+- Purpose: Give a curious newcomer enough background to understand why this story exists and why it matters -- in under 40 seconds. Experienced readers should feel the piece is sharper and more authoritative, not padded.
+- Tone: Identical to the rest of the piece. Calm, evidence-first, slightly wry. Never sensational or conspiratorial.
+- Content structure:
+  1. The historical or situational setup: What was the original event, program, discovery, or phenomenon? When and why did it happen? Who were the key players and what was the official goal?
+  2. Only the minimal essential context a smart first-time reader needs. No padding. No lecturing.
+  3. Bridge naturally into the central tension or mystery the article explores (the myth vs. documented reality, the secrecy gap, the contradiction, etc.).
+  4. End with a smooth transition sentence that flows directly into the evidence section.
+- Do NOT repeat anything already stated in the hook/summary or in the title.
+- Writing rules: Varied sentence structures. No em dashes or en dashes. Sound human, not AI-generated. Max 20 words per sentence.
+- Quality gate: A complete newcomer instantly "gets it." An expert reader feels zero padding or lecturing. The title should land with noticeably more weight after reading this section.
+- Return null if the existing hook already provides full origin context and adding more would only repeat or pad.`;
 
 async function generateFull(title, output, quickBrief) {
   const top3 = (output.jaw_drop_layers || []).slice(0, 3);
@@ -104,7 +118,8 @@ Return ONLY valid JSON, no markdown:
   "debate_intro": "1-2 sentences. Both sides have something real. Genuine uncertainty.",
   "section_transitions": ["1-2 sentences evidence → debate. Continuation not a label.", "1-2 sentences debate → cultural perspectives. Different traditions, same question."],
   "overview_advocate_summary": "2-3 sentences. Strongest claim. Creates tension.",
-  "overview_skeptic_summary": "2-3 sentences. Strongest doubt. Creates tension."
+  "overview_skeptic_summary": "2-3 sentences. Strongest doubt. Creates tension.",
+  "origin_context": "150-300 words. Two or three paragraphs. Historical setup, minimal context, bridge to central tension. Null if hook already provides full context."
 }`;
 
   const response = await anthropic.messages.create({
@@ -149,6 +164,7 @@ async function main() {
           section_transitions:        parsed.section_transitions ?? null,
           overview_advocate_summary:  parsed.overview_advocate_summary,
           overview_skeptic_summary:   parsed.overview_skeptic_summary,
+          origin_context:             parsed.origin_context ?? null,
         })
         .eq('topic', d.topic);
 
