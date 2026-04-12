@@ -4,19 +4,25 @@ interface TraditionSamplesProps {
   traditions: [string, string][];
   slug: string;
   totalCount: number;
+  transitionIn?: string | null;
 }
 
-export function TraditionSamples({ traditions, slug, totalCount }: TraditionSamplesProps) {
+export function TraditionSamples({ traditions, slug, totalCount, transitionIn }: TraditionSamplesProps) {
   if (traditions.length === 0) return null;
 
   return (
     <section className="border-b border-border">
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-8">
+        {transitionIn && (
+          <p className="text-base text-text-secondary leading-[1.85] mb-6 max-w-2xl">
+            {transitionIn}
+          </p>
+        )}
         <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary block mb-2">
           In Their Own Words
         </span>
         <h2 className="font-serif text-xl sm:text-2xl mb-6">How Different Cultures Tell It</h2>
-        <div className="grid sm:grid-cols-2 gap-px border border-border">
+        <div className={`grid gap-px border border-border ${traditions.length > 1 ? 'sm:grid-cols-2' : ''}`}>
           {traditions.map(([name, description]) => (
             <div key={name} className="p-5 bg-ground-light/20">
               <span className="font-mono text-[9px] tracking-[0.2em] uppercase text-text-tertiary block mb-2">

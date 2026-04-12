@@ -6,6 +6,8 @@ interface DebateTeaserProps {
   slug: string;
   advocateSummary?: string | null;
   skepticSummary?: string | null;
+  debateIntro?: string | null;
+  transitionIn?: string | null;
 }
 
 function twoSentences(text: string): string {
@@ -20,6 +22,8 @@ export function DebateTeaser({
   slug,
   advocateSummary,
   skepticSummary,
+  debateIntro,
+  transitionIn,
 }: DebateTeaserProps) {
   const advocateText = advocateSummary ?? twoSentences(advocateCase);
   const skepticText = skepticSummary ?? twoSentences(skepticCase);
@@ -29,10 +33,20 @@ export function DebateTeaser({
   return (
     <section className="border-b border-border">
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-8">
+        {transitionIn && (
+          <p className="text-base text-text-secondary leading-[1.85] mb-6 max-w-2xl">
+            {transitionIn}
+          </p>
+        )}
         <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary block mb-2">
           The Debate
         </span>
-        <h2 className="font-serif text-xl sm:text-2xl mb-6">Two Cases. You Decide.</h2>
+        <h2 className="font-serif text-xl sm:text-2xl mb-4">Two Cases. You Decide.</h2>
+        {debateIntro && (
+          <p className="text-sm text-text-secondary leading-[1.85] mb-6 max-w-2xl">
+            {debateIntro}
+          </p>
+        )}
         <div className="grid sm:grid-cols-2 gap-px border border-border">
           <div className="p-5 bg-ground-light/20">
             <div className="flex items-center gap-2 mb-3">

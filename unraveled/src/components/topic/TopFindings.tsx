@@ -8,6 +8,10 @@ interface TopFindingsProps {
    *  Index matches jaw_drop_layers order. Falls back to first 2 sentences of
    *  layer.content when not populated. */
   overviewExplanations?: string[];
+  /** 1-2 sentence bridge from the summary into the evidence section. */
+  narrativeBridge?: string | null;
+  /** Two short connectors: [0] between finding 1-2, [1] between finding 2-3. */
+  findingConnectors?: string[] | null;
 }
 
 function twoSentences(text: string): string {
@@ -15,54 +19,96 @@ function twoSentences(text: string): string {
   return sentences.slice(0, 2).join(' ').trim();
 }
 
-export function TopFindings({ layers, slug, overviewExplanations }: TopFindingsProps) {
-  const top = layers.slice(0, 3);
+/** Findings where the research tool itself is the subject (null-result / refusal findings)
+ *  shouldn't appear in the overview "hard to explain away" teaser — they read as product
+ *  failures to new visitors. They remain visible in the full deep-dive. */
+function isMetaToolFinding(layer: JawDropLayer): boolean {
+  const needle = layer.title.toLowerCase() + ' ' + layer.evidence_hook.toLowerCase();
+  return (
+    needle.includes('research tool') ||
+    needle.includes('automated research') ||
+    needle.includes('refused the assignment') ||
+    needle.includes('formal refusal') ||
+    needle.includes('mythology cluster')
+  );
+}
+
+export function TopFindings({
+  layers,
+  slug,
+  overviewExplanations,
+  narrativeBridge,
+  findingConnectors,
+}: TopFindingsProps) {
+  // Pair each layer with its original index so overviewExplanations stays aligned after filtering.
+  const substantive = layers
+    .map((l, originalIndex) => ({ layer: l, originalIndex }))
+    .filter(({ layer }) => !isMetaToolFinding(layer));
+  const top = substantive.slice(0, 3);
+  const hiddenCount = layers.length - top.length;
   if (top.length === 0) return null;
 
   return (
     <section className="border-b border-border">
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-8">
-        <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary block mb-2">
+        <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary block mb-4">
           The Evidence
         </span>
-        <h2 className="font-serif text-xl sm:text-2xl mb-6">
-          The Findings That Are Hard to Explain Away
-        </h2>
-        <div className="space-y-px">
-          {top.map((layer, i) => {
-            const explanation = overviewExplanations?.[i] ?? twoSentences(layer.content);
+
+        {/* Narrative bridge — flows directly from the summary, replaces the generic h2 */}
+        {narrativeBridge ? (
+          <p className="text-base text-text-secondary leading-[1.85] mb-6 max-w-2xl">
+            {narrativeBridge}
+          </p>
+        ) : (
+          <h2 className="font-serif text-xl sm:text-2xl mb-6">
+            The Findings That Are Hard to Explain Away
+          </h2>
+        )}
+
+        <div className="max-w-2xl">
+          {top.map(({ layer, originalIndex }, i) => {
+            const explanation = overviewExplanations?.[originalIndex] ?? twoSentences(layer.content);
+            const isLast = i === top.length - 1;
+            const connector = !isLast ? (findingConnectors?.[i] ?? null) : null;
+
             return (
-              <div key={i} className="flex gap-0 border border-border bg-ground-light/20">
-                <div
-                  className="w-1 shrink-0"
-                  style={{
-                    background: i === 0
-                      ? 'var(--color-gold)'
-                      : i === 1
-                      ? 'rgba(200,149,108,0.5)'
-                      : 'rgba(255,255,255,0.1)',
-                  }}
-                />
-                <div className="flex-1 px-5 py-4">
-                  <h3 className="font-serif text-base sm:text-lg mb-2">{layer.title}</h3>
-                  <p className="text-sm text-text-secondary leading-[1.8] mb-3">
+              <div key={originalIndex}>
+                {/* Finding as prose — title is the bold opening sentence */}
+                <div className="py-4">
+                  <h3 className="font-serif text-base sm:text-[17px] text-text-primary mb-2 leading-snug">
+                    {layer.title}
+                  </h3>
+                  <p className="text-sm text-text-secondary leading-[1.85] mb-3">
                     {explanation}
                   </p>
-                  <p className="font-mono text-[11px] text-gold/80 border-l-2 border-gold/25 pl-3 italic leading-relaxed">
+                  <p className="font-mono text-[10px] text-gold/70 border-l border-gold/20 pl-3 italic leading-relaxed">
                     {layer.evidence_hook}
                   </p>
                 </div>
+
+                {/* Connector between findings, or subtle rule as fallback */}
+                {!isLast && (
+                  connector ? (
+                    <p className="text-sm text-text-tertiary/70 italic py-2">
+                      {connector}
+                    </p>
+                  ) : (
+                    <div className="border-t border-border/30 my-1" />
+                  )
+                )}
               </div>
             );
           })}
         </div>
-        {layers.length > 3 && (
-          <div className="mt-4">
+
+        {hiddenCount > 0 && (
+          <div className="mt-5">
             <Link
               href={`/topics/${slug}?view=deep#the-evidence`}
               className="font-mono text-[10px] tracking-[0.15em] uppercase text-gold/70 hover:text-gold transition-colors"
             >
-              {layers.length - 3} more findings in the full research →
+              {hiddenCount} more {hiddenCount === 1 ? 'finding' : 'findings'} in the full research →
             </Link>
           </div>
         )}

@@ -141,7 +141,7 @@ export default async function TopicPage({
       .limit(12),
     supabase
       .from('topic_dossiers')
-      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug, selected_components, driving_question, overview_summary, overview_advocate_summary, overview_skeptic_summary, overview_findings')
+      .select('audio_url, llm_perspectives, quick_brief, published_at, updated_at, slug, selected_components, driving_question, overview_summary, overview_advocate_summary, overview_skeptic_summary, overview_findings, narrative_bridge, finding_connectors, debate_intro, section_transitions')
       .eq('topic', topic)
       .single(),
   ]);
@@ -168,6 +168,10 @@ export default async function TopicPage({
   const overviewAdvocate = (dossierMeta?.overview_advocate_summary as string | null) ?? null;
   const overviewSkeptic = (dossierMeta?.overview_skeptic_summary as string | null) ?? null;
   const overviewFindings = (dossierMeta?.overview_findings as string[] | null) ?? undefined;
+  const narrativeBridge = (dossierMeta?.narrative_bridge as string | null) ?? null;
+  const findingConnectors = (dossierMeta?.finding_connectors as string[] | null) ?? null;
+  const debateIntro = (dossierMeta?.debate_intro as string | null) ?? null;
+  const sectionTransitions = (dossierMeta?.section_transitions as string[] | null) ?? null;
   const traditionEntries = Object.entries(output.how_cultures_describe) as [string, string][];
   const traditionSamples = traditionEntries.slice(0, 2) as [string, string][];
 
@@ -372,26 +376,40 @@ export default async function TopicPage({
         <>
           {audioUrl && <AudioHero audioUrl={audioUrl} title={output.title} />}
           <OverviewSummary summary={overviewSummary} />
-          <TopFindings layers={output.jaw_drop_layers} slug={slug} overviewExplanations={overviewFindings} />
+          <TopFindings
+            layers={output.jaw_drop_layers}
+            slug={slug}
+            overviewExplanations={overviewFindings}
+            narrativeBridge={narrativeBridge}
+            findingConnectors={findingConnectors}
+          />
           <DebateTeaser
             advocateCase={output.advocate_case ?? ''}
             skepticCase={output.skeptic_case ?? ''}
             slug={slug}
             advocateSummary={overviewAdvocate}
             skepticSummary={overviewSkeptic}
+            debateIntro={debateIntro}
+            transitionIn={sectionTransitions?.[0] ?? null}
           />
           {traditionSamples.length > 0 && (
             <TraditionSamples
               traditions={traditionSamples}
               slug={slug}
               totalCount={traditionEntries.length}
+              transitionIn={sectionTransitions?.[1] ?? null}
             />
           )}
           <AIConsensusTeaser
             score={output.convergence_score}
             traditionsCount={output.traditions_analyzed.length}
           />
-          <SignupCTA topicTitle={output.title} slug={slug} />
+          <SignupCTA
+            topicTitle={output.title}
+            slug={slug}
+            findingsCount={output.jaw_drop_layers.length}
+            traditionsCount={traditionEntries.length}
+          />
         </>
       )}
 

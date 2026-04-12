@@ -1,8 +1,8 @@
 /**
- * Generates plain-language Overview content for all topics that don't have it yet.
- * Runs directly against Supabase + Anthropic — no HTTP auth needed.
+ * Regenerates the full overview (summary + all connective tissue fields) for every topic.
+ * Overwrites existing overview content with the improved prompt.
  *
- * Usage: node scripts/generate-overviews.mjs
+ * Usage: node scripts/regenerate-all-overviews.mjs
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -11,7 +11,6 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-// Load .env.local
 const __dir = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dir, '../.env.local');
 const env = Object.fromEntries(
@@ -24,10 +23,7 @@ const env = Object.fromEntries(
     })
 );
 
-const supabase = createClient(
-  env.NEXT_PUBLIC_SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE_KEY,
-);
+const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
 const SYSTEM_PROMPT = `You are a content editor rewriting academic research summaries into compelling, plain-language article pages for a general audience.
@@ -41,7 +37,7 @@ RULES:
 OVERVIEW SUMMARY — 3 paragraphs, 120-180 words total:
 - Paragraph 1 (2-3 sentences): The question in plain English, "we" voice. Start with what the reader wonders.
 - Paragraph 2 (3-4 sentences): The surprising answer. Most counterintuitive finding, stated plainly. No hedging.
-- Paragraph 3 (1-2 sentences): OPEN A QUESTION — do NOT answer it. Leave the reader wanting to see the evidence. End on genuine uncertainty or a surprising discovery that demands explanation. NEVER end with a conclusion or verdict.
+- Paragraph 3 (1-2 sentences): OPEN A QUESTION — do NOT answer it. Leave the reader feeling there is something deeper they need to understand. End on genuine uncertainty or a surprising discovery that demands explanation. NEVER end paragraph 3 with a conclusion or verdict. The reader should finish the summary wanting to know what the evidence actually shows.
   BAD: "The myth has a clear paper trail. It leads back to fiction." (resolved — kills curiosity)
   GOOD: "But the government was building something in secret at the exact same time. What that says about what else might have been hidden is the question the evidence keeps raising."
 - Max sentence length: 20 words. Break compounds into simple sentences.
@@ -50,20 +46,17 @@ OVERVIEW SUMMARY — 3 paragraphs, 120-180 words total:
 NARRATIVE BRIDGE (1-2 sentences):
 - First sentence of the evidence section. Flows directly after the summary.
 - Topic-specific pivot from "big picture" to "here's what the research found."
-- Reference what the summary just established, then open the door to the evidence.
 - NOT: "Here is what the evidence shows." — YES: "The myth is traceable to exact sources. Here's the paper trail."
 
 FINDING CONNECTORS (exactly 2 phrases, JSON array):
 - [0] = transition from Finding 1 to Finding 2 (max 15 words)
 - [1] = transition from Finding 2 to Finding 3 (max 15 words)
-- Create forward momentum and escalation — each connector signals the next finding raises the stakes.
-- Feel like connective tissue in longform journalism, not filler.
+- Create forward momentum and escalation.
   GOOD: ["That alone is strange. But the documentation makes it stranger.", "And then there's the piece that has no clean explanation."]
   BAD: ["Here is another finding.", "The following evidence is also relevant."]
 
 DEBATE INTRO (1-2 sentences MAX):
-- Both sides have something real — signal this without giving either an edge.
-- Creates genuine intellectual uncertainty. The reader should not know which side is right.
+- Both sides have something real. Creates genuine intellectual uncertainty.
   BAD: "Here are two perspectives." — GOOD: "The debunking case is strong. The anomalies are also real. That combination is the actual problem."
 
 ADVOCATE TEASER — 2-3 sentences:
@@ -71,8 +64,6 @@ ADVOCATE TEASER — 2-3 sentences:
 
 SKEPTIC TEASER — 2-3 sentences:
 - Single strongest objection. Ends with a doubt that lingers.
-
-Both teasers together: both sides have a point, I need to read the full debate.
 
 SECTION TRANSITIONS (exactly 2 strings, JSON array):
 - [0] = 1-2 sentences bridging FROM the evidence section INTO the debate section.
@@ -82,10 +73,9 @@ SECTION TRANSITIONS (exactly 2 strings, JSON array):
   BAD: "Here is how different cultures see it." GOOD: "That split is not new. Communities across history have been circling this same question from angles that have almost nothing in common."
 
 EVIDENCE EXPLANATIONS — for each of the top 3 findings, 2-3 sentences (~40-60 words):
-- Plain language. Why does this matter? What should the reader understand?
-- Not a copy of the finding — an accessible explanation of it.`;
+- Plain language. Why does this matter? Accessible explanation, not a copy of the finding.`;
 
-async function generateOverview(topic, title, output, quickBrief) {
+async function generateFull(title, output, quickBrief) {
   const top3 = (output.jaw_drop_layers || []).slice(0, 3);
 
   const userPrompt = `Topic: "${title}"
@@ -132,41 +122,49 @@ Return ONLY valid JSON, no markdown:
 async function main() {
   const { data: dossiers, error } = await supabase
     .from('topic_dossiers')
-    .select('topic, title, synthesized_output, quick_brief, overview_summary')
-    .not('synthesized_output', 'is', null);
+    .select('topic, title, synthesized_output, quick_brief')
+    .not('synthesized_output', 'is', null)
+    .order('title');
 
   if (error) throw error;
 
-  const pending = dossiers.filter(d => !d.overview_summary);
-  console.log(`Found ${pending.length} topics needing overview generation.\n`);
+  console.log(`Regenerating overviews for ${dossiers.length} topics.\n`);
 
-  for (const d of pending) {
-    process.stdout.write(`  Generating: ${d.title.slice(0, 65)}... `);
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const d of dossiers) {
+    process.stdout.write(`  [${succeeded + failed + 1}/${dossiers.length}] ${d.title.slice(0, 60)}... `);
     try {
-      const parsed = await generateOverview(d.topic, d.title, d.synthesized_output, d.quick_brief);
+      const parsed = await generateFull(d.title, d.synthesized_output, d.quick_brief);
 
       const { error: updateErr } = await supabase
         .from('topic_dossiers')
         .update({
-          overview_summary: parsed.overview_summary,
-          narrative_bridge: parsed.narrative_bridge ?? null,
-          overview_findings: parsed.overview_findings ?? null,
-          finding_connectors: parsed.finding_connectors ?? null,
-          debate_intro: parsed.debate_intro ?? null,
-          section_transitions: parsed.section_transitions ?? null,
-          overview_advocate_summary: parsed.overview_advocate_summary,
-          overview_skeptic_summary: parsed.overview_skeptic_summary,
+          overview_summary:           parsed.overview_summary,
+          narrative_bridge:           parsed.narrative_bridge ?? null,
+          overview_findings:          parsed.overview_findings ?? null,
+          finding_connectors:         parsed.finding_connectors ?? null,
+          debate_intro:               parsed.debate_intro ?? null,
+          section_transitions:        parsed.section_transitions ?? null,
+          overview_advocate_summary:  parsed.overview_advocate_summary,
+          overview_skeptic_summary:   parsed.overview_skeptic_summary,
         })
         .eq('topic', d.topic);
 
       if (updateErr) throw updateErr;
       console.log('✓');
+      succeeded++;
     } catch (err) {
-      console.log(`✗ ${err.message}`);
+      console.log(`✗  ${err.message}`);
+      failed++;
     }
+
+    // Brief pause between calls
+    await new Promise(r => setTimeout(r, 300));
   }
 
-  console.log('\nDone.');
+  console.log(`\nDone. ${succeeded} succeeded, ${failed} failed.`);
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

@@ -3,9 +3,16 @@ import Link from 'next/link';
 interface SignupCTAProps {
   topicTitle: string;
   slug: string;
+  findingsCount?: number;
+  traditionsCount?: number;
 }
 
-export function SignupCTA({ topicTitle: _topicTitle, slug }: SignupCTAProps) {
+export function SignupCTA({ topicTitle, slug, findingsCount, traditionsCount }: SignupCTAProps) {
+  const bullets: string[] = [];
+  if (findingsCount && findingsCount > 0) bullets.push(`${findingsCount} finding${findingsCount === 1 ? '' : 's'}`);
+  if (traditionsCount && traditionsCount > 0) bullets.push(`${traditionsCount} cultural perspective${traditionsCount === 1 ? '' : 's'}`);
+  bullets.push('full debate', 'timeline', 'sources with credibility ratings');
+
   return (
     <section className="border-b border-border">
       <div className="max-w-[var(--spacing-content)] mx-auto px-6 py-10">
@@ -24,13 +31,13 @@ export function SignupCTA({ topicTitle: _topicTitle, slug }: SignupCTAProps) {
             className="font-serif text-xl sm:text-2xl mb-3"
             style={{ color: '#1A1712' }}
           >
-            There&rsquo;s more to this story.
+            The full picture on {topicTitle} is free.
           </h2>
           <p
             className="text-sm leading-[1.8] mb-6 max-w-xl"
             style={{ color: '#4A3F35' }}
           >
-            The full research is free with an account.
+            {bullets.join(', ')} — everything, free with an account. No ads, no sponsors.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             {/* Primary — sign up first (the conversion action) */}
