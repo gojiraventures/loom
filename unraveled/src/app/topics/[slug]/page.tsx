@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { ConvergenceScore } from '@/components/ui/ConvergenceScore';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { ConvergenceMap } from '@/components/viz/ConvergenceMap';
 import { NarrativeTimeline } from '@/components/viz/NarrativeTimeline';
 import { SharedElementsGrid } from '@/components/viz/SharedElementsGrid';
@@ -313,12 +314,21 @@ export default async function TopicPage({
                   <p className="text-sm text-white/75 leading-relaxed mb-3 max-w-2xl">
                     {output.subtitle}
                   </p>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1 items-center">
                     {output.traditions_analyzed.map((t) => (
                       <span key={t} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 border border-white/20 text-white/55 bg-white/5">
                         {t}
                       </span>
                     ))}
+                    <Tooltip
+                      content="The cultural and religious traditions whose records were analyzed in this research. Each represents a distinct body of texts, oral histories, or artifacts examined for overlapping themes."
+                      position="top"
+                      className="inline-flex items-center cursor-help"
+                    >
+                      <span className="font-mono text-[8px] px-1.5 py-0.5 border border-white/10 text-white/25 hover:text-white/45 transition-colors select-none leading-none">
+                        ?
+                      </span>
+                    </Tooltip>
                   </div>
                   {/* Attribution */}
                   <p className="font-mono text-[7px] text-white/25 mt-3">
@@ -329,12 +339,18 @@ export default async function TopicPage({
                   </p>
                 </div>
                 {/* Convergence score — frosted pill */}
-                <div className="shrink-0 flex flex-col items-center gap-1.5 pb-1 bg-black/40 backdrop-blur-[2px] rounded px-4 py-3">
-                  <ConvergenceScore score={output.convergence_score} size={64} />
-                  <span className="font-mono text-[7px] tracking-[0.15em] uppercase text-white/50 text-center">
-                    Convergence<br />Score
-                  </span>
-                </div>
+                <Tooltip
+                  content="Measures how consistently unconnected cultures describe the same core elements. Scale of 0 to 100. Higher means stronger independent agreement across traditions. Not a measure of truth. A measure of how much the accounts match."
+                  position="top-right"
+                  className="shrink-0 cursor-help"
+                >
+                  <div className="flex flex-col items-center gap-1.5 pb-1 bg-black/40 backdrop-blur-[2px] rounded px-4 py-3">
+                    <ConvergenceScore score={output.convergence_score} size={64} />
+                    <span className="font-mono text-[7px] tracking-[0.15em] uppercase text-white/50 text-center">
+                      Convergence<br />Score
+                    </span>
+                  </div>
+                </Tooltip>
               </div>
             </div>
           </div>
@@ -354,20 +370,35 @@ export default async function TopicPage({
                 <p className="text-lg text-text-secondary leading-relaxed max-w-2xl mb-5">
                   {output.subtitle}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 items-center">
                   {output.traditions_analyzed.map((t) => (
                     <span key={t} className="font-mono text-[9px] tracking-wider uppercase px-2 py-0.5 border border-border text-text-tertiary">
                       {t}
                     </span>
                   ))}
+                  <Tooltip
+                    content="The cultural and religious traditions whose records were analyzed in this research. Each represents a distinct body of texts, oral histories, or artifacts examined for overlapping themes."
+                    position="top"
+                    className="inline-flex items-center cursor-help"
+                  >
+                    <span className="font-mono text-[9px] px-2 py-0.5 border border-border text-text-tertiary/40 hover:text-text-tertiary transition-colors select-none leading-none">
+                      ?
+                    </span>
+                  </Tooltip>
                 </div>
               </div>
-              <div className="shrink-0 flex flex-col items-center gap-1.5 pt-2">
-                <ConvergenceScore score={output.convergence_score} size={72} />
-                <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-text-tertiary text-center">
-                  Convergence<br />Score
-                </span>
-              </div>
+              <Tooltip
+                content="Measures how consistently unconnected cultures describe the same core elements. Scale of 0 to 100. Higher means stronger independent agreement across traditions. Not a measure of truth. A measure of how much the accounts match."
+                position="top-right"
+                className="shrink-0 cursor-help"
+              >
+                <div className="flex flex-col items-center gap-1.5 pt-2">
+                  <ConvergenceScore score={output.convergence_score} size={72} />
+                  <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-text-tertiary text-center">
+                    Convergence<br />Score
+                  </span>
+                </div>
+              </Tooltip>
             </div>
           </div>
         </section>
