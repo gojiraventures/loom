@@ -314,21 +314,15 @@ export default async function TopicPage({
                   <p className="text-sm text-white/75 leading-relaxed mb-3 max-w-2xl">
                     {output.subtitle}
                   </p>
-                  <div className="flex flex-wrap gap-1 items-center">
+                  <p className="font-mono text-[7px] tracking-[0.18em] uppercase text-white/30 mb-1.5">
+                    Traditions analyzed in this research
+                  </p>
+                  <div className="flex flex-wrap gap-1">
                     {output.traditions_analyzed.map((t) => (
                       <span key={t} className="font-mono text-[8px] tracking-wider uppercase px-1.5 py-0.5 border border-white/20 text-white/55 bg-white/5">
                         {t}
                       </span>
                     ))}
-                    <Tooltip
-                      content="The cultural and religious traditions whose records were analyzed in this research. Each represents a distinct body of texts, oral histories, or artifacts examined for overlapping themes."
-                      position="top"
-                      className="inline-flex items-center cursor-help"
-                    >
-                      <span className="font-mono text-[8px] px-1.5 py-0.5 border border-white/10 text-white/25 hover:text-white/45 transition-colors select-none leading-none">
-                        ?
-                      </span>
-                    </Tooltip>
                   </div>
                   {/* Attribution */}
                   <p className="font-mono text-[7px] text-white/25 mt-3">
@@ -370,21 +364,15 @@ export default async function TopicPage({
                 <p className="text-lg text-text-secondary leading-relaxed max-w-2xl mb-5">
                   {output.subtitle}
                 </p>
-                <div className="flex flex-wrap gap-1.5 items-center">
+                <p className="font-mono text-[8px] tracking-[0.18em] uppercase text-text-tertiary/60 mb-1.5">
+                  Traditions analyzed in this research
+                </p>
+                <div className="flex flex-wrap gap-1.5">
                   {output.traditions_analyzed.map((t) => (
                     <span key={t} className="font-mono text-[9px] tracking-wider uppercase px-2 py-0.5 border border-border text-text-tertiary">
                       {t}
                     </span>
                   ))}
-                  <Tooltip
-                    content="The cultural and religious traditions whose records were analyzed in this research. Each represents a distinct body of texts, oral histories, or artifacts examined for overlapping themes."
-                    position="top"
-                    className="inline-flex items-center cursor-help"
-                  >
-                    <span className="font-mono text-[9px] px-2 py-0.5 border border-border text-text-tertiary/40 hover:text-text-tertiary transition-colors select-none leading-none">
-                      ?
-                    </span>
-                  </Tooltip>
                 </div>
               </div>
               <Tooltip
