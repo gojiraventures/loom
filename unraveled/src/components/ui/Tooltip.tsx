@@ -22,9 +22,9 @@ export function Tooltip({ content, children, className, position = "top" }: Tool
       <span
         className={[
           "pointer-events-none absolute z-50 w-72 px-4 py-3",
-          "bg-[#0e0e0e] border border-white/20",
-          "shadow-[0_4px_24px_rgba(0,0,0,0.8)]",
-          "font-mono text-[10px] tracking-[0.04em] leading-[1.8] text-white/85",
+          "bg-black/90 backdrop-blur-md border border-white/20",
+          "shadow-[0_4px_24px_rgba(0,0,0,0.9)]",
+          "font-mono text-[10px] tracking-[0.04em] leading-[1.8] text-white/90",
           "opacity-0 group-hover:opacity-100 transition-opacity duration-150",
           posClass,
         ].join(" ")}
