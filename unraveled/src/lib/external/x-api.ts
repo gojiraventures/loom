@@ -139,6 +139,109 @@ export async function uploadMedia(
   return data.media_id_string;
 }
 
+// ── GET helper ────────────────────────────────────────────────────────────────
+// Signed GET request to X API v2. queryParams are included in OAuth signature.
+
+async function xGet<T>(endpoint: string, queryParams: Record<string, string> = {}): Promise<T> {
+  const creds = loadCreds();
+  const baseUrl = `https://api.twitter.com/2/${endpoint}`;
+  const authHeader = buildOAuthHeader('GET', baseUrl, creds, queryParams);
+  const qs = new URLSearchParams(queryParams).toString();
+  const url = qs ? `${baseUrl}?${qs}` : baseUrl;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { Authorization: authHeader },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`X GET ${endpoint} failed (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+// ── Get authenticated user ────────────────────────────────────────────────────
+
+export interface XUser {
+  id: string;
+  name: string;
+  username: string;
+}
+
+export async function getMe(): Promise<XUser> {
+  const data = await xGet<{ data: XUser }>('users/me', { 'user.fields': 'username,name' });
+  return data.data;
+}
+
+// ── Get mentions ──────────────────────────────────────────────────────────────
+// Returns up to 100 recent mentions of the authenticated user.
+
+export interface XTweetWithAuthor {
+  id: string;
+  text: string;
+  author_id: string;
+  conversation_id: string;
+  in_reply_to_user_id?: string;
+  created_at: string;
+  referenced_tweets?: { type: string; id: string }[];
+  // Expanded from includes
+  author_username?: string;
+  author_name?: string;
+}
+
+export async function getMentions(userId: string, sinceId?: string): Promise<XTweetWithAuthor[]> {
+  const params: Record<string, string> = {
+    'tweet.fields': 'author_id,conversation_id,created_at,in_reply_to_user_id,referenced_tweets',
+    'expansions': 'author_id',
+    'user.fields': 'username,name',
+    'max_results': '100',
+  };
+  if (sinceId) params.since_id = sinceId;
+
+  const data = await xGet<{
+    data?: { id: string; text: string; author_id: string; conversation_id: string; in_reply_to_user_id?: string; created_at: string; referenced_tweets?: { type: string; id: string }[] }[];
+    includes?: { users?: { id: string; username: string; name: string }[] };
+  }>(`users/${userId}/mentions`, params);
+
+  if (!data.data) return [];
+  const userMap: Record<string, { username: string; name: string }> = {};
+  for (const u of data.includes?.users ?? []) userMap[u.id] = u;
+
+  return data.data.map(t => ({
+    ...t,
+    author_username: userMap[t.author_id]?.username,
+    author_name: userMap[t.author_id]?.name,
+  }));
+}
+
+// ── Search for replies to a specific tweet ────────────────────────────────────
+
+export async function getReplies(tweetId: string): Promise<XTweetWithAuthor[]> {
+  const params: Record<string, string> = {
+    'query': `conversation_id:${tweetId} is:reply`,
+    'tweet.fields': 'author_id,conversation_id,created_at,in_reply_to_user_id',
+    'expansions': 'author_id',
+    'user.fields': 'username,name',
+    'max_results': '100',
+  };
+
+  const data = await xGet<{
+    data?: { id: string; text: string; author_id: string; conversation_id: string; in_reply_to_user_id?: string; created_at: string }[];
+    includes?: { users?: { id: string; username: string; name: string }[] };
+  }>('tweets/search/recent', params);
+
+  if (!data.data) return [];
+  const userMap: Record<string, { username: string; name: string }> = {};
+  for (const u of data.includes?.users ?? []) userMap[u.id] = u;
+
+  return data.data.map(t => ({
+    ...t,
+    author_username: userMap[t.author_id]?.username,
+    author_name: userMap[t.author_id]?.name,
+  }));
+}
+
 // ── Post a single tweet ───────────────────────────────────────────────────────
 
 export interface TweetResult {

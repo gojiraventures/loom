@@ -4,10 +4,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAllAgents } from '@/lib/research/agents/definitions';
 import type { AgentDefinition } from '@/lib/research/types';
 import { SocialTab } from './SocialTab';
+import { EngageTab } from './EngageTab';
 import { IntelligenceTab } from './IntelligenceTab';
 import { ThreadTab } from './ThreadTab';
 import { AnalyticsTab } from './AnalyticsTab';
 import { PromoCodesTab } from './PromoCodesTab';
+import { EditorialTab } from './EditorialTab';
+import { ContentHealthTab } from './ContentHealthTab';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -5764,6 +5767,7 @@ const TABS = [
   { id: 'launch', label: 'Launch Research' },
   { id: 'content', label: 'Content' },
   { id: 'social', label: 'Social' },
+  { id: 'engage', label: '⚡ Engage' },
   { id: 'intelligence', label: 'Intelligence' },
   { id: 'media', label: 'Media Library' },
   { id: 'people', label: 'People' },
@@ -5771,6 +5775,8 @@ const TABS = [
   { id: 'agents', label: 'Agents' },
   { id: 'sessions', label: 'Sessions' },
   { id: 'thread', label: '⊙ Thread' },
+  { id: 'health', label: '⊕ Content Health' },
+  { id: 'editorial', label: '✎ Editorial' },
   { id: 'promo', label: 'Promo Codes' },
 ] as const;
 
@@ -5837,6 +5843,7 @@ export default function AdminPage() {
         {tab === 'launch' && <LaunchTab />}
         {tab === 'content' && <ContentTab />}
         {tab === 'social' && <SocialTab />}
+        {tab === 'engage' && <EngageTab />}
         {tab === 'intelligence' && <IntelligenceTab />}
         {tab === 'media' && <MediaTab />}
         {tab === 'people' && <PeopleTab />}
@@ -5844,6 +5851,8 @@ export default function AdminPage() {
         {tab === 'agents' && <AgentsTab />}
         {tab === 'sessions' && <SessionsTab />}
         {tab === 'thread' && <ThreadTab />}
+        {tab === 'health' && <ContentHealthTab />}
+        {tab === 'editorial' && <EditorialTab />}
         {tab === 'promo' && <PromoCodesTab />}
       </div>
     </div>
