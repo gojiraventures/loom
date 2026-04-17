@@ -122,7 +122,7 @@ export async function uploadMedia(
 
   // Simple upload: POST multipart/form-data with 'media' field
   const form = new FormData();
-  form.append('media', new Blob([imageBuffer], { type: mimeType }), 'card.png');
+  form.append('media', new Blob([new Uint8Array(imageBuffer)], { type: mimeType }), 'card.png');
 
   const res = await fetch(url, {
     method: 'POST',
