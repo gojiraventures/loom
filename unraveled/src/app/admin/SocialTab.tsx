@@ -47,6 +47,8 @@ interface ContentPiece {
     posts?: string[];
     slides?: { header?: string; body: string }[];
     caption?: string;
+    published_tweet_ids?: string[];
+    published_tweet_url?: string;
   } | null;
   day_offset: number;
   sort_order: number;
@@ -61,6 +63,8 @@ interface ContentPiece {
   _designError?: string;
   _designBrief?: DesignBriefSummary;
   _visualQA?: QAResult | null;
+  _publishing?: boolean;
+  _publishError?: string;
 }
 
 interface Dossier {
@@ -209,7 +213,7 @@ function DesignGallery({
   if (variants.length === 0) return null;
 
   const current = variants[active];
-  const isSquare = current.width === current.height;
+  const paddingBottom = `${((current.height / current.width) * 100).toFixed(4)}%`;
 
   const qaColor = visualQA
     ? visualQA.result === 'pass' ? 'text-emerald-400 border-emerald-400/40'
@@ -226,7 +230,7 @@ function DesignGallery({
     <div className="mt-3 space-y-2">
       {/* Image preview */}
       <div className="border border-border bg-ground overflow-hidden relative"
-        style={{ paddingBottom: isSquare ? '100%' : '56.25%' }}>
+        style={{ paddingBottom }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={current.image_url}
@@ -382,12 +386,14 @@ function PieceCard({
   onRunQA,
   onRunDesign,
   onSelectDesignVariant,
+  onPublish,
 }: {
   piece: ContentPiece;
   onUpdate: (id: string, updates: Partial<ContentPiece>) => void;
   onRunQA: (id: string) => void;
   onRunDesign: (id: string) => void;
   onSelectDesignVariant: (pieceId: string, variantId: string) => void;
+  onPublish: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(piece.text_content);
@@ -515,6 +521,19 @@ function PieceCard({
       {piece._qa && <QADisplay qa={piece._qa} />}
 
       {/* Actions */}
+      {piece.status === 'published' && piece.supplementary?.published_tweet_url && (
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <a
+            href={piece.supplementary.published_tweet_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-[9px] uppercase tracking-widest text-sky-400 hover:text-sky-300 transition-colors"
+          >
+            ↗ View on X
+          </a>
+        </div>
+      )}
+
       {piece.status !== 'published' && (
         <div className="flex gap-2 mt-3 pt-3 border-t border-border/50 flex-wrap">
           {piece.status !== 'approved' && (
@@ -561,11 +580,25 @@ function PieceCard({
           >
             {piece._qaRunning ? 'Running QA…' : piece._qa ? '↺ Re-run QA' : 'Run QA'}
           </button>
-          {piece.status !== 'rejected' && (
-            <button onClick={() => setStatus('rejected')}
-              className="font-mono text-[9px] uppercase tracking-widest px-3 py-1 border border-red-400/20 text-red-400/60 hover:text-red-400 hover:border-red-400/40 transition-colors ml-auto">
-              Reject
-            </button>
+          <div className="flex items-center gap-2 ml-auto">
+            {piece.platform === 'x' && piece.status === 'approved' && (
+              <button
+                onClick={() => onPublish(piece.id)}
+                disabled={piece._publishing}
+                className="font-mono text-[9px] uppercase tracking-widest px-3 py-1 border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 transition-colors disabled:opacity-50"
+              >
+                {piece._publishing ? 'Posting…' : '↑ Post to X'}
+              </button>
+            )}
+            {piece.status !== 'rejected' && (
+              <button onClick={() => setStatus('rejected')}
+                className="font-mono text-[9px] uppercase tracking-widest px-3 py-1 border border-red-400/20 text-red-400/60 hover:text-red-400 hover:border-red-400/40 transition-colors">
+                Reject
+              </button>
+            )}
+          </div>
+          {piece._publishError && (
+            <p className="w-full font-mono text-[8px] text-red-400 mt-1">{piece._publishError}</p>
           )}
         </div>
       )}
@@ -781,6 +814,38 @@ export function SocialTab() {
     setPieces(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
   }
 
+  async function publishPiece(pieceId: string) {
+    setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _publishing: true, _publishError: undefined } : p));
+    try {
+      const res = await fetch('/api/admin/social/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ piece_id: pieceId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPieces(prev => prev.map(p => {
+          if (p.id !== pieceId) return p;
+          return {
+            ...p,
+            status: 'published',
+            _publishing: false,
+            _publishError: undefined,
+            supplementary: {
+              ...(p.supplementary ?? {}),
+              published_tweet_ids: data.tweet_ids,
+              published_tweet_url: data.tweet_url,
+            },
+          };
+        }));
+      } else {
+        setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _publishing: false, _publishError: data.error ?? 'Post failed' } : p));
+      }
+    } catch (err) {
+      setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _publishing: false, _publishError: err instanceof Error ? err.message : 'Request failed' } : p));
+    }
+  }
+
   const selectedDossier = dossiers.find(d => d.topic === selectedTopic);
 
   const filtered = pieces.filter(p => {
@@ -948,6 +1013,7 @@ export function SocialTab() {
               onRunQA={runQAForPiece}
               onRunDesign={runDesignForPiece}
               onSelectDesignVariant={selectDesignVariant}
+              onPublish={publishPiece}
             />
           ))}
         </div>

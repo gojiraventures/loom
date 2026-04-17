@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import type { DesignBrief } from './art-director-agent';
+import type { DesignBrief, DimensionType } from './art-director-agent';
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
 
@@ -25,11 +25,27 @@ const C = {
   border:       'rgba(245,240,232,0.07)',
 } as const;
 
-// Square: 1080×1080  |  Landscape: 1200×675
+// Platform-correct image dimensions
+// square            1080×1080  — X + Instagram feed (square)
+// landscape         1200×675   — X in-feed (16:9)
+// landscape_facebook 1200×628  — Facebook post / OG image (1.91:1)
+// landscape_youtube  1280×720  — YouTube thumbnail (16:9 standard)
+// portrait          1080×1350  — Instagram feed portrait (4:5)
+// stories           1080×1920  — Instagram Stories / Reels (9:16)
 export const DIMENSIONS = {
-  square:    { width: 1080, height: 1080 },
-  landscape: { width: 1200, height: 675 },
-};
+  square:             { width: 1080, height: 1080 },
+  landscape:          { width: 1200, height: 675  },
+  landscape_facebook: { width: 1200, height: 628  },
+  landscape_youtube:  { width: 1280, height: 720  },
+  portrait:           { width: 1080, height: 1350 },
+  stories:            { width: 1080, height: 1920 },
+} as const;
+
+/** Returns the pixel dimensions for a brief, respecting template overrides. */
+export function briefDimensions(brief: DesignBrief): { width: number; height: number } {
+  if (brief.template === 'debate_split') return DIMENSIONS.landscape;
+  return DIMENSIONS[brief.dimensions as DimensionType] ?? DIMENSIONS.square;
+}
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -104,7 +120,7 @@ function MonoLabel({ children, color = C.textTertiary }: { children: React.React
 // ── Score Reveal ──────────────────────────────────────────────────────────────
 
 export function ScoreRevealTemplate({ brief, logoDataUri }: { brief: DesignBrief; logoDataUri?: string }) {
-  const { width, height } = DIMENSIONS[brief.dimensions];
+  const { width, height } = briefDimensions(brief);
   const traditions = brief.traditions ?? [];
   const accent = brief.accent_color;
 
@@ -166,7 +182,7 @@ export function ScoreRevealTemplate({ brief, logoDataUri }: { brief: DesignBrief
 // ── Quote Card ────────────────────────────────────────────────────────────────
 
 export function QuoteCardTemplate({ brief, logoDataUri }: { brief: DesignBrief; logoDataUri?: string }) {
-  const { width, height } = DIMENSIONS[brief.dimensions];
+  const { width, height } = briefDimensions(brief);
   const accent = brief.accent_color;
 
   return (
@@ -231,7 +247,7 @@ export function QuoteCardTemplate({ brief, logoDataUri }: { brief: DesignBrief; 
 // ── Carousel Slide ────────────────────────────────────────────────────────────
 
 export function CarouselSlideTemplate({ brief, slideIndex = 0, logoDataUri }: { brief: DesignBrief; slideIndex?: number; logoDataUri?: string }) {
-  const { width, height } = DIMENSIONS[brief.dimensions];
+  const { width, height } = briefDimensions(brief);
   const slides = brief.slides ?? [];
   const slide = slides[slideIndex];
   const isFirst = slideIndex === 0;
@@ -392,8 +408,8 @@ export function DebateSplitTemplate({ brief, logoDataUri }: { brief: DesignBrief
 // ── Thread Header / Announcement ──────────────────────────────────────────────
 
 export function AnnouncementTemplate({ brief, logoDataUri }: { brief: DesignBrief; logoDataUri?: string }) {
-  const isLandscape = brief.dimensions === 'landscape';
-  const { width, height } = DIMENSIONS[brief.dimensions];
+  const { width, height } = briefDimensions(brief);
+  const isLandscape = width > height;
   const accent = brief.accent_color;
   const headlineFontSize = isLandscape ? 60 : 72;
 
@@ -464,8 +480,8 @@ export function AnnouncementTemplate({ brief, logoDataUri }: { brief: DesignBrie
 // Dark gradient scrim covers the bottom 60% for text contrast.
 
 export function ImageHeroTemplate({ brief, logoDataUri }: { brief: DesignBrief; logoDataUri?: string }) {
-  const isLandscape = brief.dimensions === 'landscape';
-  const { width, height } = isLandscape ? DIMENSIONS.landscape : DIMENSIONS.square;
+  const { width, height } = briefDimensions(brief);
+  const isLandscape = width > height;
   const accent = brief.accent_color;
   const headlineFontSize = isLandscape ? 56 : 68;
   const padding = isLandscape ? 64 : 72;
@@ -536,9 +552,89 @@ export function ImageHeroTemplate({ brief, logoDataUri }: { brief: DesignBrief; 
   );
 }
 
+// ── Stories / Reels ───────────────────────────────────────────────────────────
+// 1080×1920 vertical layout for Instagram Stories and Reels.
+
+export function StoriesTemplate({ brief, logoDataUri }: { brief: DesignBrief; logoDataUri?: string }) {
+  const { width, height } = DIMENSIONS.stories;
+  const accent = brief.accent_color;
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      width,
+      height,
+      backgroundColor: C.bg,
+      padding: 96,
+      justifyContent: 'space-between',
+    }}>
+      {/* Top: accent bar + brand label */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ width: 56, height: 4, backgroundColor: accent }} />
+        <MonoLabel color={accent}>UnraveledTruth</MonoLabel>
+      </div>
+
+      {/* Center: main content */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+        <div style={{
+          fontFamily: '"Newsreader", Georgia, serif',
+          fontSize: 88,
+          fontWeight: 600,
+          lineHeight: 1.1,
+          color: C.textPrimary,
+        }}>
+          {brief.headline}
+        </div>
+
+        {brief.subheadline && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <Rule color={accent} opacity={0.3} />
+            <div style={{
+              fontFamily: '"IBM Plex Mono", monospace',
+              fontSize: 30,
+              color: C.textSecondary,
+              letterSpacing: '0.04em',
+              lineHeight: 1.5,
+            }}>
+              {brief.subheadline}
+            </div>
+          </div>
+        )}
+
+        {brief.body_copy && (
+          <div style={{
+            fontFamily: '"Newsreader", Georgia, serif',
+            fontSize: 42,
+            lineHeight: 1.45,
+            color: C.textSecondary,
+          }}>
+            {brief.body_copy}
+          </div>
+        )}
+
+        {brief.traditions && brief.traditions.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {brief.traditions.slice(0, 4).map((t, i) => (
+              <MonoLabel key={i} color={C.textTertiary}>{t}</MonoLabel>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom: brand mark */}
+      <BrandMark logoDataUri={logoDataUri} />
+    </div>
+  );
+}
+
 // ── Template dispatcher ───────────────────────────────────────────────────────
 
 export function renderTemplate(brief: DesignBrief, slideIndex?: number, logoDataUri?: string): React.ReactElement {
+  // Stories / Reels format gets its own full-vertical layout
+  if (brief.dimensions === 'stories') {
+    return React.createElement(StoriesTemplate, { brief, logoDataUri });
+  }
   switch (brief.template) {
     case 'score_reveal':
       return React.createElement(ScoreRevealTemplate, { brief, logoDataUri });

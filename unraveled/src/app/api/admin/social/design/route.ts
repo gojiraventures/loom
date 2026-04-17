@@ -18,7 +18,7 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 import { runArtDirector } from '@/lib/social/art-director-agent';
 import { renderAllSlides, compositeWithBackground } from '@/lib/social/renderer';
 import type { DesignBrief } from '@/lib/social/art-director-agent';
-import { DIMENSIONS } from '@/lib/social/templates';
+import { briefDimensions } from '@/lib/social/templates';
 import { generateWithValidation, checkAvailable, generateImageComfyUI } from '@/lib/external/comfyui';
 import { generateImageFalAI, isFalAvailable } from '@/lib/external/falai';
 import { COMFYUI_TAIL_BLOCK } from '@/lib/media/hero-prompt-generator';
@@ -119,11 +119,12 @@ export async function POST(req: NextRequest) {
       const imageIntent = `${articleTitle} — ${brief.visual_note}`;
 
       console.log(`[design] Using ${backendName} for image generation`);
+      const { width: bgWidth, height: bgHeight } = briefDimensions(brief);
       const bgResult = await generateWithValidation(
         comfyPrompt,
         imageIntent,
-        brief.dimensions === 'landscape' ? 1200 : 1080,
-        brief.dimensions === 'landscape' ? 675 : 1080,
+        bgWidth,
+        bgHeight,
         3,
         generateFn,
       );
@@ -194,9 +195,7 @@ export async function POST(req: NextRequest) {
     height: number;
   }[] = [];
 
-  const dims = brief.template === 'debate_split'
-    ? DIMENSIONS.landscape
-    : DIMENSIONS[brief.dimensions];
+  const dims = briefDimensions(brief);
 
   // Sanitize topic to a URL-safe slug (spaces → dashes, strip non-alphanumeric except dashes)
   const topicSlug = piece.topic

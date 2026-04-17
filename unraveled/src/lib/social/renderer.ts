@@ -12,7 +12,7 @@ import sharp from 'sharp';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { DesignBrief } from './art-director-agent';
-import { renderTemplate, renderImageHeroTemplate, DIMENSIONS } from './templates';
+import { renderTemplate, renderImageHeroTemplate, briefDimensions } from './templates';
 
 // ── Font cache ────────────────────────────────────────────────────────────────
 
@@ -93,9 +93,7 @@ function getLogoDataUri(): string {
 
 export async function renderCard(brief: DesignBrief, slideIndex?: number): Promise<Buffer> {
   const fonts = await getFonts();
-  const { width, height } = brief.template === 'debate_split'
-    ? DIMENSIONS.landscape
-    : DIMENSIONS[brief.dimensions];
+  const { width, height } = briefDimensions(brief);
 
   const logoDataUri = getLogoDataUri();
   const element = renderTemplate(brief, slideIndex, logoDataUri);
@@ -137,9 +135,7 @@ export async function compositeWithBackground(
   brief: DesignBrief,
 ): Promise<Buffer> {
   const fonts = await getFonts();
-  const { width, height } = brief.dimensions === 'landscape'
-    ? DIMENSIONS.landscape
-    : DIMENSIONS.square;
+  const { width, height } = briefDimensions(brief);
 
   // Render text overlay with transparent background
   const logoDataUri = getLogoDataUri();

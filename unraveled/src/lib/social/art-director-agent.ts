@@ -37,9 +37,17 @@ export interface DesignSlide {
   accent_color?: string;
 }
 
+export type DimensionType =
+  | 'square'              // 1080×1080  — X + Instagram feed square
+  | 'landscape'           // 1200×675   — X in-feed (16:9)
+  | 'landscape_facebook'  // 1200×628   — Facebook post / OG (1.91:1)
+  | 'landscape_youtube'   // 1280×720   — YouTube thumbnail (16:9)
+  | 'portrait'            // 1080×1350  — Instagram feed portrait (4:5)
+  | 'stories';            // 1080×1920  — Instagram Stories / Reels (9:16)
+
 export interface DesignBrief {
   template: TemplateType;
-  dimensions: 'square' | 'landscape';     // square = 1080×1080, landscape = 1200×675
+  dimensions: DimensionType;
   layout: LayoutType;
   accent_color: string;                    // hex — primary accent
   secondary_color?: string;               // hex — optional second accent
@@ -143,9 +151,9 @@ SOCIAL CARD TEMPLATES
 TEMPLATE OPTIONS:
 - score_reveal: Large convergence score numeral dominates. Best square.
 - quote_card: Single statement or finding. Best square.
-- carousel_slide: Multi-slide carousel. Best square.
-- debate_split: Left = Advocate, Right = Skeptic. Best landscape.
-- thread_header: Launch announcement. Best landscape.
+- carousel_slide: Multi-slide carousel. Best square (Instagram), stories (Instagram Stories/Reels).
+- debate_split: Left = Advocate, Right = Skeptic. MUST use landscape (X only).
+- thread_header: Launch announcement. Best landscape (X) or portrait (Instagram).
 - announcement: General purpose. Flexible.
 
 LAYOUT OPTIONS:
@@ -156,13 +164,28 @@ LAYOUT OPTIONS:
 - tradition_grid: compact grid of tradition name + accent dot
 - quote_hero: quote in large type, attribution below with rule
 
+DIMENSIONS — choose based on platform:
+- square            1080×1080  — X or Instagram feed (square posts, carousels, quote cards)
+- landscape         1200×675   — X in-feed images, thread headers (16:9)
+- landscape_facebook 1200×628  — Facebook posts and link-share images (1.91:1) — USE FOR ALL FACEBOOK
+- landscape_youtube  1280×720  — YouTube thumbnails (16:9 standard) — USE FOR ALL YOUTUBE
+- portrait          1080×1350  — Instagram feed portrait (4:5) — USE FOR Instagram thread_header / announcement
+- stories           1080×1920  — Instagram Stories & Reels (9:16) — USE FOR reels_script content type
+
+PLATFORM → DIMENSION RULES (mandatory):
+- platform=x:         landscape (or square for score_reveal / quote_card)
+- platform=instagram: square for carousels/quote_card; portrait for announcements; stories for reels_script
+- platform=facebook:  landscape_facebook for all landscape needs; square acceptable for quote cards
+- platform=youtube:   landscape_youtube for all cards
+- template=debate_split: ALWAYS landscape (X only)
+
 ═══════════════════════════════════════════════════════════
 OUTPUT FORMAT — return ONLY valid JSON
 ═══════════════════════════════════════════════════════════
 
 {
   "template": "<template>",
-  "dimensions": "square" | "landscape",
+  "dimensions": "square" | "landscape" | "landscape_facebook" | "landscape_youtube" | "portrait" | "stories",
   "layout": "<layout>",
   "accent_color": "<hex>",
   "secondary_color": "<hex or null>",
@@ -234,6 +257,10 @@ Return the JSON design brief.`;
   }
 
   brief.attribution = 'UnraveledTruth';
+  // Hard-enforce: debate_split always renders at landscape (1200×675) regardless of what the agent returned
+  if (brief.template === 'debate_split') {
+    brief.dimensions = 'landscape';
+  }
   return brief;
 }
 
