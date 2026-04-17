@@ -99,7 +99,7 @@ Return a JSON object with this exact structure:
         "voice_profile": "social_writer",
         "day_offset": 1,
         "sort_order": 1,
-        "text_content": "Single surprise post (max 260 chars)"
+        "text_content": "Single surprise post (max 240 chars) ending with: ${url}"
       }
     ],
     "tradition_voice_posts": [
@@ -107,7 +107,7 @@ Return a JSON object with this exact structure:
         "voice_profile": "social_writer",
         "day_offset": 2,
         "sort_order": 2,
-        "text_content": "Tradition voice post (max 260 chars)"
+        "text_content": "Tradition voice post (max 240 chars) ending with: ${url}"
       }
     ],
     "debate_posts": [
@@ -115,7 +115,7 @@ Return a JSON object with this exact structure:
         "voice_profile": "social_writer",
         "day_offset": 3,
         "sort_order": 3,
-        "text_content": "Advocate vs skeptic tension post (max 260 chars)"
+        "text_content": "Advocate vs skeptic tension post (max 240 chars) ending with: ${url}"
       }
     ],
     "open_question_posts": [
@@ -123,14 +123,14 @@ Return a JSON object with this exact structure:
         "voice_profile": "social_writer",
         "day_offset": 4,
         "sort_order": 4,
-        "text_content": "Open question that invites thoughtful replies (max 260 chars)"
+        "text_content": "Open question that invites thoughtful replies (max 240 chars) ending with: ${url}"
       }
     ],
     "score_reveal": {
       "voice_profile": "social_writer",
       "day_offset": 5,
       "sort_order": 5,
-      "text_content": "Convergence score reveal with context why not higher/lower (max 260 chars)"
+      "text_content": "Convergence score reveal with context why not higher/lower (max 240 chars) ending with: ${url}"
     }
   },
   "instagram": {
@@ -223,6 +223,7 @@ Generate ALL items. For arrays (surprise_posts, quote_cards, etc.) generate the 
 
 The instagram.advocate_skeptic_carousel slides must NOT declare a winner. Present both positions with equal weight.
 The launch thread must be 10 posts. Final post must contain the URL: ${url}
+ALL standalone X posts (surprise_posts, tradition_voice_posts, debate_posts, open_question_posts, score_reveal) must end with the article URL: ${url}
 Return ONLY the JSON object.`;
 }
 

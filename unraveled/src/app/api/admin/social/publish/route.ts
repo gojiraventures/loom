@@ -77,6 +77,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Look up article URL for safety-net link appending
+  const { data: dossier } = await supabase
+    .from('topic_dossiers')
+    .select('slug')
+    .eq('topic', piece.topic)
+    .single();
+  const articleSlug = dossier?.slug ?? piece.topic.toLowerCase().replace(/\s+/g, '-');
+  const articleUrl = `https://unraveledtruth.com/topics/${articleSlug}`;
+
   // Determine posts to send
   const supplementary = piece.supplementary as { posts?: string[]; caption?: string } | null;
   const threadPosts: string[] = supplementary?.posts ?? [];
@@ -89,7 +98,11 @@ export async function POST(req: NextRequest) {
       tweetResults = await postThread(threadPosts, mediaId);
     } else {
       // Single tweet — use text_content or first thread post
-      const text = threadPosts[0] ?? piece.text_content ?? '';
+      // Safety net: append article URL if not already present
+      let text = threadPosts[0] ?? piece.text_content ?? '';
+      if (!text.includes(articleUrl)) {
+        text = `${text}\n\n${articleUrl}`;
+      }
       const result = await postTweet(text, mediaId ? { mediaIds: [mediaId] } : {});
       tweetResults = [result];
     }
