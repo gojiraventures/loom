@@ -163,7 +163,7 @@ export async function POST(_req: NextRequest) {
   }
 
   // Fetch mentions (catches replies that @ us directly)
-  let allReplies: typeof import('@/lib/external/x-api').getMentions extends (...args: unknown[]) => Promise<infer R> ? R : never = [];
+  let allReplies: import('@/lib/external/x-api').XTweetWithAuthor[] = [];
   try {
     allReplies = await getMentions(myUserId);
   } catch {
