@@ -21,6 +21,7 @@ import type { DesignBrief } from '@/lib/social/art-director-agent';
 import { briefDimensions } from '@/lib/social/templates';
 import { generateWithValidation, checkAvailable, generateImageComfyUI } from '@/lib/external/comfyui';
 import { generateImageFalAI, isFalAvailable } from '@/lib/external/falai';
+import { generateImagesGrok, isGrokAvailable } from '@/lib/external/grok-image';
 import { COMFYUI_TAIL_BLOCK } from '@/lib/media/hero-prompt-generator';
 import { runQA } from '@/lib/social/qa-agent';
 import type { QAResult } from '@/lib/social/qa-agent';
@@ -91,31 +92,66 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Art director failed: ${String(err)}` }, { status: 500 });
   }
 
-  // ── Render — with ComfyUI background if available ──────────────────────────
-  let buffers: Buffer[];
+  // ── Render — with image background if available ───────────────────────────
+  // bufferSets: each entry is an array of card buffers for one "variant".
+  // Grok produces up to 4 visual variants; ComfyUI/fal produce 1.
+  let bufferSets: Buffer[][] = [];
   let usedComfyUI = false;
   let generationHistory: import('@/lib/external/comfyui').ValidationAttempt[] | null = null;
+  let imageBackendError: string | null = null;
 
   const hasImagePrompt = !!brief.image_prompt;
 
-  // Backend selection: fal.ai (API, no local server needed) > ComfyUI (local)
-  const imageBackend = process.env.IMAGE_BACKEND ?? 'comfyui'; // 'comfyui' | 'falai'
-  const falReady = imageBackend === 'falai' && isFalAvailable();
-  const comfyReady = imageBackend === 'comfyui' && await checkAvailable();
-  const imageReady = hasImagePrompt && (falReady || comfyReady);
-  const generateFn = falReady ? generateImageFalAI : generateImageComfyUI;
-  const backendName = falReady ? 'fal.ai' : 'ComfyUI';
+  // Backend selection: grok > fal.ai > comfyui
+  const imageBackend = process.env.IMAGE_BACKEND ?? 'comfyui'; // 'grok' | 'falai' | 'comfyui'
+  const grokReady  = imageBackend === 'grok'   && hasImagePrompt && isGrokAvailable();
+  const falReady   = imageBackend === 'falai'  && hasImagePrompt && isFalAvailable();
+  const comfyReady = imageBackend === 'comfyui' && hasImagePrompt && await checkAvailable();
 
-  if (imageReady && brief.image_prompt) {
+  if (grokReady && brief.image_prompt) {
+    // ── Grok: generate 4 image variants, composite each into a card ──────────
     try {
-      // Strip any residual Midjourney flags (--stylize, --v, --ar, etc.) — safety net
+      // Append Grok style flags; strip any old Midjourney flags first just in case
+      const basePrompt = brief.image_prompt
+        .replace(/--\w[\w-]*(?:\s+\S+)?/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      const grokPrompt = `${basePrompt} --stylize 225 --v 6`;
+
+      console.log('[design] Using Grok for image generation');
+      const variants = await generateImagesGrok(grokPrompt, 1);
+
+      for (const v of variants) {
+        try {
+          const heroBuffer = await compositeWithBackground(v.buffer, brief);
+          if (brief.template === 'carousel_slide' && brief.slides && brief.slides.length > 1) {
+            const remainingSlides = await renderAllSlides(brief);
+            bufferSets.push([heroBuffer, ...remainingSlides.slice(1)]);
+          } else {
+            bufferSets.push([heroBuffer]);
+          }
+        } catch (err) {
+          console.warn(`[design] Grok variant ${v.index} composite failed:`, String(err));
+        }
+      }
+
+      if (bufferSets.length === 0) throw new Error('All Grok variants failed to composite');
+      usedComfyUI = true; // reuse flag — means "image background was used"
+    } catch (err) {
+      imageBackendError = String(err);
+      console.error('[design] Grok generation FAILED — falling back to solid card:', imageBackendError);
+      bufferSets = [];
+    }
+  } else if ((falReady || comfyReady) && brief.image_prompt) {
+    // ── ComfyUI / fal.ai: single variant ─────────────────────────────────────
+    const generateFn = falReady ? generateImageFalAI : generateImageComfyUI;
+    const backendName = falReady ? 'fal.ai' : 'ComfyUI';
+    try {
       const cleanPrompt = brief.image_prompt
         .replace(/--\w[\w-]*(?:\s+\S+)?/g, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
       const comfyPrompt = `${cleanPrompt} ${COMFYUI_TAIL_BLOCK}`;
-
-      // Intent brief for the Gemini validator (plain English, separate from the full prompt)
       const imageIntent = `${articleTitle} — ${brief.visual_note}`;
 
       console.log(`[design] Using ${backendName} for image generation`);
@@ -129,39 +165,37 @@ export async function POST(req: NextRequest) {
         generateFn,
       );
 
-      // Composite single hero card (carousels fall back to solid bg for non-first slides)
       const heroBuffer = await compositeWithBackground(bgResult.buffer, brief);
 
       if (brief.template === 'carousel_slide' && brief.slides && brief.slides.length > 1) {
-        // First slide gets the hero background; remaining slides render normally
         const remainingSlides = await renderAllSlides(brief);
-        buffers = [heroBuffer, ...remainingSlides.slice(1)];
+        bufferSets = [[heroBuffer, ...remainingSlides.slice(1)]];
       } else {
-        buffers = [heroBuffer];
+        bufferSets = [[heroBuffer]];
       }
 
       usedComfyUI = true;
       generationHistory = bgResult.history;
       if (bgResult.attempts > 1) {
-        console.log(`[design] ComfyUI validated in ${bgResult.attempts} attempt(s):`, bgResult.history.map(h => `#${h.attempt} ${h.approved ? '✓' : '✗'} ${h.summary}`).join(' | '));
+        console.log(`[design] ${backendName} validated in ${bgResult.attempts} attempt(s):`, bgResult.history.map(h => `#${h.attempt} ${h.approved ? '✓' : '✗'} ${h.summary}`).join(' | '));
       }
     } catch (err) {
-      console.warn(`[design] ${backendName} composite failed, falling back to solid card:`, String(err));
-      try {
-        buffers = await renderAllSlides(brief);
-      } catch (renderErr) {
-        return NextResponse.json({ error: `Render failed: ${String(renderErr)}` }, { status: 500 });
-      }
+      imageBackendError = String(err);
+      console.warn(`[design] ${backendName} composite failed, falling back to solid card:`, imageBackendError);
+      bufferSets = [];
     }
-  } else {
+  }
+
+  // Fallback: solid-color card (no image background)
+  if (bufferSets.length === 0) {
     try {
-      buffers = await renderAllSlides(brief);
+      bufferSets = [await renderAllSlides(brief)];
     } catch (err) {
       return NextResponse.json({ error: `Render failed: ${String(err)}` }, { status: 500 });
     }
   }
 
-  // ── Gemini visual QA on primary card ────────────────────────────────────────
+  // ── Gemini visual QA on primary card (first buffer of first variant set) ────
   let visualQA: QAResult | null = null;
   try {
     visualQA = await runQA({
@@ -171,7 +205,7 @@ export async function POST(req: NextRequest) {
       supplementary: piece.supplementary ?? null,
       article_title: articleTitle,
       convergence_score: convergenceScore,
-      image_base64: buffers[0].toString('base64'),
+      image_base64: bufferSets[0][0].toString('base64'),
       image_mime: 'image/png',
     });
   } catch (err) {
@@ -186,6 +220,19 @@ export async function POST(req: NextRequest) {
   const oldStoragePaths = (oldVariants ?? []).map(v => v.storage_path).filter(Boolean);
 
   // ── Upload to Supabase Storage ──────────────────────────────────────────────
+  // bufferSets layout:
+  //   Grok (4 visual variants):  [[hero_v1], [hero_v2], [hero_v3], [hero_v4]]
+  //   Carousel with Grok:        [[slide1_v1, slide2_v1, ...], [slide1_v2, ...], ...]
+  //   ComfyUI/fal (1 variant):   [[hero]] or [[slide1, slide2, ...]]
+  //   Solid fallback:            [[slide1]] or [[slide1, slide2, ...]]
+  //
+  // Each (variantIdx, slideIdx) pair → one row in social_design_variants.
+  // Label convention:
+  //   Single-image, single-variant:  "primary"
+  //   Single-image, multi-variant:   "grok_1", "grok_2", ...
+  //   Carousel, single-variant:      "slide_1", "slide_2", ...
+  //   Carousel, multi-variant:       "grok_1_slide_1", "grok_1_slide_2", ...
+
   const bucketName = 'social-designs';
   const uploadedVariants: {
     variant_label: string;
@@ -196,44 +243,51 @@ export async function POST(req: NextRequest) {
   }[] = [];
 
   const dims = briefDimensions(brief);
+  const isMultiVariant = bufferSets.length > 1;
+  const isCarousel = bufferSets[0].length > 1;
 
-  // Sanitize topic to a URL-safe slug (spaces → dashes, strip non-alphanumeric except dashes)
   const topicSlug = piece.topic
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
-  // Timestamp ensures each generation gets a unique path — prevents CDN from
-  // serving stale cached files when the same piece is regenerated.
   const genTs = Date.now();
 
-  for (let i = 0; i < buffers.length; i++) {
-    const label = buffers.length === 1 ? 'primary' : `slide_${i + 1}`;
-    const path = `${topicSlug}/${body.piece_id}/${genTs}_${label}.png`;
+  for (let vi = 0; vi < bufferSets.length; vi++) {
+    const buffers = bufferSets[vi];
+    for (let si = 0; si < buffers.length; si++) {
+      let label: string;
+      if (!isMultiVariant && !isCarousel) {
+        label = 'primary';
+      } else if (isMultiVariant && !isCarousel) {
+        label = `grok_${vi + 1}`;
+      } else if (!isMultiVariant && isCarousel) {
+        label = `slide_${si + 1}`;
+      } else {
+        label = `grok_${vi + 1}_slide_${si + 1}`;
+      }
 
-    const { error: uploadErr } = await supabase.storage
-      .from(bucketName)
-      .upload(path, buffers[i], {
-        contentType: 'image/png',
-        upsert: true,
+      const path = `${topicSlug}/${body.piece_id}/${genTs}_${label}.png`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from(bucketName)
+        .upload(path, buffers[si], { contentType: 'image/png', upsert: true });
+
+      if (uploadErr) {
+        console.error('Upload error:', uploadErr);
+        continue;
+      }
+
+      const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(path);
+
+      uploadedVariants.push({
+        variant_label: label,
+        image_url: urlData.publicUrl,
+        storage_path: path,
+        width: dims.width,
+        height: dims.height,
       });
-
-    if (uploadErr) {
-      console.error('Upload error:', uploadErr);
-      continue;
     }
-
-    const { data: urlData } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(path);
-
-    uploadedVariants.push({
-      variant_label: label,
-      image_url: urlData.publicUrl,
-      storage_path: path,
-      width: dims.width,
-      height: dims.height,
-    });
   }
 
   if (uploadedVariants.length === 0) {
@@ -250,10 +304,14 @@ export async function POST(req: NextRequest) {
     .eq('content_piece_id', body.piece_id);
 
   // ── Insert new variants ─────────────────────────────────────────────────────
+  // For Grok multi-variant: select the first hero card ("grok_1") by default.
+  // For single-variant / carousel: select the first row.
+  const defaultLabel = isMultiVariant ? 'grok_1' : uploadedVariants[0]?.variant_label;
+
   const { data: inserted, error: insertErr } = await supabase
     .from('social_design_variants')
     .insert(
-      uploadedVariants.map((v, i) => ({
+      uploadedVariants.map((v) => ({
         content_piece_id: body.piece_id,
         variant_label: v.variant_label,
         template_type: brief.template,
@@ -261,7 +319,7 @@ export async function POST(req: NextRequest) {
         storage_path: v.storage_path,
         width: v.width,
         height: v.height,
-        selected: i === 0, // first variant selected by default
+        selected: v.variant_label === defaultLabel,
       }))
     )
     .select();
@@ -274,10 +332,11 @@ export async function POST(req: NextRequest) {
     brief,
     variants: inserted ?? [],
     count: uploadedVariants.length,
+    grok_variants: isMultiVariant ? bufferSets.length : null,
+    image_backend_error: imageBackendError,
     visual_qa: visualQA,
     composited: usedComfyUI,
     generation_history: generationHistory,
-    // What Gemini identified as the subject of the kept image — useful for debugging mismatches
     identified_subject: generationHistory?.at(-1)?.identified_subject ?? null,
   });
 }
