@@ -58,6 +58,8 @@ interface ContentPiece {
   // Client-side only — loaded separately
   _qa?: QAResult | null;
   _qaRunning?: boolean;
+  _fixing?: boolean;
+  _fixError?: string;
   _designs?: DesignVariant[];
   _designRunning?: boolean;
   _designError?: string;
@@ -387,6 +389,7 @@ function PieceCard({
   onRunDesign,
   onSelectDesignVariant,
   onPublish,
+  onAutoFix,
 }: {
   piece: ContentPiece;
   onUpdate: (id: string, updates: Partial<ContentPiece>) => void;
@@ -394,6 +397,7 @@ function PieceCard({
   onRunDesign: (id: string) => void;
   onSelectDesignVariant: (pieceId: string, variantId: string) => void;
   onPublish: (id: string) => void;
+  onAutoFix: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(piece.text_content);
@@ -585,6 +589,18 @@ function PieceCard({
           >
             {piece._qaRunning ? 'Running QA…' : piece._qa ? '↺ Re-run QA' : 'Run QA'}
           </button>
+          {piece._qa && piece._qa.result !== 'pass' && (
+            <button
+              onClick={() => onAutoFix(piece.id)}
+              disabled={piece._fixing}
+              className="font-mono text-[9px] uppercase tracking-widest px-3 py-1 border border-amber-400/30 text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-50"
+            >
+              {piece._fixing ? 'Fixing…' : '✦ Auto-fix'}
+            </button>
+          )}
+          {piece._fixError && (
+            <p className="w-full font-mono text-[8px] text-red-400 mt-1">{piece._fixError}</p>
+          )}
           <div className="flex items-center gap-2 ml-auto">
             {piece.platform === 'x' && piece.status === 'approved' && (
               <button
@@ -831,6 +847,36 @@ export function SocialTab() {
 
   function updatePiece(id: string, updates: Partial<ContentPiece>) {
     setPieces(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  }
+
+  async function autoFixPiece(pieceId: string) {
+    setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _fixing: true, _fixError: undefined } : p));
+    try {
+      const res = await fetch('/api/admin/social/fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ piece_id: pieceId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPieces(prev => prev.map(p => {
+          if (p.id !== pieceId) return p;
+          return {
+            ...p,
+            text_content: data.text_content,
+            supplementary: data.supplementary ?? p.supplementary,
+            status: 'draft',
+            _qa: null,
+            _fixing: false,
+            _fixError: undefined,
+          };
+        }));
+      } else {
+        setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _fixing: false, _fixError: data.error ?? 'Auto-fix failed' } : p));
+      }
+    } catch (err) {
+      setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _fixing: false, _fixError: err instanceof Error ? err.message : 'Request failed' } : p));
+    }
   }
 
   async function publishPiece(pieceId: string) {
@@ -1129,6 +1175,7 @@ export function SocialTab() {
               onRunDesign={runDesignForPiece}
               onSelectDesignVariant={selectDesignVariant}
               onPublish={publishPiece}
+              onAutoFix={autoFixPiece}
             />
           ))}
         </div>
