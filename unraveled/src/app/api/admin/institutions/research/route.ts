@@ -3,7 +3,7 @@ import { queryAnthropic, queryPerplexity } from '@/lib/ai';
 
 export const maxDuration = 60;
 
-const SYSTEM = `You are a researcher building institutional dossiers for an evidence-index platform. Given an institution name and research notes, return structured JSON. Be accurate, note what is verified vs. alleged. Return ONLY valid JSON.`;
+const SYSTEM = `You are a researcher building institutional dossiers for an evidence-index platform. Given an institution name and research notes, return structured JSON. Be accurate, note what is verified vs. alleged. Return ONLY valid JSON. No en dashes (–) or em dashes (—) in any text fields. Use hyphens (-) sparingly.`;
 
 const SCHEMA_PROMPT = (name: string, perplexityNotes: string, extraContext?: string) => `
 Research the following institution and return a JSON object matching this exact schema.

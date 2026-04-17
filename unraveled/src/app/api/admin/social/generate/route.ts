@@ -27,6 +27,7 @@ Brand voice rules that apply to ALL content:
 - Always: specific names, dates, places, texts over vague generalities
 - Always: maintain advocate/skeptic balance; uncertainty where the research shows uncertainty
 - Treat every cultural tradition with genuine respect and analytical distance
+- PUNCTUATION: NO en dashes (–) or em dashes (—) anywhere. Use hyphens (-) sparingly or rewrite the sentence.
 
 MAGAZINE WRITER voice (Instagram captions, Facebook posts):
 - Senior editor register: Aeon, Nautilus, The Atlantic longform
@@ -52,14 +53,18 @@ function buildPrompt(output: SynthesizedOutput, url: string): string {
   const summary = (output.executive_summary ?? '').slice(0, 800);
   const traditions = (output.traditions_analyzed ?? []).join(', ');
 
+  // X has a hard 280-char limit. The URL + separator (\n\n) eats into that budget.
+  // body budget = 280 - url.length - 2 (for \n\n before URL)
+  const urlLen = url.length;
+  const xBodyBudget = 280 - urlLen - 2;
+
   return `Generate a full week of social media content for this UnraveledTruth research article.
 
 ARTICLE:
 Title: ${output.title}
 Subtitle: ${output.subtitle ?? ''}
-Convergence Score: ${output.convergence_score}/100
 Traditions: ${traditions}
-URL: ${url}
+URL: ${url} (${urlLen} characters)
 
 EXECUTIVE SUMMARY:
 ${summary}
@@ -81,6 +86,13 @@ ${openQs.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 
 ---
 
+⚠️  X CHARACTER LIMIT — READ CAREFULLY:
+X has a HARD 280-character limit. The article URL (${urlLen} chars) is appended with \n\n before it.
+That leaves exactly ${xBodyBudget} characters for the body text of each standalone X post.
+Count your characters. Do NOT exceed ${xBodyBudget} chars for body text. The full text_content
+(body + \n\n + URL) must be ≤ 280 chars. Violations will cause the post to be rejected.
+Thread posts (posts array): each individual post ≤ 280 chars. Only the final post includes the URL.
+
 Return a JSON object with this exact structure:
 
 {
@@ -89,9 +101,9 @@ Return a JSON object with this exact structure:
       "voice_profile": "social_writer",
       "day_offset": 0,
       "sort_order": 0,
-      "text_content": "First post of thread (max 260 chars)",
+      "text_content": "First post of thread (max 270 chars, NO URL here — URL only in final thread post)",
       "supplementary": {
-        "posts": ["post 1 text (max 260 chars)", "post 2 text", "...", "final post with URL: ${url}"]
+        "posts": ["post 1 (max 270 chars)", "post 2", "...", "final post body (max ${xBodyBudget} chars) then \\n\\n${url}"]
       }
     },
     "surprise_posts": [
@@ -99,7 +111,7 @@ Return a JSON object with this exact structure:
         "voice_profile": "social_writer",
         "day_offset": 1,
         "sort_order": 1,
-        "text_content": "Single surprise post (max 240 chars) ending with: ${url}"
+        "text_content": "Body text only — max ${xBodyBudget} chars — then \\n\\n${url}"
       }
     ],
     "tradition_voice_posts": [
@@ -107,7 +119,7 @@ Return a JSON object with this exact structure:
         "voice_profile": "social_writer",
         "day_offset": 2,
         "sort_order": 2,
-        "text_content": "Tradition voice post (max 240 chars) ending with: ${url}"
+        "text_content": "Body text only — max ${xBodyBudget} chars — then \\n\\n${url}"
       }
     ],
     "debate_posts": [
@@ -115,7 +127,7 @@ Return a JSON object with this exact structure:
         "voice_profile": "social_writer",
         "day_offset": 3,
         "sort_order": 3,
-        "text_content": "Advocate vs skeptic tension post (max 240 chars) ending with: ${url}"
+        "text_content": "Body text only — max ${xBodyBudget} chars — then \\n\\n${url}"
       }
     ],
     "open_question_posts": [
@@ -123,14 +135,14 @@ Return a JSON object with this exact structure:
         "voice_profile": "social_writer",
         "day_offset": 4,
         "sort_order": 4,
-        "text_content": "Open question that invites thoughtful replies (max 240 chars) ending with: ${url}"
+        "text_content": "Body text only — max ${xBodyBudget} chars — then \\n\\n${url}"
       }
     ],
     "score_reveal": {
       "voice_profile": "social_writer",
       "day_offset": 5,
       "sort_order": 5,
-      "text_content": "Convergence score reveal with context why not higher/lower (max 240 chars) ending with: ${url}"
+      "text_content": "Discuss why the convergence is or isn't higher — no raw score number — max ${xBodyBudget} chars — then \\n\\n${url}"
     }
   },
   "instagram": {
@@ -223,7 +235,9 @@ Generate ALL items. For arrays (surprise_posts, quote_cards, etc.) generate the 
 
 The instagram.advocate_skeptic_carousel slides must NOT declare a winner. Present both positions with equal weight.
 The launch thread must be 10 posts. Final post must contain the URL: ${url}
-ALL standalone X posts (surprise_posts, tradition_voice_posts, debate_posts, open_question_posts, score_reveal) must end with the article URL: ${url}
+ALL standalone X posts (surprise_posts, tradition_voice_posts, debate_posts, open_question_posts, score_reveal) must end with \n\n${url}
+HARD RULE: Every X text_content (body + \n\n + URL) must be ≤ 280 characters. The URL alone is ${urlLen} chars.
+HARD RULE: No raw convergence score numbers (e.g. "42/100") in X post text.
 Return ONLY the JSON object.`;
 }
 
@@ -249,17 +263,49 @@ interface DbPiece {
   status: string;
 }
 
+// ── X char limit enforcer ─────────────────────────────────────────────────────
+// Claude sometimes still exceeds 280. Hard-trim to fit, preserving the URL.
+
+function enforceXLimit(text: string, limit = 280): string {
+  if (text.length <= limit) return text;
+  // Find URL portion if present (last line starting with https://)
+  const urlMatch = text.match(/\n\nhttps?:\/\/\S+$/);
+  if (urlMatch) {
+    const urlPart = urlMatch[0]; // \n\nhttps://...
+    const body = text.slice(0, text.length - urlPart.length);
+    const maxBody = limit - urlPart.length;
+    // Trim body to last word boundary
+    const trimmed = body.slice(0, maxBody).replace(/\s+\S*$/, '');
+    return trimmed + urlPart;
+  }
+  // No URL — just cut at last word boundary
+  return text.slice(0, limit).replace(/\s+\S*$/, '');
+}
+
 function normalizePieces(topic: string, generated: Record<string, unknown>): DbPiece[] {
   const pieces: DbPiece[] = [];
 
   function add(platform: string, content_type: string, raw: RawPiece) {
+    let text = raw.text_content;
+    // Hard-enforce X 280-char limit on all X posts and individual thread posts
+    if (platform === 'x') {
+      text = enforceXLimit(text);
+    }
+    // Also trim individual thread posts stored in supplementary.posts
+    let supplementary = raw.supplementary ?? null;
+    if (platform === 'x' && supplementary?.posts && Array.isArray(supplementary.posts)) {
+      supplementary = {
+        ...supplementary,
+        posts: (supplementary.posts as string[]).map(p => enforceXLimit(p)),
+      };
+    }
     pieces.push({
       topic,
       platform,
       content_type,
       voice_profile: raw.voice_profile,
-      text_content: raw.text_content,
-      supplementary: raw.supplementary ?? null,
+      text_content: text,
+      supplementary,
       day_offset: raw.day_offset ?? 0,
       sort_order: raw.sort_order ?? 0,
       status: 'draft',

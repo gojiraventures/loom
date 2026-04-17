@@ -443,6 +443,11 @@ function PieceCard({
         <span className={`font-mono text-[8px] uppercase tracking-widest border px-1.5 py-0.5 ml-auto ${STATUS_COLORS[piece.status]}`}>
           {piece.status}
         </span>
+        {piece.scheduled_at && piece.status === 'approved' && (
+          <span className="font-mono text-[8px] text-gold/70 border border-gold/20 px-1.5 py-0.5">
+            ⏱ {new Date(piece.scheduled_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET
+          </span>
+        )}
       </div>
 
       {/* Main text */}
@@ -618,6 +623,13 @@ export function SocialTab() {
   const [generateStatus, setGenerateStatus] = useState('');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [scheduleDate, setScheduleDate] = useState<string>(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  });
+  const [scheduleHour, setScheduleHour] = useState<number>(9);
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduleStatus, setScheduleStatus] = useState('');
 
   // Load published dossiers (same pattern as ContentTab)
   useEffect(() => {
@@ -853,6 +865,40 @@ export function SocialTab() {
     }
   }
 
+  async function scheduleWeek() {
+    if (!selectedTopic) return;
+    setScheduling(true);
+    setScheduleStatus('Computing schedule…');
+    try {
+      const res = await fetch('/api/admin/social/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: selectedTopic, start_date: scheduleDate, hour_et: scheduleHour }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setScheduleStatus(`Error: ${data.error}`);
+      } else {
+        setScheduleStatus(`Scheduled ${data.scheduled} posts starting ${scheduleDate} at ${scheduleHour}:00 ET`);
+        await loadPieces(selectedTopic);
+      }
+    } catch {
+      setScheduleStatus('Request failed');
+    }
+    setScheduling(false);
+  }
+
+  async function clearSchedule() {
+    if (!selectedTopic) return;
+    await fetch('/api/admin/social/schedule', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: selectedTopic }),
+    });
+    setScheduleStatus('Schedule cleared');
+    await loadPieces(selectedTopic);
+  }
+
   const selectedDossier = dossiers.find(d => d.topic === selectedTopic);
 
   const filtered = pieces.filter(p => {
@@ -959,6 +1005,61 @@ export function SocialTab() {
         </div>
       )}
 
+      {/* Schedule Week panel */}
+      {pieces.length > 0 && counts.approved > 0 && (
+        <div className="border border-gold/20 bg-gold/3 px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[9px] uppercase tracking-widest text-gold">
+              Auto-Schedule Week — {counts.approved} approved piece{counts.approved !== 1 ? 's' : ''}
+            </span>
+            {scheduleStatus && (
+              <span className="font-mono text-[9px] text-text-secondary">{scheduleStatus}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex flex-col gap-1">
+              <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Start Date</label>
+              <input
+                type="date"
+                value={scheduleDate}
+                onChange={e => setScheduleDate(e.target.value)}
+                className="bg-ground border border-border px-2 py-1 text-xs text-text-primary font-mono focus:outline-none focus:border-gold/40"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">X Posting Hour (ET)</label>
+              <select
+                value={scheduleHour}
+                onChange={e => setScheduleHour(parseInt(e.target.value))}
+                className="bg-ground border border-border px-2 py-1 text-xs text-text-primary font-mono focus:outline-none focus:border-gold/40"
+              >
+                {[7,8,9,10,11,12,13,14,15,16,17,18,19,20].map(h => (
+                  <option key={h} value={h}>{h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h-12}pm`} ET {h === 9 ? '(optimal)' : ''}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2 mt-auto">
+              <button
+                onClick={scheduleWeek}
+                disabled={scheduling}
+                className="font-mono text-[9px] uppercase tracking-widest px-4 py-1.5 bg-gold/10 border border-gold/40 text-gold hover:bg-gold/20 transition-colors disabled:opacity-50"
+              >
+                {scheduling ? 'Scheduling…' : '⏱ Schedule Week'}
+              </button>
+              <button
+                onClick={clearSchedule}
+                className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border border-border text-text-tertiary hover:text-text-secondary transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+          <p className="font-mono text-[8px] text-text-tertiary">
+            Posts spaced 90 min apart per platform per day. Cron runs every 15 min and posts X automatically. Instagram and Facebook post manually.
+          </p>
+        </div>
+      )}
+
       {/* Filters + batch actions */}
       {pieces.length > 0 && (
         <div className="flex flex-wrap items-center gap-3">
@@ -971,7 +1072,7 @@ export function SocialTab() {
             ))}
           </div>
           <div className="flex gap-0 border border-border">
-            {['all', 'draft', 'approved', 'rejected'].map(s => (
+            {['all', 'draft', 'approved', 'rejected', 'published'].map(s => (
               <button key={s} onClick={() => setStatusFilter(s)}
                 className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 transition-colors border-r border-border last:border-r-0 ${statusFilter === s ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
                 {s}

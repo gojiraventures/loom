@@ -26,7 +26,7 @@ export const maxDuration = 300;
 
 const SYSTEM = `You are a research analyst building a structured knowledge graph of institutions.
 Given web research about an institution, extract structured data to enrich our database.
-Be accurate and specific. Only include what the research supports. Return ONLY valid JSON — no prose, no markdown fences.`;
+Be accurate and specific. Only include what the research supports. Return ONLY valid JSON. No en dashes (–) or em dashes (—) in any text fields. Use hyphens (-) sparingly.`;
 
 function buildPrompt(
   name: string,

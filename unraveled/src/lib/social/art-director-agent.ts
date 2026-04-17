@@ -202,6 +202,7 @@ OUTPUT FORMAT — return ONLY valid JSON
 
 RULES:
 - Headline must be SHORT and editorial — no sensationalism, no hype
+- NO en dashes (–) or em dashes (—) in headline, subheadline, body_copy, or slide text. Use hyphens (-) sparingly or rewrite.
 - Choose accent_color based on dominant tradition, or gold for multi-tradition
 - Slides: only include if template is carousel_slide
 - Score: set to null — NEVER display the convergence score number on social cards. It has no meaning to a general social audience without full context.

@@ -47,7 +47,7 @@ async function fetchWikipedia(name: string): Promise<string> {
 
 const SYSTEM = `You are a researcher building dossiers on public figures for an evidence-index platform called UnraveledTruth.
 Given a person's name and any research notes, return a structured JSON object with everything you know.
-Be accurate, balanced, and note what is verified vs. claimed. Return ONLY valid JSON — no prose.`;
+Be accurate, balanced, and note what is verified vs. claimed. Return ONLY valid JSON. No en dashes (–) or em dashes (—) in any text fields. Use hyphens (-) sparingly.`;
 
 const SCHEMA_PROMPT = (name: string, perplexityNotes: string, extraContext?: string) => `
 Research the following person and return a JSON object matching this exact schema.
