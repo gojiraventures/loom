@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 // ── POST — generate new designs ───────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const body = await req.json() as { piece_id?: string };
+  const body = await req.json() as { piece_id?: string; image_prompt_override?: string };
   if (!body.piece_id) return NextResponse.json({ error: 'piece_id required' }, { status: 400 });
 
   const supabase = createServerSupabaseClient();
@@ -99,6 +99,9 @@ export async function POST(req: NextRequest) {
   let usedComfyUI = false;
   let generationHistory: import('@/lib/external/comfyui').ValidationAttempt[] | null = null;
   let imageBackendError: string | null = null;
+
+  // Apply override if provided
+  if (body.image_prompt_override) brief.image_prompt = body.image_prompt_override;
 
   const hasImagePrompt = !!brief.image_prompt;
 

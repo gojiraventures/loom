@@ -203,15 +203,18 @@ function DesignGallery({
   brief,
   visualQA,
   onSelect,
+  onRedesignWithPrompt,
 }: {
   variants: DesignVariant[];
   brief?: DesignBriefSummary;
   visualQA?: QAResult | null;
   onSelect: (id: string) => void;
+  onRedesignWithPrompt?: (prompt: string) => void;
 }) {
   const [active, setActive] = useState(0);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showQA, setShowQA] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState<string | null>(null);
   if (variants.length === 0) return null;
 
   const current = variants[active];
@@ -312,20 +315,42 @@ function DesignGallery({
         </p>
       )}
 
-      {/* Image prompt (Flux/ComfyUI) */}
+      {/* Image prompt — editable */}
       {brief?.image_prompt && (
         <div>
           <button
-            onClick={() => setShowPrompt(!showPrompt)}
+            onClick={() => {
+              setShowPrompt(!showPrompt);
+              if (!showPrompt && editedPrompt === null) setEditedPrompt(brief.image_prompt ?? '');
+            }}
             className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
           >
-            {showPrompt ? '↑ Hide image prompt' : '↓ Image prompt'}
+            {showPrompt ? '↑ Hide image prompt' : '↓ Edit image prompt'}
           </button>
           {showPrompt && (
-            <div className="mt-1 border border-border/50 bg-ground-light/30 p-2">
-              <p className="font-mono text-[8px] text-text-secondary leading-relaxed whitespace-pre-wrap select-all">
-                {brief.image_prompt}
-              </p>
+            <div className="mt-1 space-y-1">
+              <textarea
+                value={editedPrompt ?? brief.image_prompt}
+                onChange={e => setEditedPrompt(e.target.value)}
+                rows={6}
+                className="w-full border border-border/50 bg-ground-light/30 p-2 font-mono text-[8px] text-text-secondary leading-relaxed resize-y focus:outline-none focus:border-gold/40"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditedPrompt(brief.image_prompt ?? '')}
+                  className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-border text-text-tertiary hover:text-text-secondary transition-colors"
+                >
+                  Reset
+                </button>
+                {onRedesignWithPrompt && (
+                  <button
+                    onClick={() => onRedesignWithPrompt(editedPrompt ?? brief.image_prompt ?? '')}
+                    className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-gold/40 text-gold hover:bg-gold/5 transition-colors ml-auto"
+                  >
+                    Redesign with this prompt
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -390,6 +415,7 @@ function PieceCard({
   onSelectDesignVariant,
   onPublish,
   onAutoFix,
+  onRedesignWithPrompt,
 }: {
   piece: ContentPiece;
   onUpdate: (id: string, updates: Partial<ContentPiece>) => void;
@@ -398,6 +424,7 @@ function PieceCard({
   onSelectDesignVariant: (pieceId: string, variantId: string) => void;
   onPublish: (id: string) => void;
   onAutoFix: (id: string) => void;
+  onRedesignWithPrompt: (pieceId: string, prompt: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(piece.text_content);
@@ -516,6 +543,7 @@ function PieceCard({
           brief={piece._designBrief}
           visualQA={piece._visualQA}
           onSelect={(variantId) => onSelectDesignVariant(piece.id, variantId)}
+          onRedesignWithPrompt={(prompt) => onRedesignWithPrompt(piece.id, prompt)}
         />
       )}
 
@@ -750,13 +778,13 @@ export function SocialTab() {
     setGenerating(false);
   }
 
-  async function runDesignForPiece(pieceId: string) {
+  async function runDesignForPiece(pieceId: string, imagePromptOverride?: string) {
     setPieces(prev => prev.map(p => p.id === pieceId ? { ...p, _designRunning: true, _designError: undefined } : p));
     try {
       const res = await fetch('/api/admin/social/design', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ piece_id: pieceId }),
+        body: JSON.stringify({ piece_id: pieceId, image_prompt_override: imagePromptOverride }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -1298,6 +1326,7 @@ export function SocialTab() {
               onSelectDesignVariant={selectDesignVariant}
               onPublish={publishPiece}
               onAutoFix={autoFixPiece}
+              onRedesignWithPrompt={(id, prompt) => runDesignForPiece(id, prompt)}
             />
           ))}
         </div>
