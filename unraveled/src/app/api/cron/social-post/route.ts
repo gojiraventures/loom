@@ -17,7 +17,7 @@ export const maxDuration = 60;
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -27,10 +27,9 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServerSupabaseClient();
 
-  // Find approved X pieces due to post right now (scheduled_at <= now, within a 20-min window
-  // to handle cron jitter without double-posting)
+  // Find all approved X pieces whose scheduled time has passed.
+  // No lower-bound window needed — status='approved' prevents double-posting.
   const now = new Date();
-  const windowStart = new Date(now.getTime() - 20 * 60 * 1000); // 20 min ago
 
   const { data: duePieces, error } = await supabase
     .from('social_content_pieces')
@@ -39,7 +38,6 @@ export async function GET(req: NextRequest) {
     .eq('status', 'approved')
     .not('scheduled_at', 'is', null)
     .lte('scheduled_at', now.toISOString())
-    .gte('scheduled_at', windowStart.toISOString())
     .order('scheduled_at');
 
   if (error) {
