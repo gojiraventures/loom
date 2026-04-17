@@ -2,15 +2,15 @@
  * GET /api/cron/social-post
  *
  * Called by Vercel Cron every 15 minutes.
- * Finds approved X pieces with scheduled_at <= now and posts them.
+ * Finds approved pieces (X, Facebook, Instagram) with scheduled_at <= now and posts them.
  *
- * Auth: Bearer ${CRON_SECRET}
- * Only platform=x is posted automatically (Instagram/Facebook require manual publish).
+ * Auth: Bearer ${CRON_SECRET} (enforced only when CRON_SECRET is set)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { xApiAvailable, uploadMedia, postTweet, postThread } from '@/lib/external/x-api';
+import { metaApiAvailable, postFacebookPhoto, postFacebookLink, postInstagramPhoto } from '@/lib/external/meta-api';
 
 export const maxDuration = 60;
 
@@ -21,20 +21,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!xApiAvailable()) {
-    return NextResponse.json({ ok: true, skipped: 'X API not configured' });
-  }
-
   const supabase = createServerSupabaseClient();
 
-  // Find all approved X pieces whose scheduled time has passed.
-  // No lower-bound window needed — status='approved' prevents double-posting.
+  // Find all approved pieces whose scheduled time has passed.
+  // No lower-bound window — status='approved' prevents double-posting.
   const now = new Date();
 
   const { data: duePieces, error } = await supabase
     .from('social_content_pieces')
     .select('*')
-    .eq('platform', 'x')
+    .in('platform', ['x', 'facebook', 'instagram'])
     .eq('status', 'approved')
     .not('scheduled_at', 'is', null)
     .lte('scheduled_at', now.toISOString())
@@ -49,33 +45,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, posted: 0 });
   }
 
-  const results: { id: string; ok: boolean; error?: string }[] = [];
+  const results: { id: string; platform: string; ok: boolean; url?: string; error?: string }[] = [];
 
   for (const piece of duePieces) {
     try {
-      // Load selected design variant (if any)
+      // Load selected design variant image
       const { data: variants } = await supabase
         .from('social_design_variants')
         .select('image_url')
         .eq('content_piece_id', piece.id)
         .eq('selected', true)
         .limit(1);
+      const imageUrl: string | undefined = variants?.[0]?.image_url ?? undefined;
 
-      let mediaId: string | undefined;
-      const imageUrl = variants?.[0]?.image_url;
-      if (imageUrl) {
-        try {
-          const imgRes = await fetch(imageUrl);
-          if (imgRes.ok) {
-            const buf = Buffer.from(await imgRes.arrayBuffer());
-            mediaId = await uploadMedia(buf, 'image/png');
-          }
-        } catch (err) {
-          console.warn(`[social-cron] Media upload failed for ${piece.id}:`, String(err));
-        }
-      }
-
-      // Look up article URL for safety-net link appending
+      // Article URL for link appending
       const { data: dossier } = await supabase
         .from('topic_dossiers')
         .select('slug')
@@ -84,42 +67,117 @@ export async function GET(req: NextRequest) {
       const slug = dossier?.slug ?? piece.topic.toLowerCase().replace(/\s+/g, '-');
       const articleUrl = `https://unraveledtruth.com/topics/${slug}`;
 
-      const supplementary = piece.supplementary as { posts?: string[] } | null;
-      const threadPosts: string[] = supplementary?.posts ?? [];
-      const hasThread = threadPosts.length > 1;
+      const supplementary = piece.supplementary as { posts?: string[]; caption?: string } | null;
 
-      let tweetResults: { id: string; text: string }[];
+      // ── X ───────────────────────────────────────────────────────────────────
+      if (piece.platform === 'x') {
+        if (!xApiAvailable()) {
+          results.push({ id: piece.id, platform: 'x', ok: false, error: 'X API not configured' });
+          continue;
+        }
 
-      if (hasThread) {
-        tweetResults = await postThread(threadPosts, mediaId);
-      } else {
-        let text = threadPosts[0] ?? piece.text_content ?? '';
-        if (!text.includes(articleUrl)) text = `${text}\n\n${articleUrl}`;
-        const result = await postTweet(text, mediaId ? { mediaIds: [mediaId] } : {});
-        tweetResults = [result];
+        let mediaId: string | undefined;
+        if (imageUrl) {
+          try {
+            const imgRes = await fetch(imageUrl);
+            if (imgRes.ok) {
+              const buf = Buffer.from(await imgRes.arrayBuffer());
+              mediaId = await uploadMedia(buf, 'image/png');
+            }
+          } catch (err) {
+            console.warn(`[social-cron] X media upload failed for ${piece.id}:`, String(err));
+          }
+        }
+
+        const threadPosts: string[] = supplementary?.posts ?? [];
+        const hasThread = threadPosts.length > 1;
+        let tweetResults: { id: string; text: string }[];
+
+        if (hasThread) {
+          tweetResults = await postThread(threadPosts, mediaId);
+        } else {
+          let text = threadPosts[0] ?? piece.text_content ?? '';
+          if (!text.includes(articleUrl)) text = `${text}\n\n${articleUrl}`;
+          tweetResults = [await postTweet(text, mediaId ? { mediaIds: [mediaId] } : {})];
+        }
+
+        const tweetIds = tweetResults.map(t => t.id);
+        const tweetUrl = `https://x.com/i/web/status/${tweetIds[0]}`;
+
+        await supabase
+          .from('social_content_pieces')
+          .update({
+            status: 'published',
+            supplementary: { ...(supplementary ?? {}), published_tweet_ids: tweetIds, published_tweet_url: tweetUrl },
+          })
+          .eq('id', piece.id);
+
+        results.push({ id: piece.id, platform: 'x', ok: true, url: tweetUrl });
+        console.log(`[social-cron] X posted ${piece.content_type} → ${tweetUrl}`);
+
+      // ── Facebook ─────────────────────────────────────────────────────────────
+      } else if (piece.platform === 'facebook') {
+        if (!metaApiAvailable()) {
+          results.push({ id: piece.id, platform: 'facebook', ok: false, error: 'Meta API not configured' });
+          continue;
+        }
+
+        const text = piece.text_content ?? '';
+        let postId: string;
+
+        if (imageUrl) {
+          const caption = `${text}\n\n${articleUrl}`;
+          postId = await postFacebookPhoto(imageUrl, caption);
+        } else {
+          postId = await postFacebookLink(text, articleUrl);
+        }
+
+        const postUrl = `https://www.facebook.com/${postId}`;
+        await supabase
+          .from('social_content_pieces')
+          .update({
+            status: 'published',
+            supplementary: { ...(supplementary ?? {}), published_post_id: postId, published_post_url: postUrl },
+          })
+          .eq('id', piece.id);
+
+        results.push({ id: piece.id, platform: 'facebook', ok: true, url: postUrl });
+        console.log(`[social-cron] Facebook posted ${piece.content_type} → ${postUrl}`);
+
+      // ── Instagram ────────────────────────────────────────────────────────────
+      } else if (piece.platform === 'instagram') {
+        if (!metaApiAvailable()) {
+          results.push({ id: piece.id, platform: 'instagram', ok: false, error: 'Meta API not configured' });
+          continue;
+        }
+        if (!imageUrl) {
+          results.push({ id: piece.id, platform: 'instagram', ok: false, error: 'No image — Instagram requires an image' });
+          continue;
+        }
+
+        // Instagram captions can include hashtags but no clickable links — append URL as plain text
+        const caption = supplementary?.caption ?? piece.text_content ?? '';
+        const fullCaption = caption.includes('unraveledtruth.com') ? caption : `${caption}\n\nunraveledtruth.com/topics/${slug}`;
+
+        const mediaId = await postInstagramPhoto(imageUrl, fullCaption);
+        const igUrl = `https://www.instagram.com/p/${mediaId}/`;
+
+        await supabase
+          .from('social_content_pieces')
+          .update({
+            status: 'published',
+            supplementary: { ...(supplementary ?? {}), published_ig_media_id: mediaId, published_ig_url: igUrl },
+          })
+          .eq('id', piece.id);
+
+        results.push({ id: piece.id, platform: 'instagram', ok: true, url: igUrl });
+        console.log(`[social-cron] Instagram posted ${piece.content_type} → ${igUrl}`);
       }
 
-      const tweetIds = tweetResults.map(t => t.id);
-      const tweetUrl = `https://x.com/i/web/status/${tweetIds[0]}`;
-
-      await supabase
-        .from('social_content_pieces')
-        .update({
-          status: 'published',
-          supplementary: {
-            ...(supplementary ?? {}),
-            published_tweet_ids: tweetIds,
-            published_tweet_url: tweetUrl,
-          },
-        })
-        .eq('id', piece.id);
-
-      results.push({ id: piece.id, ok: true });
-      console.log(`[social-cron] Posted ${piece.content_type} → ${tweetUrl}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[social-cron] Failed to post ${piece.id}:`, msg);
-      results.push({ id: piece.id, ok: false, error: msg });
+      console.error(`[social-cron] Failed to post ${piece.id} (${piece.platform}):`, msg);
+      results.push({ id: piece.id, platform: piece.platform, ok: false, error: msg });
     }
   }
 
