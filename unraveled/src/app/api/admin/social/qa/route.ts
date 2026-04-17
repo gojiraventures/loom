@@ -52,7 +52,66 @@ export async function POST(req: NextRequest) {
   const articleTitle = dossier?.title ?? piece.topic;
   const convergenceScore = dossier?.best_convergence_score ?? 0;
 
-  // Run QA
+  // ── Hard rule checks (platform limits, no AI needed) ─────────────────────────
+  const X_LIMIT = 280;
+  const hardIssues: { category: string; severity: 'block'; description: string; suggestion: string }[] = [];
+
+  if (piece.platform === 'x') {
+    const mainText: string = piece.text_content ?? '';
+    if (mainText.length > X_LIMIT) {
+      hardIssues.push({
+        category: 'platform',
+        severity: 'block',
+        description: `Text is ${mainText.length} characters — exceeds X's hard 280-char limit by ${mainText.length - X_LIMIT}.`,
+        suggestion: 'Shorten the body text to leave room for the URL. Edit and trim before approving.',
+      });
+    }
+    // Also check individual thread posts
+    const posts: string[] = (piece.supplementary as { posts?: string[] } | null)?.posts ?? [];
+    posts.forEach((post, i) => {
+      if (post.length > X_LIMIT) {
+        hardIssues.push({
+          category: 'platform',
+          severity: 'block',
+          description: `Thread post ${i + 1} is ${post.length} characters — exceeds 280-char limit by ${post.length - X_LIMIT}.`,
+          suggestion: `Shorten thread post ${i + 1}.`,
+        });
+      }
+    });
+  }
+
+  // If hard violations exist, return block immediately without calling the AI
+  if (hardIssues.length > 0) {
+    const qaResult = {
+      result: 'block' as const,
+      issues: hardIssues,
+      summary: `Hard block: ${hardIssues.map(i => i.description).join(' ')}`,
+    };
+
+    await supabase.from('social_qa_results').upsert({
+      content_piece_id: body.piece_id,
+      result: qaResult.result,
+      issues: qaResult.issues,
+      summary: qaResult.summary,
+      checked_at: new Date().toISOString(),
+      overridden_by_human: false,
+    }, { onConflict: 'content_piece_id' });
+
+    if (['draft', 'approved'].includes(piece.status)) {
+      await supabase
+        .from('social_content_pieces')
+        .update({ status: 'rejected', updated_at: new Date().toISOString() })
+        .eq('id', body.piece_id);
+    }
+
+    return NextResponse.json({
+      qa: qaResult,
+      piece_id: body.piece_id,
+      auto_rejected: ['draft', 'approved'].includes(piece.status),
+    });
+  }
+
+  // ── AI QA ─────────────────────────────────────────────────────────────────────
   let qaResult;
   try {
     qaResult = await runQA({
