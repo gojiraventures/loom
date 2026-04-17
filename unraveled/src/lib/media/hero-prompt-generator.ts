@@ -22,11 +22,11 @@ export const TAIL_BLOCK =
 // NOTE: Keep atmospheric/lighting language minimal — Flux over-applies god rays and glow
 // instructions. Let the variable prompt handle all lighting specifics.
 export const COMFYUI_TAIL_BLOCK =
-  'Deep charcoal-to-near-black palette (#0F0F0F–#1A1A1A) with muted teal and slate-gray tones in the shadows. Photorealistic. Shot on medium-format film. Matte finish, analog grain, micro-surface detail — aged stone shows actual mineral staining, hairline fractures, and uneven erosion. Atmospheric haze and mist used purposefully for cinematic depth — never theatrical columns of light or broad god rays. Generous empty negative space across the entire top third for large headline overlay. Quietly mysterious and intellectually seductive — feels like a discovered scholarly artifact. No text, no titles, no watermarks, no legible inscriptions, glyphs, or symbols anywhere in the image. Square 1:1 format.';
+  'Deep charcoal-to-near-black palette (#0F0F0F–#1A1A1A) with muted teal and slate-gray tones in the shadows. Photorealistic — NOT a 3D render, NOT CGI, NOT digital painting. Shot on medium-format film. Matte finish, analog grain, micro-surface detail — aged stone shows actual mineral staining, hairline fractures, and uneven erosion. Atmospheric haze and mist used purposefully for cinematic depth — never theatrical columns of light or broad god rays. Generous empty negative space across the entire top third for large headline overlay. Quietly mysterious and intellectually seductive — feels like a discovered scholarly artifact. Absolutely no text, no writing, no inscriptions, no hieroglyphics, no cuneiform, no glyphs, no runes, no symbols, no script on any surface. No watermarks. Square 1:1 format.';
 
 // Negative prompt used for every ComfyUI generation.
 export const COMFYUI_NEGATIVE_PROMPT =
-  '3D render, CGI, cartoon, animation, illustration, painting, smooth plastic surfaces, video game asset, fantasy art, oversaturated colors, god rays, theatrical light beams, lens flare, hard spotlight, watermark, text, signature, colossal scale, mythological proportions, giant, monumental, oversized, building-scale creature, monster teeth, predator skull, fang teeth, unrealistic anatomy';
+  '3D render, CGI, cartoon, animation, illustration, digital painting, concept art, stylized, cel shading, game asset, video game asset, fantasy art, smooth plastic surfaces, glossy surfaces, rubber, synthetic material, oversaturated colors, vibrant colors, god rays, theatrical light beams, lens flare, hard spotlight, watermark, text, title, signature, writing, inscription, hieroglyphics, cuneiform, glyphs, runes, symbols, script, readable text, text on stone, text on tablet, text on any surface, colossal scale, mythological proportions, giant, monumental, oversized, building-scale creature, monster teeth, predator skull, fang teeth, unrealistic anatomy, perfect symmetry, airbrushed, HDR, chromatic aberration, vignette, tonemapped, deformed, mutated';
 
 /**
  * FLUX IMAGE RULES — shared prompt-writing guide for any agent generating
@@ -117,14 +117,32 @@ SUBJECTS THAT FIGHT THE SCRIM (avoid):
 Always include: "shot on medium-format film, photorealistic, matte finish, analog grain"
 Always include surface specificity: "hairline fractures, mineral staining, calcium deposits,
 uneven erosion, oxidized patina, aged ivory-yellow" — whichever fits the subject material.
+Always include: "NOT a 3D render, NOT CGI, NOT digital painting — photographic film capture"
+
+── INSCRIPTION / TEXT RULE — CRITICAL ──────────────────────
+NEVER describe a subject as having text, writing, script, symbols, hieroglyphics,
+cuneiform, runes, glyphs, or inscriptions on its surface. Flux always renders these as
+obvious AI gibberish — it destroys credibility immediately.
+
+Instead, describe the BARE PHYSICAL OBJECT:
+  ✗ WRONG: "a clay tablet with cuneiform inscriptions"
+  ✓ RIGHT:  "a worn clay tablet, heavily eroded surface, chipped edges, mineral-stained"
+  ✗ WRONG: "a stone with hieroglyphic carvings"
+  ✓ RIGHT:  "a rough-cut limestone block, deeply weathered surface, ancient tool marks"
+  ✗ WRONG: "a papyrus scroll with ancient text"
+  ✓ RIGHT:  "a rolled papyrus fragment, brittle and darkened with age, frayed edges"
+
+The physical object is real and compelling. The fake text always looks AI-generated.
 
 ── WHAT NEVER APPEARS IN A FLUX PROMPT ─────────────────────
   ✗ Midjourney flags (--stylize, --v, --ar, --chaos — these are ignored and confuse Flux)
   ✗ "God rays" or "volumetric light beams" (Flux renders theatrical columns of light)
-  ✗ Any text, symbols, numerals, field tags, inscriptions, labels, glyphs
+  ✗ Any text, symbols, numerals, field tags, inscriptions, labels, glyphs, script, writing
+  ✗ Adjectives implying CGI/cartoon: "dramatic", "epic", "ethereal", "glowing" (causes drift)
   ✗ Conceptual/narrative instructions ("to represent the paradox of X" — Flux ignores these)
   ✗ Multiple competing light sources
   ✗ "Ancient wisdom" aesthetics, conspiracy imagery, UFOs, glowing ley lines
+  ✗ Water or liquid unless essential — Flux renders water with a glossy CGI sheen
 `;
 
 
