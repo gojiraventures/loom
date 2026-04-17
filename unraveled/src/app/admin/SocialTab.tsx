@@ -639,13 +639,18 @@ export function SocialTab() {
   const [generateStatus, setGenerateStatus] = useState('');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [scheduleDate, setScheduleDate] = useState<string>(() => {
-    const d = new Date();
-    return d.toISOString().slice(0, 10);
-  });
+  // Per-article schedule (legacy, kept for single-article use)
+  const [scheduleDate, setScheduleDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [scheduleHour, setScheduleHour] = useState<number>(9);
   const [scheduling, setScheduling] = useState(false);
   const [scheduleStatus, setScheduleStatus] = useState('');
+  // Global scheduler
+  const [globalDate, setGlobalDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [globalSlots, setGlobalSlots] = useState<number>(2);
+  const [globalScheduling, setGlobalScheduling] = useState(false);
+  const [globalStatus, setGlobalStatus] = useState('');
+  const [globalCalendar, setGlobalCalendar] = useState<Record<string, { topic: string; time_et: string }[]> | null>(null);
+  const [showGlobalPanel, setShowGlobalPanel] = useState(false);
 
   // Load published dossiers (same pattern as ContentTab)
   useEffect(() => {
@@ -911,6 +916,37 @@ export function SocialTab() {
     }
   }
 
+  async function scheduleGlobal() {
+    setGlobalScheduling(true);
+    setGlobalStatus('Computing global schedule…');
+    setGlobalCalendar(null);
+    try {
+      const res = await fetch('/api/admin/social/schedule/global', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date: globalDate, slots_per_day: globalSlots }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setGlobalStatus(`Error: ${data.error}`);
+      } else {
+        setGlobalStatus(`Scheduled ${data.total_scheduled} posts across ${data.topics} article${data.topics !== 1 ? 's' : ''} over ${data.days_needed} days`);
+        setGlobalCalendar(data.calendar ?? null);
+        if (selectedTopic) await loadPieces(selectedTopic);
+      }
+    } catch {
+      setGlobalStatus('Request failed');
+    }
+    setGlobalScheduling(false);
+  }
+
+  async function clearAllSchedules() {
+    await fetch('/api/admin/social/schedule/global', { method: 'DELETE' });
+    setGlobalStatus('All schedules cleared');
+    setGlobalCalendar(null);
+    if (selectedTopic) await loadPieces(selectedTopic);
+  }
+
   async function scheduleWeek() {
     if (!selectedTopic) return;
     setScheduling(true);
@@ -965,6 +1001,92 @@ export function SocialTab() {
 
   return (
     <div className="space-y-6">
+
+      {/* Global Content Scheduler */}
+      <div className="border border-sky-400/20 bg-sky-400/3">
+        <button
+          onClick={() => setShowGlobalPanel(!showGlobalPanel)}
+          className="w-full flex items-center justify-between px-4 py-3 text-left"
+        >
+          <span className="font-mono text-[9px] uppercase tracking-widest text-sky-400">
+            Global Content Scheduler
+          </span>
+          <span className="font-mono text-[9px] text-text-tertiary">{showGlobalPanel ? '↑ Collapse' : '↓ Expand'}</span>
+        </button>
+
+        {showGlobalPanel && (
+          <div className="px-4 pb-4 space-y-4 border-t border-sky-400/10">
+            <p className="font-mono text-[9px] text-text-tertiary pt-3">
+              Schedules ALL approved X posts across every article. Interleaves topics so no two consecutive posts are from the same article.
+            </p>
+
+            <div className="flex items-end gap-3 flex-wrap">
+              <div className="flex flex-col gap-1">
+                <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Start Date</label>
+                <input
+                  type="date"
+                  value={globalDate}
+                  onChange={e => setGlobalDate(e.target.value)}
+                  className="bg-ground border border-border px-2 py-1 text-xs text-text-primary font-mono focus:outline-none focus:border-sky-400/40"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Posts Per Day</label>
+                <select
+                  value={globalSlots}
+                  onChange={e => setGlobalSlots(parseInt(e.target.value))}
+                  className="bg-ground border border-border px-2 py-1 text-xs text-text-primary font-mono focus:outline-none focus:border-sky-400/40"
+                >
+                  <option value={1}>1 per day — 9am ET</option>
+                  <option value={2}>2 per day — 9am + 5pm ET (recommended)</option>
+                  <option value={3}>3 per day — 9am + 1pm + 6pm ET</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={scheduleGlobal}
+                  disabled={globalScheduling}
+                  className="font-mono text-[9px] uppercase tracking-widest px-4 py-1.5 bg-sky-400/10 border border-sky-400/40 text-sky-400 hover:bg-sky-400/20 transition-colors disabled:opacity-50"
+                >
+                  {globalScheduling ? 'Scheduling…' : '⏱ Schedule All Articles'}
+                </button>
+                <button
+                  onClick={clearAllSchedules}
+                  className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border border-red-400/20 text-red-400/60 hover:text-red-400 hover:border-red-400/40 transition-colors"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            {globalStatus && (
+              <p className="font-mono text-[9px] text-text-secondary border-l-2 border-sky-400/40 pl-3">{globalStatus}</p>
+            )}
+
+            {/* Calendar preview */}
+            {globalCalendar && Object.keys(globalCalendar).length > 0 && (
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-2">Schedule Preview</p>
+                {Object.entries(globalCalendar).sort(([a], [b]) => a.localeCompare(b)).map(([date, slots]) => (
+                  <div key={date} className="flex items-start gap-3">
+                    <span className="font-mono text-[8px] text-text-tertiary shrink-0 w-20">
+                      {new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {slots.map((s, i) => (
+                        <span key={i} className="font-mono text-[8px] border border-sky-400/20 text-sky-400/70 px-1.5 py-0.5">
+                          {s.time_et} · {s.topic.slice(0, 20)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Article selector */}
       <div className="flex items-start gap-4 flex-wrap">
         <div className="flex-1 min-w-[260px]">
