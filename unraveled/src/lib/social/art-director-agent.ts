@@ -204,10 +204,11 @@ RULES:
 - Headline must be SHORT and editorial — no sensationalism, no hype
 - Choose accent_color based on dominant tradition, or gold for multi-tradition
 - Slides: only include if template is carousel_slide
-- Score: include only if directly relevant
+- Score: set to null — NEVER display the convergence score number on social cards. It has no meaning to a general social audience without full context.
 - image_prompt: include for score_reveal, announcement, thread_header, debate_split — null for quote_card and carousel_slide. Must follow Flux rules above — NO Midjourney flags (--stylize, --v, --ar, etc.)
-- visual_note: specific ("Use gold rule separator, score in 200pt Newsreader, warm cream text on near-black" vs "looks nice")
-- Never use cold white for text — always warm cream #F5F0E8`;
+- visual_note: specific ("Use gold rule separator, warm cream text on near-black" vs "looks nice")
+- Never use cold white for text — always warm cream #F5F0E8
+- Never include convergence score numbers (e.g. "90/100", "score: 72") anywhere in headline, subheadline, or body_copy`;
 }
 
 // ── Agent call ─────────────────────────────────────────────────────────────────

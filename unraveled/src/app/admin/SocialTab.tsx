@@ -798,6 +798,13 @@ export function SocialTab() {
     }
   }
 
+  async function redesignAll() {
+    const targets = filtered.filter(p => !p._designRunning && p.status !== 'published');
+    for (const piece of targets) {
+      await runDesignForPiece(piece.id);
+    }
+  }
+
   async function approveAll() {
     const drafts = filtered.filter(p => p.status === 'draft');
     await Promise.all(drafts.map(p =>
@@ -972,6 +979,13 @@ export function SocialTab() {
             ))}
           </div>
           <div className="flex gap-2 ml-auto">
+            <button
+              onClick={redesignAll}
+              disabled={filtered.every(p => p._designRunning)}
+              className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border border-violet-400/30 text-violet-400/70 hover:text-violet-400 transition-colors disabled:opacity-50"
+            >
+              ↺ Redesign All
+            </button>
             <button
               onClick={runQAAll}
               disabled={filtered.every(p => p._qaRunning)}
