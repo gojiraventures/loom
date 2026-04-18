@@ -6,6 +6,8 @@
  *   - launch_thread  → posted as a reply chain (thread)
  *   - everything else → posted as a single tweet (text_content or supplementary.posts[0])
  *
+ * The design variant image is set as the topic's featured OG image so the
+ * Twitter link card (which IS clickable) shows the custom social art.
  * Instagram and Facebook are handled by Buffer directly.
  *
  * Auth: Bearer ${CRON_SECRET} (enforced only when CRON_SECRET is set)
@@ -13,7 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { xApiAvailable, uploadMedia, postThread } from '@/lib/external/x-api';
+import { xApiAvailable, postThread } from '@/lib/external/x-api';
 
 export const maxDuration = 60;
 
@@ -86,21 +88,41 @@ export async function GET(req: NextRequest) {
         return text;
       });
 
-      // Upload image (attached to first tweet only)
-      let mediaId: string | undefined;
+      // Promote design variant image as the topic's featured OG image so the
+      // Twitter link card shows the custom social image (and is clickable).
       if (imageUrl) {
         try {
-          const imgRes = await fetch(imageUrl);
-          if (imgRes.ok) {
-            const buf = Buffer.from(await imgRes.arrayBuffer());
-            mediaId = await uploadMedia(buf, 'image/png');
-          }
+          // Remove any existing social_design_variant row for this topic
+          await supabase
+            .from('topic_images')
+            .delete()
+            .eq('topic', piece.topic)
+            .eq('source', 'social_design_variant');
+
+          // Clear featured flag on all remaining topic_images for this topic
+          await supabase
+            .from('topic_images')
+            .update({ featured: false })
+            .eq('topic', piece.topic);
+
+          // Insert the new design variant as the featured image
+          await supabase.from('topic_images').insert({
+            topic: piece.topic,
+            source: 'social_design_variant',
+            title: piece.topic,
+            image_url: imageUrl,
+            attribution: 'Unraveled',
+            status: 'approved',
+            featured: true,
+            sort_order: 0,
+            quality_score: 1.0,
+          });
         } catch (err) {
-          console.warn(`[social-cron] X media upload failed for ${piece.id}:`, String(err));
+          console.warn(`[social-cron] Failed to set featured OG image for ${piece.topic}:`, String(err));
         }
       }
 
-      const tweetResults = await postThread(threadPosts, mediaId);
+      const tweetResults = await postThread(threadPosts);
       const tweetIds = tweetResults.map(t => t.id);
       const tweetUrl = `https://x.com/i/web/status/${tweetIds[0]}`;
 

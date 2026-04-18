@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { createSessionSupabaseClient } from '@/lib/supabase-session';
 import { createServerSupabaseClient } from '@/lib/supabase';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveledtruth.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.unraveledtruth.com';
 
 // POST /api/stripe-portal
 // Creates a Stripe billing portal session and returns the URL.

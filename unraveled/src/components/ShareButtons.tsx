@@ -10,7 +10,7 @@ interface Props {
   placement?: 'top' | 'bottom';
 }
 
-const BASE_URL = 'https://unraveledtruth.com';
+const BASE_URL = 'https://www.unraveledtruth.com';
 
 // Map article themes/tags to relevant subreddits
 const SUBREDDITS = [

@@ -28,6 +28,8 @@ import type { SynthesizedOutput } from '@/lib/research/types';
 import type { TocSection } from '@/components/TopicTOC';
 import type { ComponentRecord } from '@/lib/interactive/types';
 import { ViewToggle } from '@/components/topic/ViewToggle';
+import { loadEntityIndex, segmentText } from '@/lib/entity-linker';
+import { LinkedText } from '@/components/LinkedText';
 import { AudioHero } from '@/components/topic/AudioHero';
 import { OverviewSummary } from '@/components/topic/OverviewSummary';
 import { OriginContext } from '@/components/topic/OriginContext';
@@ -37,7 +39,7 @@ import { TraditionSamples } from '@/components/topic/TraditionSamples';
 import { AIConsensusTeaser } from '@/components/topic/AIConsensusTeaser';
 import { SignupCTA } from '@/components/topic/SignupCTA';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveledtruth.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.unraveledtruth.com';
 
 export async function generateMetadata({
   params,
@@ -175,6 +177,9 @@ export default async function TopicPage({
   const debateIntro = (dossierMeta?.debate_intro as string | null) ?? null;
   const sectionTransitions = (dossierMeta?.section_transitions as string[] | null) ?? null;
   const originContext = (dossierMeta?.origin_context as string | null) ?? null;
+
+  // Load entity index for auto-linking mentions in text
+  const entityIndex = await loadEntityIndex();
   const traditionEntries = Object.entries(output.how_cultures_describe) as [string, string][];
   const traditionSamples = traditionEntries.slice(0, 2) as [string, string][];
 
@@ -613,7 +618,7 @@ export default async function TopicPage({
           <div className="space-y-4">
             {output.executive_summary.split('\n\n').map((p, i) => (
               <p key={i} className="text-sm text-text-secondary leading-[1.85]">
-                {p}
+                <LinkedText segments={segmentText(p, entityIndex)} />
               </p>
             ))}
           </div>
@@ -663,7 +668,7 @@ export default async function TopicPage({
               <div className="space-y-3">
                 {(output.advocate_case ?? '').split('\n\n').filter(Boolean).map((p, i) => (
                   <p key={i} className="text-sm text-text-secondary leading-[1.8]">
-                    {p.replace(/\*\*(.*?)\*\*/g, '$1')}
+                    <LinkedText segments={segmentText(p.replace(/\*\*(.*?)\*\*/g, '$1'), entityIndex)} />
                   </p>
                 ))}
               </div>
@@ -676,7 +681,7 @@ export default async function TopicPage({
               <div className="space-y-3">
                 {(output.skeptic_case ?? '').split('\n\n').filter(Boolean).map((p, i) => (
                   <p key={i} className="text-sm text-text-secondary leading-[1.8]">
-                    {p.replace(/\*\*(.*?)\*\*/g, '$1')}
+                    <LinkedText segments={segmentText(p.replace(/\*\*(.*?)\*\*/g, '$1'), entityIndex)} />
                   </p>
                 ))}
               </div>
@@ -771,7 +776,9 @@ export default async function TopicPage({
                         {Math.round(kf.confidence * 100)}%
                       </span>
                       <div>
-                        <p className="text-xs text-text-secondary leading-relaxed">{kf.finding}</p>
+                        <p className="text-xs text-text-secondary leading-relaxed">
+                          <LinkedText segments={segmentText(kf.finding, entityIndex)} />
+                        </p>
                         <div className="flex gap-1 mt-1 flex-wrap">
                           {kf.evidence_types.map((et) => (
                             <span key={et} className="font-mono text-[8px] tracking-wider uppercase text-text-tertiary border border-border/60 px-1">

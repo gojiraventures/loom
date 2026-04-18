@@ -23,7 +23,7 @@ const ibmPlexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveledtruth.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.unraveledtruth.com';
 
 export const metadata: Metadata = {
   title: {

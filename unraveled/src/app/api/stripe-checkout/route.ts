@@ -8,7 +8,7 @@ const PRICE_IDS = {
   annual:  'price_1TIfCR0twpkeumjymgOYNPBI',
 } as const;
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://unraveledtruth.com';
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.unraveledtruth.com';
 
 // POST /api/stripe-checkout
 // Body: { plan: 'monthly' | 'annual' }
