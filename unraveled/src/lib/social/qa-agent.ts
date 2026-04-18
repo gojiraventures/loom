@@ -1,13 +1,13 @@
 /**
- * Gemini QA Agent — brand safety and quality gate for social content.
+ * Claude QA Agent — brand safety and quality gate for social content.
  *
  * Evaluates post text (and optionally a design image) against the
  * UnraveledTruth brand checklist. Returns structured PASS / FLAG / BLOCK.
  */
 
-import { GoogleGenerativeAI, type Part } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export type QASeverity = 'pass' | 'flag' | 'block';
 
@@ -124,29 +124,41 @@ export async function runQA(opts: {
   image_base64?: string;
   image_mime?: string;
 }): Promise<QAResult> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
   const prompt = buildQAPrompt({ ...opts, has_image: !!opts.image_base64 });
 
-  // Build content parts
-  const contentParts: Part[] = [
-    { text: `${QA_SYSTEM}\n\n${prompt}` },
-  ];
+  type ContentBlock = Anthropic.TextBlockParam | Anthropic.ImageBlockParam;
+  const contentBlocks: ContentBlock[] = [{ type: 'text', text: prompt }];
 
   if (opts.image_base64 && opts.image_mime) {
-    contentParts.push({
-      inlineData: { mimeType: opts.image_mime, data: opts.image_base64 },
+    contentBlocks.unshift({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: opts.image_mime as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+        data: opts.image_base64,
+      },
     });
   }
 
-  const response = await model.generateContent({ contents: [{ role: 'user', parts: contentParts }] });
-  const raw = response.response.text().trim();
+  const response = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    system: QA_SYSTEM,
+    messages: [{ role: 'user', content: contentBlocks }],
+  });
+
+  const raw = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
 
   try {
-    const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+    // Strip markdown code fences if present
+    let cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+    // Extract the first JSON object if there's surrounding text
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleaned = jsonMatch[0];
     return JSON.parse(cleaned) as QAResult;
-  } catch {
-    // If parsing fails, return a flag rather than throwing
+  } catch (parseErr) {
+    console.error('[qa-agent] Failed to parse response. Raw output:', raw);
+    console.error('[qa-agent] Parse error:', parseErr);
     return {
       result: 'flag',
       issues: [{

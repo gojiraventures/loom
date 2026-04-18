@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
     updates.map(({ id, scheduled_at }) =>
       supabase
         .from('social_content_pieces')
-        .update({ scheduled_at, status: 'approved' })
+        .update({ scheduled_at, status: 'scheduled' })
         .eq('id', id)
     )
   );
@@ -158,10 +158,9 @@ export async function DELETE(req: NextRequest) {
   const supabase = createServerSupabaseClient();
   const { error } = await supabase
     .from('social_content_pieces')
-    .update({ scheduled_at: null })
+    .update({ scheduled_at: null, status: 'approved' })
     .eq('topic', body.topic)
-    .eq('status', 'approved')
-    .not('scheduled_at', 'is', null);
+    .eq('status', 'scheduled');
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

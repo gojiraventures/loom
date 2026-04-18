@@ -1,36 +1,48 @@
 /**
  * POST /api/admin/social/schedule/global
  *
- * Global cross-article scheduler. Takes ALL approved X pieces across every
- * topic and distributes them into time slots, interleaving articles so
- * consecutive posts are never from the same topic.
+ * Global cross-article scheduler. Takes ALL approved pieces across every
+ * topic and distributes them into time slots using per-platform round-robin.
  *
  * Body: {
  *   start_date:    string   — YYYY-MM-DD, first posting day
- *   slots_per_day: number   — how many posts per day (1–3, default 2)
- *   slot_hours_et: number[] — ET hours for each slot (e.g. [9, 17])
+ *   slots_per_day: number   — posts per platform per day (1–3, default 2)
+ *   slot_hours_et: number[] — base ET hours for each slot (e.g. [9, 17])
+ *   platforms?:    string[] — which platforms to schedule (default all)
  * }
  *
- * Algorithm:
- *   1. Load all approved, non-published X pieces, grouped by topic
- *   2. Sort each topic's pieces by day_offset then sort_order (preserves
- *      the intended narrative sequence within a topic)
- *   3. Round-robin across topics to fill each slot — no two consecutive
- *      slots are from the same topic
+ * Algorithm (per platform):
+ *   1. Load approved pieces for that platform, grouped by topic
+ *   2. Sort each topic's pieces by day_offset then type priority then sort_order
+ *   3. Round-robin across topics — no two consecutive slots from the same topic
  *   4. Assign scheduled_at: start_date + floor(slotIndex / slotsPerDay) days
- *      at slot_hours_et[slotIndex % slotsPerDay]
+ *      at (slot_hours_et[slot % slotsPerDay] + platformHourOffset) ET
+ *
+ * Platform hour offsets keep posts from different platforms from colliding:
+ *   X: +0h, Instagram: +1h, Facebook: +2h
  *
  * DELETE /api/admin/social/schedule/global
- * Clears all scheduled_at timestamps on approved pieces across all topics.
+ * Clears all scheduled_at timestamps on approved/scheduled pieces.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { bufferAvailable, postViaBuffer, type BufferPlatform } from '@/lib/external/buffer-api';
 
-export const maxDuration = 30;
+// Only Instagram and Facebook go through Buffer — X posts use the direct X API / cron
+const BUFFER_PLATFORMS = new Set(['instagram', 'facebook']);
 
-// ET = UTC-5 (we use fixed offset; callers can add 1h in EDT season)
+export const maxDuration = 300;
+
+// ET = UTC-5 (fixed offset; callers can add 1h in EDT season)
 const ET_OFFSET_HOURS = 5;
+
+// Per-platform hour offset so posts on the same day don't collide
+const PLATFORM_HOUR_OFFSET: Record<string, number> = {
+  x:         0,
+  instagram: 1,
+  facebook:  2,
+};
 
 function toUtcIso(dateStr: string, hourEt: number): string {
   const utcHour = hourEt + ET_OFFSET_HOURS;
@@ -45,7 +57,7 @@ function addDays(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-// Content type priority — ensures threads go before standalone posts within a topic
+// Content type priority — threads first within a topic
 const TYPE_PRIORITY: Record<string, number> = {
   launch_thread:       0,
   score_reveal:        1,
@@ -55,19 +67,78 @@ const TYPE_PRIORITY: Record<string, number> = {
   open_question:       5,
 };
 
+type Piece = {
+  id: string;
+  topic: string;
+  platform: string;
+  content_type: string;
+  text_content: string | null;
+  supplementary: Record<string, unknown> | null;
+  day_offset: number;
+  sort_order: number;
+};
+
+/**
+ * Round-robin interleave a set of pieces grouped by topic.
+ * No two consecutive slots come from the same topic.
+ */
+function roundRobin(pieces: Piece[]): Piece[] {
+  const byTopic = new Map<string, Piece[]>();
+  for (const p of pieces) {
+    if (!byTopic.has(p.topic)) byTopic.set(p.topic, []);
+    byTopic.get(p.topic)!.push(p);
+  }
+
+  // Sort each topic's pieces in narrative order
+  for (const group of byTopic.values()) {
+    group.sort((a, b) => {
+      if (a.day_offset !== b.day_offset) return a.day_offset - b.day_offset;
+      const pa = TYPE_PRIORITY[a.content_type] ?? 9;
+      const pb = TYPE_PRIORITY[b.content_type] ?? 9;
+      if (pa !== pb) return pa - pb;
+      return a.sort_order - b.sort_order;
+    });
+  }
+
+  const topics = Array.from(byTopic.keys());
+  const cursors: Record<string, number> = {};
+  for (const t of topics) cursors[t] = 0;
+
+  const ordered: Piece[] = [];
+  let lastTopic = '';
+  let safety = 0;
+  const maxIter = pieces.length * topics.length * 2;
+
+  while (ordered.length < pieces.length && safety < maxIter) {
+    safety++;
+    const available = topics.filter(t => cursors[t] < byTopic.get(t)!.length);
+    if (available.length === 0) break;
+    const candidates = available.length > 1 ? available.filter(t => t !== lastTopic) : available;
+    const topic = candidates[0];
+    const piece = byTopic.get(topic)![cursors[topic]];
+    ordered.push(piece);
+    cursors[topic]++;
+    lastTopic = topic;
+  }
+
+  return ordered;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json() as {
     start_date?: string;
     slots_per_day?: number;
     slot_hours_et?: number[];
+    platforms?: string[];
   };
 
   if (!body.start_date || !/^\d{4}-\d{2}-\d{2}$/.test(body.start_date)) {
     return NextResponse.json({ error: 'start_date required (YYYY-MM-DD)' }, { status: 400 });
   }
 
+  const activePlatforms = body.platforms?.length ? body.platforms : ['x', 'instagram', 'facebook'];
   const slotsPerDay = Math.min(Math.max(body.slots_per_day ?? 2, 1), 3);
-  const slotHours = body.slot_hours_et ?? (
+  const baseSlotHours = body.slot_hours_et ?? (
     slotsPerDay === 1 ? [9] :
     slotsPerDay === 2 ? [9, 17] :
                        [9, 13, 18]
@@ -75,105 +146,143 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServerSupabaseClient();
 
-  // Load all approved X pieces that aren't published
-  const { data: pieces, error } = await supabase
+  // Clear existing schedule for selected platforms
+  await supabase
     .from('social_content_pieces')
-    .select('id, topic, content_type, day_offset, sort_order')
-    .eq('platform', 'x')
-    .eq('status', 'approved')
-    .neq('status', 'published');
+    .update({ scheduled_at: null, status: 'approved' })
+    .in('platform', activePlatforms)
+    .eq('status', 'scheduled');
+
+  // Load all approved pieces for selected platforms
+  const { data: allPieces, error } = await supabase
+    .from('social_content_pieces')
+    .select('id, topic, platform, content_type, text_content, supplementary, day_offset, sort_order')
+    .in('platform', activePlatforms)
+    .eq('status', 'approved');
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!pieces || pieces.length === 0) {
-    return NextResponse.json({ error: 'No approved X pieces found across any topic' }, { status: 404 });
+  if (!allPieces || allPieces.length === 0) {
+    return NextResponse.json({ error: 'No approved pieces found across any topic' }, { status: 404 });
   }
 
-  // Group by topic, sort each group by narrative sequence
-  const byTopic = new Map<string, typeof pieces>();
-  for (const p of pieces) {
-    if (!byTopic.has(p.topic)) byTopic.set(p.topic, []);
-    byTopic.get(p.topic)!.push(p);
-  }
-  for (const [, group] of byTopic) {
-    group.sort((a, b) => {
-      const pa = TYPE_PRIORITY[a.content_type] ?? 9;
-      const pb = TYPE_PRIORITY[b.content_type] ?? 9;
-      if (a.day_offset !== b.day_offset) return a.day_offset - b.day_offset;
-      if (pa !== pb) return pa - pb;
-      return a.sort_order - b.sort_order;
+  // Run per-platform independent round-robins and assign timestamps
+  const updates: (Piece & { scheduled_at: string })[] = [];
+
+  for (const platform of activePlatforms) {
+    const platformPieces = (allPieces as Piece[]).filter(p => p.platform === platform);
+    if (platformPieces.length === 0) continue;
+
+    const hourOffset = PLATFORM_HOUR_OFFSET[platform] ?? 0;
+    const ordered = roundRobin(platformPieces);
+
+    ordered.forEach((piece, i) => {
+      const dayIndex  = Math.floor(i / slotsPerDay);
+      const slotIndex = i % slotsPerDay;
+      const date      = addDays(body.start_date!, dayIndex);
+      const hourEt    = (baseSlotHours[slotIndex] ?? baseSlotHours[baseSlotHours.length - 1]) + hourOffset;
+      updates.push({ ...piece, scheduled_at: toUtcIso(date, hourEt) });
     });
   }
 
-  // Round-robin interleave across topics
-  const topics = Array.from(byTopic.keys());
-  const cursors: Record<string, number> = {};
-  for (const t of topics) cursors[t] = 0;
-
-  const ordered: { id: string; topic: string }[] = [];
-  let lastTopic = '';
-  let safety = 0;
-
-  while (ordered.length < pieces.length && safety < pieces.length * topics.length * 2) {
-    safety++;
-    // Pick next topic that still has pieces, preferring not to repeat last topic
-    const available = topics.filter(t => cursors[t] < byTopic.get(t)!.length);
-    if (available.length === 0) break;
-
-    // Prefer a different topic than last; fall back if only one topic left
-    const candidates = available.length > 1 ? available.filter(t => t !== lastTopic) : available;
-    const topic = candidates[0];
-
-    const piece = byTopic.get(topic)![cursors[topic]];
-    ordered.push({ id: piece.id, topic });
-    cursors[topic]++;
-    lastTopic = topic;
+  // Pre-fetch all dossier slugs in one query to avoid N+1
+  const topicList = [...new Set(updates.map(u => u.topic))];
+  const { data: dossiers } = await supabase
+    .from('topic_dossiers')
+    .select('topic, slug')
+    .in('topic', topicList);
+  const slugMap: Record<string, string> = {};
+  for (const d of dossiers ?? []) {
+    slugMap[d.topic] = d.slug ?? d.topic.toLowerCase().replace(/\s+/g, '-');
   }
 
-  // Assign scheduled_at to each slot
-  const updates: { id: string; scheduled_at: string; topic: string; slot: number }[] = [];
-  ordered.forEach((item, i) => {
-    const dayIndex = Math.floor(i / slotsPerDay);
-    const slotIndex = i % slotsPerDay;
-    const date = addDays(body.start_date!, dayIndex);
-    const hourEt = slotHours[slotIndex] ?? slotHours[slotHours.length - 1];
-    updates.push({ id: item.id, scheduled_at: toUtcIso(date, hourEt), topic: item.topic, slot: i });
-  });
+  // Persist new schedule — sequential to respect Buffer rate limits
+  let totalScheduled = 0;
+  let failed = 0;
+  const pieceResults: { id: string; platform: string; buffer?: string; bufferError?: string; dbError?: string }[] = [];
 
-  // Clear existing scheduled_at for all affected pieces first
-  await supabase
-    .from('social_content_pieces')
-    .update({ scheduled_at: null })
-    .eq('platform', 'x')
-    .eq('status', 'approved')
-    .not('scheduled_at', 'is', null);
+  for (const { id, scheduled_at, platform, text_content, supplementary, topic } of updates) {
+    const useBuffer = BUFFER_PLATFORMS.has(platform);
+    const result: { id: string; platform: string; buffer?: string; bufferError?: string; dbError?: string } = { id, platform };
 
-  // Persist new schedule
-  const results = await Promise.allSettled(
-    updates.map(({ id, scheduled_at }) =>
-      supabase.from('social_content_pieces').update({ scheduled_at }).eq('id', id)
-    )
-  );
-  const failed = results.filter(r => r.status === 'rejected').length;
+    let bufferPostId: string | undefined;
+
+    if (useBuffer) {
+      if (!bufferAvailable(platform as BufferPlatform)) {
+        result.bufferError = `bufferAvailable=false (token or channel ID missing for ${platform})`;
+      } else {
+        try {
+          const { data: variants } = await supabase
+            .from('social_design_variants')
+            .select('image_url')
+            .eq('content_piece_id', id)
+            .eq('selected', true)
+            .limit(1);
+          const imageUrl: string | undefined = variants?.[0]?.image_url ?? undefined;
+
+          const sup = supplementary as { posts?: string[]; caption?: string } | null;
+          let text = sup?.caption ?? sup?.posts?.[0] ?? text_content ?? '';
+          const slug = slugMap[topic] ?? topic.toLowerCase().replace(/\s+/g, '-');
+          const articleUrl = `https://unraveledtruth.com/topics/${slug}`;
+          if (!text.includes('unraveledtruth.com')) {
+            text = `${text}\n\n${articleUrl}`;
+          }
+
+          bufferPostId = await postViaBuffer(platform as BufferPlatform, text, imageUrl, scheduled_at);
+          result.buffer = bufferPostId;
+          console.log(`[global-schedule] Queued ${platform} piece ${id} in Buffer → ${bufferPostId}`);
+        } catch (err) {
+          result.bufferError = String(err);
+          console.error(`[global-schedule] Buffer queue failed for ${id}:`, err);
+        } finally {
+          // Always delay between Buffer calls — rate limit applies to failures too
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+    }
+
+    const { error: updateErr } = await supabase
+      .from('social_content_pieces')
+      .update({
+        scheduled_at,
+        status: 'scheduled',
+        ...(bufferPostId ? { supplementary: { ...(supplementary ?? {}), buffer_post_id: bufferPostId } } : {}),
+      })
+      .eq('id', id);
+
+    if (updateErr) { failed++; result.dbError = updateErr.message; } else { totalScheduled++; }
+    pieceResults.push(result);
+  }
 
   // Build calendar preview grouped by date
-  const calendar: Record<string, { topic: string; id: string; time_et: string }[]> = {};
+  const calendar: Record<string, { topic: string; platform: string; id: string; time_et: string }[]> = {};
   for (const u of updates) {
     const date = u.scheduled_at.slice(0, 10);
     if (!calendar[date]) calendar[date] = [];
     calendar[date].push({
       topic: u.topic,
+      platform: u.platform,
       id: u.id,
       time_et: new Date(u.scheduled_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }),
     });
   }
 
+  const uniqueTopics = new Set(updates.map(u => u.topic)).size;
+  const bufferErrors = pieceResults.filter(r => r.bufferError);
+
+  // Per-platform summary
+  const byPlatform: Record<string, number> = {};
+  for (const u of updates) byPlatform[u.platform] = (byPlatform[u.platform] ?? 0) + 1;
+
   return NextResponse.json({
     ok: true,
-    total_scheduled: updates.length - failed,
+    total_scheduled: totalScheduled,
     failed,
-    topics: topics.length,
-    days_needed: Math.ceil(updates.length / slotsPerDay),
+    topics: uniqueTopics,
+    by_platform: byPlatform,
+    days_needed: Math.ceil(Math.max(...activePlatforms.map(p => (allPieces as Piece[]).filter(x => x.platform === p).length)) / slotsPerDay),
     calendar,
+    buffer_queued: pieceResults.filter(r => r.buffer).length,
+    buffer_errors: bufferErrors.length > 0 ? bufferErrors : undefined,
   });
 }
 
@@ -181,9 +290,8 @@ export async function DELETE(_req: NextRequest) {
   const supabase = createServerSupabaseClient();
   const { error } = await supabase
     .from('social_content_pieces')
-    .update({ scheduled_at: null })
-    .eq('status', 'approved')
-    .not('scheduled_at', 'is', null);
+    .update({ scheduled_at: null, status: 'approved' })
+    .eq('status', 'scheduled');
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

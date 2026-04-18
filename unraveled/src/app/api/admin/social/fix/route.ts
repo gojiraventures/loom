@@ -52,6 +52,14 @@ export async function POST(req: NextRequest) {
     .eq('content_piece_id', body.piece_id)
     .single();
 
+  // Load dossier for reference score
+  const { data: dossier } = await supabase
+    .from('topic_dossiers')
+    .select('best_convergence_score')
+    .eq('topic', piece.topic)
+    .single();
+  const referenceScore = dossier?.best_convergence_score ?? null;
+
   if (!qaRow || qaRow.result === 'pass') {
     return NextResponse.json({ error: 'No QA issues to fix' }, { status: 400 });
   }
@@ -63,37 +71,66 @@ export async function POST(req: NextRequest) {
     `[${n + 1}] ${i.severity.toUpperCase()} — ${i.category}: ${i.description}${i.suggestion ? `\n    Fix: ${i.suggestion}` : ''}`
   ).join('\n');
 
-  const supplementary = piece.supplementary as { posts?: string[]; slides?: { header?: string; body: string }[] } | null;
-  const isThread = supplementary?.posts && supplementary.posts.length > 0;
+  const supplementary = piece.supplementary as { posts?: string[]; slides?: { header?: string; body: string }[]; caption?: string } | null;
+  const isThread = !!(supplementary?.posts && supplementary.posts.length > 0);
+  const isCarousel = !!(supplementary?.slides && supplementary.slides.length > 0);
+
+  const scoreRule = referenceScore !== null
+    ? `REFERENCE CONVERGENCE SCORE: ${referenceScore}/100. If any number in the text was mistakenly used as a score, correct it to ${referenceScore} or remove it entirely if it doesn't belong.`
+    : '';
 
   // Build the prompt
-  const prompt = isThread
-    ? `Fix this X thread. Address every QA issue. Each post must be ≤ 280 characters. Preserve URL at end of final post. Return ONLY a JSON array of strings — the corrected posts in order. No other output.
+  let prompt: string;
+  if (isThread) {
+    prompt = `Fix this X thread. Address every QA issue. Each post must be ≤ 280 characters. Preserve URL at end of final post. Return ONLY a JSON array of strings — the corrected posts in order. No other output.
 
 ORIGINAL POSTS:
 ${supplementary!.posts!.map((p, i) => `[${i + 1}] (${p.length} chars)\n${p}`).join('\n\n')}
 
 QA ISSUES TO FIX:
 ${issueList}
+${scoreRule}
 
 VOICE: ${voice}
-Return ONLY a JSON array: ["post 1 text", "post 2 text", ...]`
-    : `Fix this ${piece.platform} post. Address every QA issue. Keep under ${limit} characters. Preserve any URL at the end. Return ONLY the corrected post text — no quotes, no JSON, no commentary.
+Return ONLY a JSON array: ["post 1 text", "post 2 text", ...]`;
+  } else if (isCarousel) {
+    prompt = `Fix this Instagram carousel. Address every QA issue in both the caption and slide content. Return ONLY valid JSON with this shape — no other output:
+{
+  "caption": "<fixed caption text>",
+  "slides": [{"header": "<optional header>", "body": "<slide body text>"}, ...]
+}
+
+ORIGINAL CAPTION:
+${supplementary?.caption ?? piece.text_content ?? ''}
+
+ORIGINAL SLIDES:
+${supplementary!.slides!.map((s, i) => `[${i + 1}] ${s.header ? s.header + ': ' : ''}${s.body}`).join('\n')}
+
+QA ISSUES TO FIX:
+${issueList}
+${scoreRule}
+
+VOICE: ${voice}
+RULES: No en dashes (–) or em dashes (—). Keep intellectual substance intact. Return ONLY the JSON object.`;
+  } else {
+    prompt = `Fix this ${piece.platform} post. Address every QA issue. Keep under ${limit} characters. Preserve any URL at the end. Return ONLY the corrected post text — no quotes, no JSON, no commentary.
 
 ORIGINAL POST (${piece.text_content?.length ?? 0} chars):
 ${piece.text_content}
 
 QA ISSUES TO FIX:
 ${issueList}
+${scoreRule}
 
 VOICE: ${voice}
 HARD LIMIT: ${limit} characters total including URL.
 RULES: No en dashes (–) or em dashes (—). No "mind-blowing", "shocking", "ancient wisdom". Keep the intellectual substance intact.
 Return ONLY the fixed post text.`;
+  }
 
   const message = await client.messages.create({
     model: 'claude-opus-4-6',
-    max_tokens: 1024,
+    max_tokens: isCarousel ? 4096 : 1024,
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -102,15 +139,29 @@ Return ONLY the fixed post text.`;
   let newText: string = piece.text_content ?? '';
   let newSupplementary = supplementary;
 
+  const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+
   if (isThread) {
     try {
-      const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
       const posts = JSON.parse(cleaned) as string[];
       newText = posts[0] ?? newText;
       newSupplementary = { ...supplementary, posts };
     } catch {
-      // Parse failed — leave text unchanged, surface error
       return NextResponse.json({ error: 'Could not parse fixed thread posts from Claude', raw: raw.slice(0, 300) }, { status: 500 });
+    }
+  } else if (isCarousel) {
+    try {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(jsonMatch?.[0] ?? cleaned) as { caption?: string; slides?: { header?: string; body: string }[] };
+      if (parsed.caption) newText = parsed.caption;
+      newSupplementary = {
+        ...supplementary,
+        ...(parsed.caption ? { caption: parsed.caption } : {}),
+        ...(parsed.slides ? { slides: parsed.slides } : {}),
+      };
+    } catch (parseErr) {
+      console.error('[fix] carousel parse failed. stop_reason:', message.stop_reason, 'raw:', raw.slice(0, 500));
+      return NextResponse.json({ error: `Could not parse fixed carousel from Claude: ${String(parseErr)}`, raw: raw.slice(0, 400) }, { status: 500 });
     }
   } else {
     newText = raw;
