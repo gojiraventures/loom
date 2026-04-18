@@ -33,6 +33,7 @@ const PUBLIC_PATH_PREFIXES = [
   '/refund',
   '/contact',
   '/api/votes',
+  '/api/cron/',
   '/sitemap.xml',
   '/robots.txt',
 ];
