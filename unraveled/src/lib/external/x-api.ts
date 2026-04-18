@@ -289,6 +289,25 @@ export async function postTweet(
   return data.data;
 }
 
+// ── Delete a tweet ───────────────────────────────────────────────────────────
+// DELETE /2/tweets/:id — returns { data: { deleted: true } } on success.
+
+export async function deleteTweet(tweetId: string): Promise<void> {
+  const creds = loadCreds();
+  const url = `https://api.twitter.com/2/tweets/${tweetId}`;
+  const authHeader = buildOAuthHeader('DELETE', url, creds);
+
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: authHeader },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`X delete tweet ${tweetId} failed (${res.status}): ${text}`);
+  }
+}
+
 // ── Post a thread ─────────────────────────────────────────────────────────────
 // Posts each tweet in sequence as a reply chain.
 // The first tweet optionally attaches a media card.
