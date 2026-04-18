@@ -18,12 +18,6 @@ import { xApiAvailable, uploadMedia, postThread } from '@/lib/external/x-api';
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const supabase = createServerSupabaseClient();
   const now = new Date();
 
