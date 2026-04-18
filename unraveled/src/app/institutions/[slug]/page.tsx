@@ -13,6 +13,8 @@ import {
 import { PublicDiscourseSection } from '@/components/PublicDiscourseSection';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { loadEntityIndex, segmentText } from '@/lib/entity-linker';
+import { LinkedText } from '@/components/LinkedText';
 
 // All institution_type and transparency_tier badges use identical neutral styling.
 // Editorial weight belongs in public_discourse entries, not badge colors.
@@ -61,7 +63,9 @@ export default async function InstitutionPage({ params }: Props) {
     getInstitutionBySlug(slug).then((i) => i ? getInstitutionDiscourse(i.id) : []),
   ]);
 
-  if (!institution || institution.status !== 'published') notFound();
+  if (!institution) notFound();
+
+  const entityIndex = await loadEntityIndex();
 
   const logoUrl = institution.logo_storage_path
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/institution-logos/${institution.logo_storage_path}`
@@ -87,6 +91,15 @@ export default async function InstitutionPage({ params }: Props) {
         <p className="font-mono text-[0.65rem] text-text-tertiary border-l-2 border-border pl-3 mb-10">
           This profile aggregates publicly documented information and makes no unsubstantiated claims about motive or character.
         </p>
+
+        {/* Under review banner */}
+        {institution.status === 'needs_review' && (
+          <div className="mb-8 border border-amber-400/30 bg-amber-400/5 px-4 py-3">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-amber-400">
+              Profile under review — content may be incomplete pending editorial verification.
+            </p>
+          </div>
+        )}
 
         {/* Hero */}
         <div className="flex flex-col sm:flex-row gap-8 mb-12">
@@ -142,12 +155,24 @@ export default async function InstitutionPage({ params }: Props) {
               <p className="text-sm text-text-secondary mb-3">{hqLocation}</p>
             )}
             {institution.short_bio && (
-              <p className="text-text-secondary leading-relaxed">{institution.short_bio}</p>
+              <p className="text-text-secondary leading-relaxed">
+                <LinkedText segments={segmentText(institution.short_bio, entityIndex)} />
+              </p>
             )}
 
             {/* Links */}
-            {(institution.website_url || institution.wikipedia_url) && (
+            {(institution.grokipedia_url || institution.website_url || institution.wikipedia_url) && (
               <div className="flex flex-wrap gap-2 mt-4">
+                {institution.grokipedia_url && (
+                  <a
+                    href={institution.grokipedia_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-gold hover:border-gold/30 transition-colors"
+                  >
+                    Grokipedia →
+                  </a>
+                )}
                 {institution.website_url && (
                   <a
                     href={institution.website_url}
@@ -181,8 +206,12 @@ export default async function InstitutionPage({ params }: Props) {
             {institution.bio && (
               <section>
                 <p className="font-mono text-[9px] uppercase tracking-widest text-gold mb-4">Overview</p>
-                <div className="prose prose-sm prose-invert max-w-none text-text-secondary leading-relaxed whitespace-pre-line">
-                  {institution.bio}
+                <div className="prose prose-sm prose-invert max-w-none text-text-secondary leading-relaxed">
+                  {institution.bio.split('\n\n').map((para, i) => (
+                    <p key={i} className="mb-3">
+                      <LinkedText segments={segmentText(para, entityIndex)} />
+                    </p>
+                  ))}
                 </div>
               </section>
             )}

@@ -20,6 +20,7 @@ export interface PersonRow {
   website_url: string | null;
   twitter_handle: string | null;
   wikipedia_url: string | null;
+  grokipedia_url: string | null;
   photo_url: string | null;
   photo_storage_path: string | null;
   photo_status: string | null;
@@ -309,6 +310,46 @@ export async function getPersonDiscourse(personId: string): Promise<DiscourseEnt
     .order('sentiment');
   if (error) return [];
   return (data ?? []) as DiscourseEntry[];
+}
+
+export interface PersonTopic {
+  topic_id: string;
+  title: string;
+  slug: string;
+  summary: string | null;
+  best_convergence_score: number | null;
+  role: string;
+  context: string | null;
+  published_at: string | null;
+  key_traditions: string[] | null;
+}
+
+export async function getPersonTopics(personId: string): Promise<PersonTopic[]> {
+  const supabase = createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from('people_topics')
+    .select(`
+      role, context,
+      topic_dossiers!inner(id, title, slug, summary, best_convergence_score, published_at, key_traditions)
+    `)
+    .eq('person_id', personId)
+    .eq('topic_dossiers.published', true);
+  if (error) return [];
+  return ((data ?? []) as unknown[]).map((row: unknown) => {
+    const r = row as Record<string, unknown>;
+    const d = r.topic_dossiers as Record<string, unknown>;
+    return {
+      topic_id: d.id as string,
+      title: d.title as string,
+      slug: d.slug as string,
+      summary: d.summary as string | null,
+      best_convergence_score: d.best_convergence_score as number | null,
+      role: r.role as string,
+      context: r.context as string | null,
+      published_at: d.published_at as string | null,
+      key_traditions: d.key_traditions as string[] | null,
+    };
+  });
 }
 
 export async function deletePerson(id: string): Promise<void> {

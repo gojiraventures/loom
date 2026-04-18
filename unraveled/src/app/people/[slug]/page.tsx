@@ -10,9 +10,12 @@ import {
   getPersonBooks,
   getPersonInstitutions,
   getPersonDiscourse,
+  getPersonTopics,
 } from '@/lib/people';
 import RelationshipGraph from '@/components/people/RelationshipGraph';
 import { PublicDiscourseSection } from '@/components/PublicDiscourseSection';
+import { loadEntityIndex, segmentText } from '@/lib/entity-linker';
+import { LinkedText } from '@/components/LinkedText';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 
@@ -52,7 +55,7 @@ interface Props {
 export default async function PersonPage({ params }: Props) {
   const { slug } = await params;
 
-  const [person, bioSections, connections, media, socials, books, affiliations, discourse] = await Promise.all([
+  const [person, bioSections, connections, media, socials, books, affiliations, discourse, featuredIn] = await Promise.all([
     getPersonBySlug(slug),
     getPersonBySlug(slug).then((p) => p ? getBioSections(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonConnections(p.id) : []),
@@ -61,9 +64,12 @@ export default async function PersonPage({ params }: Props) {
     getPersonBySlug(slug).then((p) => p ? getPersonBooks(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonInstitutions(p.id) : []),
     getPersonBySlug(slug).then((p) => p ? getPersonDiscourse(p.id) : []),
+    getPersonBySlug(slug).then((p) => p ? getPersonTopics(p.id) : []),
   ]);
 
-  if (!person || person.status !== 'published') notFound();
+  if (!person) notFound();
+
+  const entityIndex = await loadEntityIndex();
 
   const photoUrl = person.photo_storage_path
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/people-photos/${person.photo_storage_path}`
@@ -85,6 +91,15 @@ export default async function PersonPage({ params }: Props) {
         <p className="font-mono text-[0.65rem] text-text-tertiary border-l-2 border-border pl-3 mb-10">
           This profile aggregates publicly documented information and makes no unsubstantiated claims about motive or character.
         </p>
+
+        {/* Under review banner */}
+        {person.status === 'needs_review' && (
+          <div className="mb-8 border border-amber-400/30 bg-amber-400/5 px-4 py-3">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-amber-400">
+              Profile under review — content may be incomplete pending editorial verification.
+            </p>
+          </div>
+        )}
 
         {/* Hero */}
         <div className="flex flex-col sm:flex-row gap-8 mb-12">
@@ -130,11 +145,13 @@ export default async function PersonPage({ params }: Props) {
               <p className="text-sm text-text-secondary mb-3">{person.current_role}</p>
             )}
             {person.short_bio && (
-              <p className="text-text-secondary leading-relaxed">{person.short_bio}</p>
+              <p className="text-text-secondary leading-relaxed">
+                <LinkedText segments={segmentText(person.short_bio, entityIndex)} />
+              </p>
             )}
 
-            {/* Socials */}
-            {socials.length > 0 && (
+            {/* Socials + external links */}
+            {(socials.length > 0 || person.grokipedia_url || person.wikipedia_url || person.website_url) && (
               <div className="flex flex-wrap gap-2 mt-4">
                 {socials.map((s) => (
                   <a
@@ -148,6 +165,24 @@ export default async function PersonPage({ params }: Props) {
                     {s.handle ? ` ${s.handle}` : ''}
                   </a>
                 ))}
+                {person.grokipedia_url && (
+                  <a href={person.grokipedia_url} target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-gold hover:border-gold/30 transition-colors">
+                    Grokipedia →
+                  </a>
+                )}
+                {person.wikipedia_url && (
+                  <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-gold hover:border-gold/30 transition-colors">
+                    Wikipedia →
+                  </a>
+                )}
+                {person.website_url && (
+                  <a href={person.website_url} target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary border border-border px-2 py-1 rounded hover:text-gold hover:border-gold/30 transition-colors">
+                    Website →
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -172,8 +207,12 @@ export default async function PersonPage({ params }: Props) {
             {person.bio && (
               <section>
                 <p className="font-mono text-[9px] uppercase tracking-widest text-gold mb-4">Biography</p>
-                <div className="prose prose-sm prose-invert max-w-none text-text-secondary leading-relaxed whitespace-pre-line">
-                  {person.bio}
+                <div className="prose prose-sm prose-invert max-w-none text-text-secondary leading-relaxed">
+                  {person.bio.split('\n\n').map((para, i) => (
+                    <p key={i} className="mb-3">
+                      <LinkedText segments={segmentText(para, entityIndex)} />
+                    </p>
+                  ))}
                 </div>
               </section>
             )}
@@ -334,18 +373,6 @@ export default async function PersonPage({ params }: Props) {
                   </div>
                 </div>
               )}
-              {person.wikipedia_url && (
-                <a href={person.wikipedia_url} target="_blank" rel="noopener noreferrer"
-                  className="block font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors mt-2">
-                  Wikipedia →
-                </a>
-              )}
-              {person.website_url && (
-                <a href={person.website_url} target="_blank" rel="noopener noreferrer"
-                  className="block font-mono text-[9px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
-                  Website →
-                </a>
-              )}
             </div>
 
             {/* Connection count */}
@@ -437,6 +464,51 @@ export default async function PersonPage({ params }: Props) {
                   )}
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {/* Featured In Research */}
+        {featuredIn.length > 0 && (
+          <section className="mt-16 border-t border-border pt-12">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-gold mb-2">Featured In Our Research</p>
+            <h2 className="font-serif text-2xl mb-6">
+              {person.full_name.split(' ')[0]} appears in {featuredIn.length} {featuredIn.length === 1 ? 'dossier' : 'dossiers'}
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {featuredIn
+                .sort((a, b) => (b.best_convergence_score ?? 0) - (a.best_convergence_score ?? 0))
+                .map((topic) => (
+                  <a
+                    key={topic.topic_id}
+                    href={`/topics/${topic.slug}`}
+                    className="block border border-border bg-ground-light/10 p-5 hover:border-gold/30 hover:bg-gold/3 transition-colors group"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <p className="font-serif text-sm group-hover:text-gold transition-colors leading-snug">
+                        {topic.title}
+                      </p>
+                      {topic.best_convergence_score != null && (
+                        <span className="font-mono text-[8px] text-gold border border-gold/30 px-1.5 py-0.5 flex-shrink-0">
+                          {Math.round(topic.best_convergence_score)}%
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5">
+                        {topic.role.replace(/_/g, ' ')}
+                      </span>
+                      {(topic.key_traditions ?? []).slice(0, 2).map((t) => (
+                        <span key={t} className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                    {topic.context && (
+                      <p className="text-xs text-text-tertiary mt-2 leading-relaxed line-clamp-2">{topic.context}</p>
+                    )}
+                  </a>
+                ))}
             </div>
           </section>
         )}

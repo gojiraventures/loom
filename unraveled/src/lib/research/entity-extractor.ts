@@ -133,11 +133,24 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
+function wikiSlug(name: string): string {
+  return name.trim().replace(/\s+/g, '_');
+}
+
+function buildExternalUrls(name: string) {
+  const slug = wikiSlug(name);
+  return {
+    wikipedia_url: `https://en.wikipedia.org/wiki/${slug}`,
+    grokipedia_url: `https://grokipedia.com/page/${slug}`,
+  };
+}
+
 export async function extractAndQueueEntities(
   sessionId: string,
   topic: string,
   output: SynthesizedOutput,
   findings: AgentFinding[],
+  dossierId?: string,
 ): Promise<ExtractionResult> {
   const result: ExtractionResult = {
     people: [],
@@ -194,15 +207,17 @@ export async function extractAndQueueEntities(
 
       if (existing) {
         // Already exists — link to this topic via people_topics if not already linked
-        await supabase.from('people_topics').upsert(
-          {
-            person_id: existing.id,
-            topic_id: sessionId, // use session as topic proxy for now
-            role: person.role_in_topic as string,
-            context: person.relationship_to_topic,
-          },
-          { onConflict: 'person_id,topic_id,role', ignoreDuplicates: true },
-        );
+        if (dossierId) {
+          await supabase.from('people_topics').upsert(
+            {
+              person_id: existing.id,
+              topic_id: dossierId,
+              role: person.role_in_topic as string,
+              context: person.relationship_to_topic,
+            },
+            { onConflict: 'person_id,topic_id,role', ignoreDuplicates: true },
+          );
+        }
         personDbId = existing.id;
         result.linked_people++;
       } else {
@@ -216,12 +231,24 @@ export async function extractAndQueueEntities(
           status: 'needs_review',
           source_session_id: sessionId,
           extraction_notes: `Auto-extracted from research session on "${topic}". Confidence: ${Math.round(person.confidence * 100)}%`,
+          ...buildExternalUrls(person.name),
         }).select('id').single();
         if (error) {
           result.errors.push(`Failed to create person "${person.name}": ${error.message}`);
         } else {
           personDbId = newPerson?.id ?? null;
           result.created_people++;
+          if (personDbId && dossierId) {
+            await supabase.from('people_topics').upsert(
+              {
+                person_id: personDbId,
+                topic_id: dossierId,
+                role: person.role_in_topic as string,
+                context: person.relationship_to_topic,
+              },
+              { onConflict: 'person_id,topic_id,role', ignoreDuplicates: true },
+            );
+          }
         }
       }
 
@@ -260,15 +287,17 @@ export async function extractAndQueueEntities(
         .maybeSingle();
 
       if (existing) {
-        await supabase.from('institution_topics').upsert(
-          {
-            institution_id: existing.id,
-            topic_id: sessionId,
-            role: inst.role_in_topic as string,
-            context: inst.relationship_to_topic,
-          },
-          { onConflict: 'institution_id,topic_id,role', ignoreDuplicates: true },
-        );
+        if (dossierId) {
+          await supabase.from('institution_topics').upsert(
+            {
+              institution_id: existing.id,
+              topic_id: dossierId,
+              role: inst.role_in_topic as string,
+              context: inst.relationship_to_topic,
+            },
+            { onConflict: 'institution_id,topic_id,role', ignoreDuplicates: true },
+          );
+        }
         result.linked_institutions++;
       } else {
         const { error } = await supabase.from('institutions').insert({
@@ -279,6 +308,7 @@ export async function extractAndQueueEntities(
           status: 'needs_review',
           source_session_id: sessionId,
           extraction_notes: `Auto-extracted from research session on "${topic}". Confidence: ${Math.round(inst.confidence * 100)}%.`,
+          ...buildExternalUrls(inst.name),
         });
         if (error) {
           result.errors.push(`Failed to create institution "${inst.name}": ${error.message}`);

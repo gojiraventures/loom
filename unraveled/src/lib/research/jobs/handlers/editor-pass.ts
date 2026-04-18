@@ -173,7 +173,7 @@ export async function handleEditorPass(job: ResearchJob): Promise<Record<string,
   // Load current synthesized_output
   const { data: dossier, error } = await supabase
     .from('topic_dossiers')
-    .select('synthesized_output, title')
+    .select('id, synthesized_output, title')
     .eq('topic', topic)
     .single();
 
@@ -290,7 +290,7 @@ Write the quick brief now.`,
   let extractionResult = null;
   try {
     const findings = await getFindingsBySession(job.session_id);
-    extractionResult = await extractAndQueueEntities(job.session_id, topic, revised, findings);
+    extractionResult = await extractAndQueueEntities(job.session_id, topic, revised, findings, dossier.id);
   } catch (err) {
     console.error('[editor-pass] Entity extraction failed (non-fatal):', err);
   }

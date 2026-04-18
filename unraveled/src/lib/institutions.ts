@@ -22,6 +22,7 @@ export interface InstitutionCard {
   controversy_summary: string | null;
   website_url: string | null;
   wikipedia_url: string | null;
+  grokipedia_url: string | null;
   logo_url: string | null;
   logo_storage_path: string | null;
   logo_status: string | null;

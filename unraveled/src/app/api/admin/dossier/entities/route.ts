@@ -130,7 +130,7 @@ export async function PUT(req: NextRequest) {
 
   const { data: dossier, error: dossierErr } = await supabase
     .from('topic_dossiers')
-    .select('synthesized_output')
+    .select('id, synthesized_output')
     .eq('topic', topic)
     .single();
 
@@ -147,7 +147,7 @@ export async function PUT(req: NextRequest) {
     // non-fatal — extract without findings context
   }
 
-  const result = await extractAndQueueEntities(session_id, topic, output, findings);
+  const result = await extractAndQueueEntities(session_id, topic, output, findings, dossier.id);
 
   return NextResponse.json({
     ok: true,
