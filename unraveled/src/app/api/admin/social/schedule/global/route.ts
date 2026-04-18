@@ -222,7 +222,7 @@ export async function POST(req: NextRequest) {
           const sup = supplementary as { posts?: string[]; caption?: string } | null;
           let text = sup?.caption ?? sup?.posts?.[0] ?? text_content ?? '';
           const slug = slugMap[topic] ?? topic.toLowerCase().replace(/\s+/g, '-');
-          const articleUrl = `https://unraveledtruth.com/topics/${slug}`;
+          const articleUrl = `https://www.unraveledtruth.com/topics/${slug}`;
           if (!text.includes('unraveledtruth.com')) {
             text = `${text}\n\n${articleUrl}`;
           }

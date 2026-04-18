@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { xApiAvailable, uploadMedia, postTweet, postThread } from '@/lib/external/x-api';
+import { xApiAvailable, uploadMedia, postTweet, postThread, deleteTweet } from '@/lib/external/x-api';
 
 export const maxDuration = 60;
 
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     .eq('topic', piece.topic)
     .single();
   const articleSlug = dossier?.slug ?? piece.topic.toLowerCase().replace(/\s+/g, '-');
-  const articleUrl = `https://unraveledtruth.com/topics/${articleSlug}`;
+  const articleUrl = `https://www.unraveledtruth.com/topics/${articleSlug}`;
 
   // Determine posts to send
   const supplementary = piece.supplementary as { posts?: string[]; caption?: string } | null;
@@ -138,5 +138,88 @@ export async function POST(req: NextRequest) {
     tweet_ids: tweetIds,
     tweet_url: firstTweetUrl,
     had_image: !!mediaId,
+  });
+}
+
+/**
+ * DELETE /api/admin/social/publish
+ * Body: { piece_id: string }
+ *
+ * Deletes all tweets for a published piece from X, then resets status → approved.
+ */
+export async function DELETE(req: NextRequest) {
+  // Accept piece_id from query param or body
+  const pieceIdFromQuery = req.nextUrl.searchParams.get('piece_id');
+  let piece_id = pieceIdFromQuery;
+  if (!piece_id) {
+    try {
+      const body = await req.json() as { piece_id?: string };
+      piece_id = body.piece_id ?? null;
+    } catch { /* no body */ }
+  }
+  if (!piece_id) {
+    return NextResponse.json({ error: 'piece_id required' }, { status: 400 });
+  }
+
+  if (!xApiAvailable()) {
+    return NextResponse.json({ error: 'X API credentials not configured' }, { status: 503 });
+  }
+
+  const supabase = createServerSupabaseClient();
+
+  const { data: piece, error: pieceErr } = await supabase
+    .from('social_content_pieces')
+    .select('id, status, supplementary')
+    .eq('id', piece_id)
+    .single();
+
+  if (pieceErr || !piece) {
+    return NextResponse.json({ error: 'Piece not found' }, { status: 404 });
+  }
+
+  if (piece.status !== 'published') {
+    return NextResponse.json({ error: 'Piece is not published' }, { status: 409 });
+  }
+
+  const supplementary = piece.supplementary as { published_tweet_ids?: string[] } | null;
+  const tweetIds: string[] = supplementary?.published_tweet_ids ?? [];
+
+  if (tweetIds.length === 0) {
+    return NextResponse.json({ error: 'No tweet IDs found on this piece' }, { status: 400 });
+  }
+
+  const deleteResults: { id: string; ok: boolean; error?: string }[] = [];
+
+  // Delete in reverse order (replies before root) to avoid orphaned thread nodes
+  for (const id of [...tweetIds].reverse()) {
+    try {
+      await deleteTweet(id);
+      deleteResults.push({ id, ok: true });
+    } catch (err) {
+      deleteResults.push({ id, ok: false, error: String(err) });
+    }
+  }
+
+  // Reset piece to approved regardless of partial failures
+  await supabase
+    .from('social_content_pieces')
+    .update({
+      status: 'approved',
+      supplementary: {
+        ...(supplementary ?? {}),
+        published_tweet_ids: undefined,
+        published_tweet_url: undefined,
+        deleted_at: new Date().toISOString(),
+      },
+    })
+    .eq('id', piece_id);
+
+  const failed = deleteResults.filter(r => !r.ok).length;
+
+  return NextResponse.json({
+    ok: true,
+    deleted: deleteResults.filter(r => r.ok).length,
+    failed,
+    results: deleteResults,
   });
 }

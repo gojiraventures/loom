@@ -66,14 +66,31 @@ export async function GET(req: NextRequest) {
       const isThread = piece.content_type === 'launch_thread';
 
       // Build the post text(s)
-      const threadPosts: string[] = isThread
+      const rawPosts: string[] = isThread
         ? (supplementary?.posts ?? [])
         : [supplementary?.posts?.[0] ?? piece.text_content ?? ''];
 
-      if (threadPosts.length === 0 || !threadPosts[0]) {
+      if (rawPosts.length === 0 || !rawPosts[0]) {
         results.push({ id: piece.id, ok: false, error: 'No post text found' });
         continue;
       }
+
+      // Look up article URL and ensure it appears in the first tweet so
+      // readers can tap through to the article right from the header card.
+      const { data: dossier } = await supabase
+        .from('topic_dossiers')
+        .select('slug')
+        .eq('topic', piece.topic)
+        .single();
+      const slug = dossier?.slug ?? piece.topic.toLowerCase().replace(/\s+/g, '-');
+      const articleUrl = `https://www.unraveledtruth.com/topics/${slug}`;
+
+      const threadPosts = rawPosts.map((text, i) => {
+        if (i === 0 && !text.includes('unraveledtruth.com')) {
+          return `${text}\n\n${articleUrl}`;
+        }
+        return text;
+      });
 
       // Upload image (attached to first tweet only)
       let mediaId: string | undefined;

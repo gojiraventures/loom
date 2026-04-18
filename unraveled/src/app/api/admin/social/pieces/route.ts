@@ -88,7 +88,7 @@ export async function PATCH(req: NextRequest) {
             .eq('topic', piece.topic)
             .single();
           const slug = dossier?.slug ?? piece.topic.toLowerCase().replace(/\s+/g, '-');
-          const articleUrl = `https://unraveledtruth.com/topics/${slug}`;
+          const articleUrl = `https://www.unraveledtruth.com/topics/${slug}`;
           if (!text.includes('unraveledtruth.com')) {
             text = `${text}\n\n${articleUrl}`;
           }

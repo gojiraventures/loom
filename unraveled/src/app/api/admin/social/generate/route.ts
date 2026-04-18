@@ -365,7 +365,7 @@ export async function POST(req: NextRequest) {
 
   const output = dossier.synthesized_output as SynthesizedOutput;
   const slug = dossier.slug ?? topic.toLowerCase().replace(/\s+/g, '-');
-  const url = `https://unraveledtruth.com/topics/${slug}`;
+  const url = `https://www.unraveledtruth.com/topics/${slug}`;
 
   // Delete existing draft/rejected pieces (leave approved/scheduled/published)
   await supabase
