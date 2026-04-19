@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     : scoreRaw >= 40 ? 'Moderate convergence'
     : 'Weak convergence';
 
-  return new ImageResponse(
+  const response = new ImageResponse(
     (
       <div
         style={{
@@ -135,4 +135,6 @@ export async function GET(req: NextRequest) {
       height: 630,
     }
   );
+  response.headers.set('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+  return response;
 }

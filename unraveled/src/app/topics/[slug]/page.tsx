@@ -137,7 +137,7 @@ export default async function TopicPage({
   const [{ data: topicImages }, { data: dossierMeta }] = await Promise.all([
     supabase
       .from('topic_images')
-      .select('id, title, description, image_url, thumbnail_url, cropped_url, source_page_url, license, license_url, attribution, author, width, height, featured, hero_position, gemini_caption')
+      .select('id, title, description, image_url, thumbnail_url, cropped_url, source_page_url, license, license_url, attribution, author, width, height, featured, hero_position, gemini_caption, source')
       .eq('topic', topic)
       .eq('status', 'approved')
       .order('featured', { ascending: false })
@@ -151,10 +151,11 @@ export default async function TopicPage({
   ]);
 
   const approvedImages = topicImages ?? [];
-  // Hero: featured image or first approved; excluded from the gallery grid below
-  const heroImage = approvedImages.find((i) => i.featured) ?? approvedImages[0] ?? null;
+  // Hero: featured editorial image only — never a social design variant (those are for OG/Twitter cards only)
+  const editorialImages = approvedImages.filter((i) => i.source !== 'social_design_variant');
+  const heroImage = editorialImages.find((i) => i.featured) ?? editorialImages[0] ?? null;
   const galleryImages = heroImage
-    ? approvedImages.filter((i) => i.id !== heroImage.id)
+    ? editorialImages.filter((i) => i.id !== heroImage.id)
     : [];
   const audioUrl = dossierMeta?.audio_url ?? null;
   const llmPerspectives = (dossierMeta?.llm_perspectives ?? null) as LLMPerspective[] | null;
