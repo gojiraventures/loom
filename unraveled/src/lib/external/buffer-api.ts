@@ -123,6 +123,12 @@ export async function postViaBuffer(
     };
   }
 
+  if (platform === 'facebook') {
+    input.metadata = {
+      facebook: { type: 'post' },
+    };
+  }
+
   const data = await gql<CreatePostResult>(CREATE_POST_MUTATION, { input });
 
   if (data.createPost.message) {
