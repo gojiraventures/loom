@@ -108,17 +108,18 @@ export async function postViaBuffer(
     channelId: chId,
     text,
     mode: scheduledAt ? 'customScheduled' : 'shareNow',
+    schedulingType: 'automatic',
   };
 
   if (scheduledAt) input.dueAt = scheduledAt;
 
   if (imageUrl) {
-    input.assets = [{ type: 'image', url: imageUrl }];
+    input.assets = { images: [{ url: imageUrl }] };
   }
 
   if (platform === 'instagram') {
     input.metadata = {
-      instagramPostMetadata: { type: 'post', shouldShareToFeed: true },
+      instagram: { type: 'post', shouldShareToFeed: true },
     };
   }
 
