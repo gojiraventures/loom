@@ -5,6 +5,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/research-queue",
+      "schedule": "*/2 * * * *"
+    },
+    {
       "path": "/api/admin/thread/scan",
       "schedule": "0 1 * * *"
     },

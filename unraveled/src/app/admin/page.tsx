@@ -11,6 +11,7 @@ import { AnalyticsTab } from './AnalyticsTab';
 import { PromoCodesTab } from './PromoCodesTab';
 import { EditorialTab } from './EditorialTab';
 import { ContentHealthTab } from './ContentHealthTab';
+import { ResearchQueueTab } from './ResearchQueueTab';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -5762,6 +5763,7 @@ function InboxTab() {
 const TABS = [
   { id: 'analytics', label: '↗ Analytics' },
   { id: 'inbox', label: 'Inbox' },
+  { id: 'queue', label: '⟳ Auto Queue' },
   { id: 'backlog', label: 'Backlog' },
   { id: 'jobs', label: 'Jobs' },
   { id: 'launch', label: 'Launch Research' },
@@ -5838,6 +5840,7 @@ export default function AdminPage() {
       <div className="max-w-5xl mx-auto px-6 py-10">
         {tab === 'analytics' && <AnalyticsTab />}
         {tab === 'inbox' && <InboxTab />}
+        {tab === 'queue' && <ResearchQueueTab />}
         {tab === 'backlog' && <BacklogTab />}
         {tab === 'jobs' && <JobsTab />}
         {tab === 'launch' && <LaunchTab />}
