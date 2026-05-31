@@ -5805,7 +5805,8 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     label: 'Content',
     items: [
-      { id: 'content',   label: 'Dossiers' },
+      { id: 'dossiers',  label: 'Dossier Workshop', href: '/admin/dossiers' },
+      { id: 'content',   label: 'Dossiers (Legacy)' },
       { id: 'health',    label: 'Content Health' },
       { id: 'editorial', label: 'Editorial' },
     ],

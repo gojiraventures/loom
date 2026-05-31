@@ -5,6 +5,8 @@ import React from 'react';
 export interface SidebarSubItem {
   id: string;
   label: string;
+  /** If set, clicking navigates to this URL (full-page nav) instead of calling onSelect. */
+  href?: string;
 }
 
 export interface SidebarItem {
@@ -12,6 +14,8 @@ export interface SidebarItem {
   id: string;
   label: string;
   subItems?: SidebarSubItem[];
+  /** If set, clicking navigates to this URL (full-page nav) instead of calling onSelect. */
+  href?: string;
 }
 
 export interface SidebarGroup {
@@ -80,68 +84,81 @@ export function AdminSidebar({
 
             {group.items.map((item) => {
               const active = isItemActive(item, activeView);
+              const itemStyle = {
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                color: active ? 'var(--color-gold)' : 'var(--color-text-secondary)',
+                background: active ? 'var(--color-gold-dim)' : 'transparent',
+                borderLeft: active ? '2px solid var(--color-gold)' : '2px solid transparent',
+              };
+              const hoverIn = (el: HTMLElement) => {
+                if (!active) {
+                  el.style.color = 'var(--color-text-primary)';
+                  el.style.background = 'var(--color-border)';
+                }
+              };
+              const hoverOut = (el: HTMLElement) => {
+                if (!active) {
+                  el.style.color = 'var(--color-text-secondary)';
+                  el.style.background = 'transparent';
+                }
+              };
               return (
                 <div key={item.id}>
-                  {/* Top-level item */}
-                  <button
-                    onClick={() => handleItemClick(item)}
-                    className="w-full text-left flex items-center gap-1.5 px-2 py-1.5 rounded transition-colors"
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '11px',
-                      color: active
-                        ? 'var(--color-gold)'
-                        : 'var(--color-text-secondary)',
-                      background: active ? 'var(--color-gold-dim)' : 'transparent',
-                      borderLeft: active ? '2px solid var(--color-gold)' : '2px solid transparent',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!active) {
-                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-primary)';
-                        (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-border)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!active) {
-                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-secondary)';
-                        (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                      }
-                    }}
-                  >
-                    {item.label}
-                  </button>
+                  {/* Top-level item — href renders as anchor, otherwise button */}
+                  {item.href ? (
+                    <a
+                      href={item.href}
+                      className="w-full text-left flex items-center gap-1.5 px-2 py-1.5 rounded transition-colors block"
+                      style={itemStyle}
+                      onMouseEnter={(e) => hoverIn(e.currentTarget as HTMLElement)}
+                      onMouseLeave={(e) => hoverOut(e.currentTarget as HTMLElement)}
+                    >
+                      {item.label}
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => handleItemClick(item)}
+                      className="w-full text-left flex items-center gap-1.5 px-2 py-1.5 rounded transition-colors"
+                      style={itemStyle}
+                      onMouseEnter={(e) => hoverIn(e.currentTarget as HTMLElement)}
+                      onMouseLeave={(e) => hoverOut(e.currentTarget as HTMLElement)}
+                    >
+                      {item.label}
+                    </button>
+                  )}
 
                   {/* Sub-items — always visible when parent is active */}
                   {item.subItems && active && (
                     <div className="ml-3 mt-0.5 mb-1">
                       {item.subItems.map((sub) => {
                         const subActive = sub.id === activeView;
-                        return (
+                        const subStyle = {
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '10px',
+                          color: subActive ? 'var(--color-gold)' : 'var(--color-text-tertiary)',
+                          background: subActive ? 'var(--color-gold-dim)' : 'transparent',
+                          borderLeft: subActive ? '1px solid var(--color-gold)' : '1px solid transparent',
+                        };
+                        return sub.href ? (
+                          <a
+                            key={sub.id}
+                            href={sub.href}
+                            className="w-full text-left px-2 py-1 rounded transition-colors block"
+                            style={subStyle}
+                            onMouseEnter={(e) => { if (!subActive) (e.currentTarget as HTMLElement).style.color = 'var(--color-text-secondary)'; }}
+                            onMouseLeave={(e) => { if (!subActive) (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)'; }}
+                          >
+                            {sub.label}
+                          </a>
+                        ) : (
                           <button
                             key={sub.id}
                             onClick={() => onSelect(sub.id)}
                             className="w-full text-left px-2 py-1 rounded transition-colors block"
-                            style={{
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: '10px',
-                              color: subActive
-                                ? 'var(--color-gold)'
-                                : 'var(--color-text-tertiary)',
-                              background: subActive ? 'var(--color-gold-dim)' : 'transparent',
-                              borderLeft: subActive
-                                ? '1px solid var(--color-gold)'
-                                : '1px solid transparent',
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!subActive) {
-                                (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-secondary)';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!subActive) {
-                                (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-tertiary)';
-                              }
-                            }}
+                            style={subStyle}
+                            onMouseEnter={(e) => { if (!subActive) (e.currentTarget as HTMLElement).style.color = 'var(--color-text-secondary)'; }}
+                            onMouseLeave={(e) => { if (!subActive) (e.currentTarget as HTMLElement).style.color = 'var(--color-text-tertiary)'; }}
                           >
                             {sub.label}
                           </button>
