@@ -5,6 +5,7 @@ import { buildValidationPrompt } from '../prompt-builder';
 import { insertValidations } from '../storage/validations';
 import { getAgent } from './definitions';
 import { IS_OLLAMA_MODE, OLLAMA_CONCURRENCY, runWithConcurrency } from '../llm/concurrency';
+import { assertDifferentLineage } from '../llm/lineage';
 import type { AgentFinding, ValidationResult } from '../types';
 
 export interface CrossValidationResult {
@@ -42,11 +43,29 @@ export async function runCrossValidation(
     topic,
   );
 
+  // Lineage guard: validator must be a different family from every finding it reviews.
+  // Primary researchers are Groq/Qwen (alibaba). Validator is gemini-flash (google). ✓
+  // If this ever throws, a provider change has created a lineage violation — fix the routing.
+  const validatorModel = reviewerDef.llm.model;
+  for (const f of toReview) {
+    const generatorDef = getAgent(f.agent_id);
+    try {
+      assertDifferentLineage(generatorDef.llm.model, validatorModel);
+    } catch (err) {
+      return {
+        reviewerAgentId,
+        validations: [],
+        error: `Lineage violation: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
   let response;
   try {
     response = await route(
       {
-        provider: 'gemini-flash', // Use Flash for cross-validation — cheaper
+        provider: reviewerDef.llm.provider,
+        model: reviewerDef.llm.model,
         skipOllamaOverride: true, // Phases 2-5 always use cloud; Ollama is Layer 1 only
         systemPrompt,
         userPrompt,

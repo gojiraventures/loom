@@ -69,6 +69,20 @@ interface ActionState {
   error?: string;
 }
 
+interface CitationQueueItem {
+  id: string;
+  session_id: string;
+  agent_id: string;
+  claim_text: string;
+  citation_raw: string;
+  citation_type: string;
+  resolution_status: string;
+  resolved_title: string | null;
+  similarity_score: number | null;
+  error_detail: string | null;
+  created_at: string;
+}
+
 // ── Action definitions ────────────────────────────────────────────────────────
 
 const ACTIONS = [
@@ -241,6 +255,7 @@ function ActionCard({
 export function ContentHealthTab() {
   const [data, setData] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [citations, setCitations] = useState<CitationQueueItem[]>([]);
   const [actionStates, setActionStates] = useState<Record<ActionId, ActionState>>({
     'backfill-links': { status: 'idle' },
     'backfill-topics': { status: 'idle' },
@@ -259,7 +274,26 @@ export function ContentHealthTab() {
     }
   }, []);
 
-  useEffect(() => { loadStats(); }, [loadStats]);
+  const loadCitations = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/health/citations');
+      if (res.ok) {
+        const json = await res.json();
+        setCitations(json.items ?? []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  async function dismissCitation(id: string, note?: string) {
+    await fetch('/api/admin/health/citations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, reviewer_note: note }),
+    });
+    setCitations((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  useEffect(() => { loadStats(); loadCitations(); }, [loadStats, loadCitations]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -446,6 +480,41 @@ export function ContentHealthTab() {
               <Metric label="Missing Grokipedia" value={l?.missing_grokipedia ?? 0} warn />
             </div>
           </section>
+
+          {/* ── Citation Review Queue ── */}
+          {citations.length > 0 && (
+            <section className="space-y-3">
+              <p className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary border-b border-border pb-2">
+                Citation Review Queue — {citations.length} blocked
+              </p>
+              <div className="space-y-2">
+                {citations.map((c) => (
+                  <div key={c.id} className="border border-amber-400/20 bg-amber-400/3 p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[8px] uppercase tracking-widest text-amber-400">{c.resolution_status}</span>
+                          <span className="font-mono text-[7px] border border-border px-1.5 py-0.5 text-text-tertiary">{c.citation_type}</span>
+                          <span className="font-mono text-[7px] text-text-tertiary">{c.agent_id}</span>
+                        </div>
+                        <p className="font-mono text-[8px] text-text-primary break-all">{c.citation_raw}</p>
+                        <p className="text-xs text-text-tertiary line-clamp-2">{c.claim_text}</p>
+                        {c.error_detail && (
+                          <p className="font-mono text-[7px] text-red-400">{c.error_detail}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => dismissCitation(c.id)}
+                        className="font-mono text-[7px] uppercase tracking-widest px-2 py-1 border border-border text-text-tertiary hover:text-gold hover:border-gold/30 transition-colors shrink-0"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* ── Maintenance Actions ── */}
           <section className="space-y-3">

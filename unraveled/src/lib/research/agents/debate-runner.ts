@@ -90,10 +90,12 @@ export async function runDebate(
 ): Promise<DebateRunResult> {
   const sharedContext = buildSharedContext(topic, findings, convergenceAnalyses);
 
-  // In Ollama mode, use Claude for debate — the 8192-token advocate/skeptic prompts cause
-  // qwen2.5:32b to OOM and drop the connection. Debate is argumentative reasoning that Claude
-  // handles well, and synthesis (Phase 5) already uses Claude anyway.
-  const debateProvider = IS_OLLAMA_MODE ? 'claude' as const : 'gemini' as const;
+  // Lineage rule: advocate and skeptic must be a DIFFERENT lineage from the primary
+  // researchers (Groq/Qwen = alibaba). Claude (anthropic) satisfies this in all modes.
+  // Never use Gemini here — cross-validator already uses Gemini; keeping debate on
+  // a separate lineage (Claude) preserves maximum adversarial independence.
+  const debateProvider = 'claude' as const;
+  void IS_OLLAMA_MODE; // mode no longer affects debate routing
 
   const advocateRequest = {
     provider: debateProvider,

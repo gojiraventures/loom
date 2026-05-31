@@ -3,6 +3,7 @@ import { parseJsonResponse } from '../llm/parse';
 import { AgentFindingsSchema, AgentFindingSchema } from '../schemas';
 import { buildAgentPrompt } from '../prompt-builder';
 import { insertFindings } from '../storage/findings';
+import { gateFindingCitations, enqueueBlockedCitations } from '../integrity/citation-gate';
 import type { AgentDefinition, AgentFinding } from '../types';
 
 export interface ExecuteAgentOptions {
@@ -101,10 +102,30 @@ export async function executeAgent(
     };
   }
 
+  // Citation gate: check tier 1 & 2 sources are resolvable before storing.
+  // mustBlock findings are enqueued for human review and excluded from the pipeline.
+  const passedFindings: AgentFinding[] = [];
+  if (!options.dryRun) {
+    for (const finding of findings) {
+      const gate = await gateFindingCitations(finding.sources).catch(() => ({
+        pass: true, mustBlock: false, results: [],
+      }));
+      if (gate.mustBlock) {
+        const blocked = gate.results.filter((r) => r.status === 'unresolvable');
+        await enqueueBlockedCitations(options.sessionId, def.id, finding.claim_text, blocked);
+        console.warn(`[executor] ${def.id}: citation-blocked finding — ${blocked.length} unresolvable source(s)`);
+      } else {
+        passedFindings.push(finding);
+      }
+    }
+  } else {
+    passedFindings.push(...findings);
+  }
+
   let findingIds: string[] = [];
-  if (!options.dryRun && findings.length > 0) {
+  if (!options.dryRun && passedFindings.length > 0) {
     try {
-      findingIds = await insertFindings(options.sessionId, findings, llmResponse.model, {
+      findingIds = await insertFindings(options.sessionId, passedFindings, llmResponse.model, {
         input: llmResponse.inputTokens,
         output: llmResponse.outputTokens,
       });
