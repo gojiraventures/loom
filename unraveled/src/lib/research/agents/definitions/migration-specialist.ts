@@ -25,8 +25,8 @@ export const migrationSpecialist: AgentDefinition = {
   },
 
   llm: {
-    provider: 'gemini',
-    model: 'gemini-2.5-pro',
+    provider: 'groq',
+    model: 'qwen-qwq-32b',
     maxTokens: 10240,
     temperature: 0.32,
   },

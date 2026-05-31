@@ -25,8 +25,8 @@ export const comparativeMythologist: AgentDefinition = {
   },
 
   llm: {
-    provider: 'gemini',
-    model: 'gemini-2.5-pro', // Needs large context for multi-tradition comparison
+    provider: 'groq',
+    model: 'qwen-qwq-32b', // Needs large context for multi-tradition comparison
     maxTokens: 12288,
     temperature: 0.50,
   },

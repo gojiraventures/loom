@@ -25,8 +25,8 @@ export const patternMatcher: AgentDefinition = {
   },
 
   llm: {
-    provider: 'gemini',
-    model: 'gemini-2.5-pro',
+    provider: 'claude',
+    model: 'claude-sonnet-4-6',
     maxTokens: 10240,
     temperature: 0.30,
   },

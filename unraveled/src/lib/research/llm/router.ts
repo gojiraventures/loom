@@ -3,6 +3,7 @@ import { queryGemini } from './gemini';
 import { queryClaude } from './claude';
 import { queryPerplexityLLM } from './perplexity';
 import { queryOllama } from './ollama';
+import { queryGroq } from './groq';
 import { trackCost } from './cost-tracker';
 
 const MAX_RETRIES = 3;
@@ -38,6 +39,8 @@ async function dispatchRequest(request: LLMRequest, provider: string): Promise<L
       return queryPerplexityLLM(request);
     case 'ollama':
       return queryOllama(request);
+    case 'groq':
+      return queryGroq(request);
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -74,14 +77,14 @@ export async function route(
       }
     }
 
-    // Direct Ollama agents — fall back to Claude if Ollama is unreachable
+    // Direct Ollama agents — fall back to Groq (same open-source models, cloud-hosted) if Ollama is unreachable
     if (request.provider === 'ollama') {
       try {
         return await queryOllama(request);
       } catch (err) {
         if (isOllamaConnectionError(err)) {
-          console.warn(`[router] Ollama unreachable, falling back to Claude for agent ${agentId}`);
-          return dispatchRequest({ ...request, provider: 'claude' }, 'claude');
+          console.warn(`[router] Ollama unreachable, falling back to Groq for agent ${agentId}`);
+          return dispatchRequest({ ...request, provider: 'groq', model: undefined }, 'groq');
         }
         throw err;
       }

@@ -25,8 +25,8 @@ export const textualScholar: AgentDefinition = {
   },
 
   llm: {
-    provider: 'gemini',
-    model: 'gemini-2.5-pro', // 2M context — can hold full Gilgamesh + Genesis simultaneously
+    provider: 'groq',
+    model: 'qwen-qwq-32b', // 2M context — can hold full Gilgamesh + Genesis simultaneously
     maxTokens: 16384,
     temperature: 0.35,
   },

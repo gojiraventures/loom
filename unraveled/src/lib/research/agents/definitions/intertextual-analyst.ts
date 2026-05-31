@@ -25,8 +25,8 @@ export const intertextualAnalyst: AgentDefinition = {
   },
 
   llm: {
-    provider: 'gemini',
-    model: 'gemini-2.5-pro',
+    provider: 'groq',
+    model: 'qwen-qwq-32b',
     maxTokens: 14336,
     temperature: 0.40,
   },

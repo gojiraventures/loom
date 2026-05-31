@@ -1,4 +1,4 @@
-export type LLMProvider = 'gemini' | 'gemini-flash' | 'claude' | 'perplexity' | 'ollama';
+export type LLMProvider = 'gemini' | 'gemini-flash' | 'claude' | 'perplexity' | 'ollama' | 'groq';
 
 export interface LLMRequest {
   provider: LLMProvider;

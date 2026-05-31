@@ -17,7 +17,7 @@
 
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { queryOllama } from '@/lib/research/llm/ollama';
+import { queryGroq } from '@/lib/research/llm/groq';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -97,8 +97,8 @@ Respond with this JSON schema exactly:
 }`;
 
   try {
-    const response = await queryOllama({
-      provider: 'ollama',
+    const response = await queryGroq({
+      provider: 'groq',
       systemPrompt,
       userPrompt,
       jsonMode: true,
@@ -287,8 +287,8 @@ Generate a research lead JSON:
 }`;
 
   try {
-    const response = await queryOllama({
-      provider: 'ollama',
+    const response = await queryGroq({
+      provider: 'groq',
       systemPrompt,
       userPrompt,
       jsonMode: true,

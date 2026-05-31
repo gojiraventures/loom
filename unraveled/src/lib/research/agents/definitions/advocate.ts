@@ -25,8 +25,8 @@ export const advocate: AgentDefinition = {
   },
 
   llm: {
-    provider: 'gemini',
-    model: 'gemini-2.5-pro',
+    provider: 'claude',
+    model: 'claude-sonnet-4-6',
     maxTokens: 12288,
     temperature: 0.55,
   },

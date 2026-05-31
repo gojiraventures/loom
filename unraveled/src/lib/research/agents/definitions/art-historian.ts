@@ -25,8 +25,8 @@ export const artHistorian: AgentDefinition = {
   },
 
   llm: {
-    provider: 'gemini-flash', // Visual evidence research is lower priority — use Flash
-    model: 'gemini-2.5-flash',
+    provider: 'groq', // Visual evidence research is lower priority — use Flash
+    model: 'qwen-qwq-32b',
     maxTokens: 12288,
     temperature: 0.40,
   },
