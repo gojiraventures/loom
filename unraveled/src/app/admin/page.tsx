@@ -12,6 +12,9 @@ import { PromoCodesTab } from './PromoCodesTab';
 import { EditorialTab } from './EditorialTab';
 import { ContentHealthTab } from './ContentHealthTab';
 import { ResearchQueueTab } from './ResearchQueueTab';
+import { AdminShell } from './_components/AdminShell';
+import { AdminSidebar } from './_components/AdminSidebar';
+import type { SidebarGroup } from './_components/AdminSidebar';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -5759,105 +5762,137 @@ function InboxTab() {
 }
 
 // ── Admin Page ────────────────────────────────────────────────────────────────
+// Phase 1: shell + sidebar only. Tab component internals are unchanged.
 
+// Keep for TabId type derivation (used by inline components above).
 const TABS = [
-  { id: 'analytics', label: '↗ Analytics' },
-  { id: 'inbox', label: 'Inbox' },
-  { id: 'queue', label: '⟳ Auto Queue' },
-  { id: 'backlog', label: 'Backlog' },
-  { id: 'jobs', label: 'Jobs' },
-  { id: 'launch', label: 'Launch Research' },
-  { id: 'content', label: 'Content' },
-  { id: 'social', label: 'Social' },
-  { id: 'engage', label: '⚡ Engage' },
-  { id: 'intelligence', label: 'Intelligence' },
-  { id: 'media', label: 'Media Library' },
-  { id: 'people', label: 'People' },
-  { id: 'institutions', label: 'Institutions' },
-  { id: 'agents', label: 'Agents' },
-  { id: 'sessions', label: 'Sessions' },
-  { id: 'thread', label: '⊙ Thread' },
-  { id: 'health', label: '⊕ Content Health' },
-  { id: 'editorial', label: '✎ Editorial' },
-  { id: 'promo', label: 'Promo Codes' },
+  { id: 'analytics' }, { id: 'inbox' }, { id: 'queue' }, { id: 'backlog' },
+  { id: 'jobs' }, { id: 'launch' }, { id: 'content' }, { id: 'social' },
+  { id: 'engage' }, { id: 'intelligence' }, { id: 'media' }, { id: 'people' },
+  { id: 'institutions' }, { id: 'agents' }, { id: 'sessions' }, { id: 'thread' },
+  { id: 'health' }, { id: 'editorial' }, { id: 'promo' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
+type ActiveView = TabId | 'command-center';
+
+// ── Grouped sidebar navigation (§3 of admin-rebuild-spec.md) ─────────────────
+const SIDEBAR_GROUPS: SidebarGroup[] = [
+  {
+    label: 'Command',
+    items: [
+      { id: 'command-center', label: 'Command Center' },
+    ],
+  },
+  {
+    label: 'Research',
+    items: [
+      {
+        id: 'sessions',  // default sub-item when "Studio" is clicked
+        label: 'Studio',
+        subItems: [
+          { id: 'launch',    label: 'Launch' },
+          { id: 'queue',     label: 'Auto Queue' },
+          { id: 'backlog',   label: 'Backlog' },
+          { id: 'jobs',      label: 'Jobs' },
+          { id: 'sessions',  label: 'Sessions' },
+        ],
+      },
+      { id: 'thread', label: 'Discovery' },
+      { id: 'media',  label: 'Media Library' },
+    ],
+  },
+  {
+    label: 'Content',
+    items: [
+      { id: 'content',   label: 'Dossiers' },
+      { id: 'health',    label: 'Content Health' },
+      { id: 'editorial', label: 'Editorial' },
+    ],
+  },
+  {
+    label: 'Knowledge',
+    items: [
+      {
+        id: 'people',  // default sub-item when "Entities" is clicked
+        label: 'Entities',
+        subItems: [
+          { id: 'people',       label: 'People' },
+          { id: 'institutions', label: 'Institutions' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Distribution',
+    items: [
+      { id: 'social',       label: 'Social Queue' },
+      { id: 'engage',       label: 'Replies' },
+      { id: 'intelligence', label: 'Performance' },
+      { id: 'promo',        label: 'Promo Codes' },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { id: 'agents',    label: 'Agents' },
+      { id: 'inbox',     label: 'Inbox' },
+      { id: 'analytics', label: 'Analytics' },
+    ],
+  },
+];
+
+function CommandCenterPlaceholder() {
+  return (
+    <div className="py-24 text-center">
+      <p className="font-mono uppercase tracking-widest text-text-tertiary" style={{ fontSize: '9px' }}>
+        Coming — Phase 5
+      </p>
+      <p className="font-serif text-xl text-text-primary mt-3">Command Center</p>
+      <p className="font-mono text-text-tertiary mt-2 max-w-xs mx-auto" style={{ fontSize: '10px', lineHeight: 1.6 }}>
+        Aggregated view of active research, content health, and distribution — being built as part of the admin rebuild.
+      </p>
+    </div>
+  );
+}
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<TabId>('content');
+  const [view, setView] = useState<ActiveView>('content');
 
   return (
-    <div className="min-h-screen bg-ground text-text-primary">
-      {/* Header */}
-      <div className="border-b border-border">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-serif text-lg">Unraveled</span>
-            <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5 rounded">
-              Admin
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <a
-              href="/admin/feedback"
-              className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
-            >
-              ⚑ Feedback
-            </a>
-            <a
-              href="/"
-              className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
-            >
-              ← Site
-            </a>
-          </div>
-        </div>
-      </div>
-
+    <AdminShell
+      sidebar={
+        <AdminSidebar
+          groups={SIDEBAR_GROUPS}
+          activeView={view}
+          onSelect={(v) => setView(v as ActiveView)}
+        />
+      }
+    >
       <OllamaBanner />
 
-      {/* Tab nav */}
-      <div className="border-b border-border">
-        <div className="max-w-5xl mx-auto px-6 flex gap-1">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`font-mono text-[10px] uppercase tracking-widest px-4 py-3 border-b-2 transition-colors ${
-                tab === t.id
-                  ? 'border-gold text-gold'
-                  : 'border-transparent text-text-tertiary hover:text-text-secondary'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      <div className="px-6 py-8 max-w-5xl">
+        {view === 'command-center' && <CommandCenterPlaceholder />}
+        {view === 'analytics'    && <AnalyticsTab />}
+        {view === 'inbox'        && <InboxTab />}
+        {view === 'queue'        && <ResearchQueueTab />}
+        {view === 'backlog'      && <BacklogTab />}
+        {view === 'jobs'         && <JobsTab />}
+        {view === 'launch'       && <LaunchTab />}
+        {view === 'content'      && <ContentTab />}
+        {view === 'social'       && <SocialTab />}
+        {view === 'engage'       && <EngageTab />}
+        {view === 'intelligence' && <IntelligenceTab />}
+        {view === 'media'        && <MediaTab />}
+        {view === 'people'       && <PeopleTab />}
+        {view === 'institutions' && <InstitutionsTab />}
+        {view === 'agents'       && <AgentsTab />}
+        {view === 'sessions'     && <SessionsTab />}
+        {view === 'thread'       && <ThreadTab />}
+        {view === 'health'       && <ContentHealthTab />}
+        {view === 'editorial'    && <EditorialTab />}
+        {view === 'promo'        && <PromoCodesTab />}
       </div>
-
-      {/* Content */}
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        {tab === 'analytics' && <AnalyticsTab />}
-        {tab === 'inbox' && <InboxTab />}
-        {tab === 'queue' && <ResearchQueueTab />}
-        {tab === 'backlog' && <BacklogTab />}
-        {tab === 'jobs' && <JobsTab />}
-        {tab === 'launch' && <LaunchTab />}
-        {tab === 'content' && <ContentTab />}
-        {tab === 'social' && <SocialTab />}
-        {tab === 'engage' && <EngageTab />}
-        {tab === 'intelligence' && <IntelligenceTab />}
-        {tab === 'media' && <MediaTab />}
-        {tab === 'people' && <PeopleTab />}
-        {tab === 'institutions' && <InstitutionsTab />}
-        {tab === 'agents' && <AgentsTab />}
-        {tab === 'sessions' && <SessionsTab />}
-        {tab === 'thread' && <ThreadTab />}
-        {tab === 'health' && <ContentHealthTab />}
-        {tab === 'editorial' && <EditorialTab />}
-        {tab === 'promo' && <PromoCodesTab />}
-      </div>
-    </div>
+    </AdminShell>
   );
 }

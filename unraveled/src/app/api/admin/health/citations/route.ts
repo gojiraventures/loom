@@ -9,7 +9,7 @@ import { createServerSupabaseClient } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const authError = await requireAdmin();
+  const { error: authError } = await requireAdmin();
   if (authError) return authError;
 
   const supabase = createServerSupabaseClient();
@@ -27,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const authError = await requireAdmin();
+  const { error: authError } = await requireAdmin();
   if (authError) return authError;
 
   const { id, reviewer_note } = await req.json().catch(() => ({}));

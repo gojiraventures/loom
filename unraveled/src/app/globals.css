@@ -3,6 +3,30 @@
 @theme {
   /* Colors */
   --color-ground: #08090A;
+
+  /* ── Semantic status tokens (admin) ─────────────────────────────────────
+     Dark defaults — light-mode values are overridden in [data-theme="light"].
+     Muted palette: moss / antique amber / oxblood / slate (not neon).
+     ──────────────────────────────────────────────────────────────────── */
+  --status-complete:     #5A9470;
+  --status-complete-bg:  rgba(90,148,112,0.12);
+  --status-running:      #B07D2A;
+  --status-running-bg:   rgba(176,125,42,0.12);
+  --status-failed:       #B24A4A;
+  --status-failed-bg:    rgba(178,74,74,0.12);
+  --status-pending:      #7A8590;
+  --status-pending-bg:   rgba(122,133,144,0.12);
+  --status-approval:     #9A7020;
+  --status-approval-bg:  rgba(154,112,32,0.12);
+
+  /* Platform identity colors */
+  --platform-x:   #111111;
+  --platform-ig:  #8B4513;
+  --platform-fb:  #1A4A8A;
+
+  /* Scrollbar token */
+  --scrollbar-thumb:       rgba(255,255,255,0.10);
+  --scrollbar-thumb-hover: rgba(255,255,255,0.20);
   --color-ground-light: #0F1012;
   --color-ground-lighter: #161719;
   --color-gold: #C8956C;
@@ -38,7 +62,9 @@
    Applied via html[data-theme="light"]. Dark is the default.
    Canvas-based viz sections use [data-dark] to stay dark regardless.
    ──────────────────────────────────────────────────────────────────────── */
-html[data-theme="light"] {
+/* Matches both html-level and div-level theme overrides (admin layout uses div wrapper) */
+html[data-theme="light"],
+[data-theme="light"] {
   --color-ground: #F6F3EE;
   --color-ground-light: #EDE8DF;
   --color-ground-lighter: #E3DDD2;
@@ -59,6 +85,27 @@ html[data-theme="light"] {
   --color-tradition-egyptian: #8A6A18;
   --color-tradition-norse: #4A5A6A;
   --color-tradition-chinese: #7A3A5A;
+
+  /* Status tokens — light-mode values (muted, on warm paper background) */
+  --status-complete:     #3D6B4F;
+  --status-complete-bg:  rgba(61,107,79,0.10);
+  --status-running:      #7A550A;
+  --status-running-bg:   rgba(122,85,10,0.10);
+  --status-failed:       #7A2828;
+  --status-failed-bg:    rgba(122,40,40,0.10);
+  --status-pending:      #56616E;
+  --status-pending-bg:   rgba(86,97,110,0.10);
+  --status-approval:     #6B4A0A;
+  --status-approval-bg:  rgba(107,74,10,0.10);
+
+  /* Platform colors — light mode */
+  --platform-x:   #0F0F0F;
+  --platform-ig:  #7A3A10;
+  --platform-fb:  #1A3A7A;
+
+  /* Scrollbar — dark thumb on light background */
+  --scrollbar-thumb:       rgba(20,14,8,0.15);
+  --scrollbar-thumb-hover: rgba(20,14,8,0.28);
 }
 
 /* Force dark mode for canvas-based visualization sections */
@@ -107,9 +154,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb-hover);
 }
