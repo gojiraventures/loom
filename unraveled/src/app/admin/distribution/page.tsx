@@ -197,7 +197,7 @@ function ValidationChips({ piece }: { piece: ContentPiece }) {
   return (
     <div className="flex flex-wrap gap-1 mt-1.5">
       {chips.map((chip, i) => (
-        <span key={i} className={`font-mono text-[7px] border px-1 py-0.5 ${
+        <span key={i} className={`font-mono text-[var(--admin-label-xs)] border px-1 py-0.5 ${
           chip.error ? 'text-red-400 border-red-400/30 bg-red-400/5' : 'text-amber-400 border-amber-400/30 bg-amber-400/5'
         }`}>
           {chip.text}
@@ -217,28 +217,28 @@ function PublishConfirmModal({ piece, onConfirm, onCancel }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <div className="bg-ground border border-sky-400/30 p-6 max-w-md w-full mx-4 space-y-4">
-        <h3 className="font-mono text-[10px] uppercase tracking-widest text-sky-400">Confirm Post to X</h3>
+        <h3 className="font-mono font-medium text-[var(--admin-label)] text-sky-400">Confirm Post to X</h3>
         <div className="space-y-2">
           <div className="flex gap-2 flex-wrap">
-            <span className={`font-mono text-[8px] uppercase tracking-widest border px-1.5 py-0.5 ${PLATFORM_COLORS[piece.platform]}`}>
+            <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 ${PLATFORM_COLORS[piece.platform]}`}>
               {PLATFORM_LABELS[piece.platform]}
             </span>
             {tweetCount > 1 && (
-              <span className="font-mono text-[8px] border border-amber-400/40 text-amber-400 px-1.5 py-0.5">{tweetCount} tweets</span>
+              <span className="font-mono text-[var(--admin-label-xs)] border border-amber-400/40 text-amber-400 px-1.5 py-0.5">{tweetCount} tweets</span>
             )}
           </div>
           <p className="text-sm text-text-secondary leading-relaxed line-clamp-3">{posts[0] ?? piece.text_content}</p>
           {tweetCount > 1 && (
-            <p className="font-mono text-[9px] text-amber-400/70">Posts as a thread of {tweetCount} tweets.</p>
+            <p className="font-mono text-[var(--admin-label-sm)] text-amber-400/70">Posts as a thread of {tweetCount} tweets.</p>
           )}
         </div>
         <div className="flex gap-3 pt-2">
           <button onClick={onConfirm}
-            className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 bg-sky-400/10 border border-sky-400/40 text-sky-400 hover:bg-sky-400/20 transition-colors flex-1">
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 bg-sky-400/10 border border-sky-400/40 text-sky-400 hover:bg-sky-400/20 transition-colors flex-1">
             Post Now
           </button>
           <button onClick={onCancel}
-            className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
             Cancel
           </button>
         </div>
@@ -264,18 +264,18 @@ function ScheduleModal({ piece, onConfirm, onCancel }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <div className="bg-ground border border-gold/30 p-6 max-w-sm w-full mx-4 space-y-4">
-        <h3 className="font-mono text-[10px] uppercase tracking-widest text-gold">Schedule Post</h3>
-        <p className="font-mono text-[9px] text-text-tertiary">
+        <h3 className="font-mono font-medium text-[var(--admin-label)] text-gold">Schedule Post</h3>
+        <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">
           {CONTENT_TYPE_LABELS[piece.content_type] ?? piece.content_type} · {PLATFORM_LABELS[piece.platform]}
         </p>
         <div className="space-y-3">
           <div className="flex flex-col gap-1">
-            <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Date</label>
+            <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Date</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
               className="bg-ground-light border border-border px-2 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-gold/40" />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Time (ET)</label>
+            <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Time (ET)</label>
             <select value={hour} onChange={e => setHour(parseInt(e.target.value))}
               className="bg-ground-light border border-border px-2 py-1.5 text-sm text-text-primary font-mono focus:outline-none focus:border-gold/40">
               {[7,8,9,10,11,12,13,14,15,16,17,18,19,20].map(h => (
@@ -286,11 +286,11 @@ function ScheduleModal({ piece, onConfirm, onCancel }: {
         </div>
         <div className="flex gap-3 pt-2">
           <button onClick={confirm}
-            className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 bg-gold/10 border border-gold/40 text-gold hover:bg-gold/20 transition-colors flex-1">
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 bg-gold/10 border border-gold/40 text-gold hover:bg-gold/20 transition-colors flex-1">
             Lock In
           </button>
           <button onClick={onCancel}
-            className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
             Cancel
           </button>
         </div>
@@ -454,7 +454,7 @@ function GenerateView() {
     <div className="space-y-8 max-w-3xl">
       {/* ── Article selector ── */}
       <div>
-        <label className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary block mb-1">Article</label>
+        <label className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary block mb-1">Article</label>
         {loadingDossiers ? (
           <p className="text-sm text-text-tertiary">Loading…</p>
         ) : (
@@ -472,8 +472,8 @@ function GenerateView() {
       {/* ── Generate Content ── */}
       <section className="border border-border bg-ground-light/20 p-5 rounded space-y-4">
         <div>
-          <h2 className="font-mono text-[9px] uppercase tracking-widest text-gold mb-1">Generate Content</h2>
-          <p className="font-mono text-[9px] text-text-tertiary">
+          <h2 className="font-mono font-medium text-[var(--admin-label)] text-gold mb-1">Generate Content</h2>
+          <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">
             Deletes draft/rejected pieces for this article and generates a fresh set. Approved &amp; published pieces are preserved.
           </p>
         </div>
@@ -481,12 +481,12 @@ function GenerateView() {
           <button
             onClick={generate}
             disabled={generating || !selectedTopic}
-            className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-gold/50 text-gold bg-gold/5 hover:bg-gold/10 rounded transition-colors disabled:opacity-40"
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-gold/50 text-gold bg-gold/5 hover:bg-gold/10 rounded transition-colors disabled:opacity-40"
           >
             {generating ? '⊙ Generating…' : 'Generate Content'}
           </button>
           {genStatus && (
-            <span className={`font-mono text-[9px] ${genStatus.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>
+            <span className={`font-mono text-[var(--admin-label-sm)] ${genStatus.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>
               {genStatus}
             </span>
           )}
@@ -496,11 +496,11 @@ function GenerateView() {
       {/* ── Per-piece QA / Auto-fix ── */}
       {selectedTopic && (
         <section className="border border-border bg-ground-light/20 p-5 rounded space-y-4">
-          <h2 className="font-mono text-[9px] uppercase tracking-widest text-gold">Per-piece QA &amp; Auto-fix</h2>
+          <h2 className="font-mono font-medium text-[var(--admin-label)] text-gold">Per-piece QA & Auto-fix</h2>
           {loadingPieces ? (
-            <p className="font-mono text-[10px] text-text-tertiary animate-pulse">Loading pieces…</p>
+            <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary animate-pulse">Loading pieces…</p>
           ) : draftPieces.length === 0 ? (
-            <p className="font-mono text-[10px] text-text-tertiary">No draft pieces — generate content first.</p>
+            <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">No draft pieces — generate content first.</p>
           ) : (
             <div className="space-y-2">
               {draftPieces.map(p => {
@@ -511,16 +511,16 @@ function GenerateView() {
                   <div key={p.id} className="border border-border rounded px-3 py-2.5 flex items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className={`font-mono text-[7px] uppercase tracking-widest border px-1 py-0.5 ${PLATFORM_COLORS[p.platform]}`}>
+                        <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1 py-0.5 ${PLATFORM_COLORS[p.platform]}`}>
                           {p.platform === 'x' ? 'X' : p.platform === 'instagram' ? 'IG' : p.platform === 'facebook' ? 'FB' : p.platform.toUpperCase()}
                         </span>
-                        <span className="font-mono text-[7px] text-text-tertiary">
+                        <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">
                           {CONTENT_TYPE_LABELS[p.content_type] ?? p.content_type}
                         </span>
                       </div>
                       <p className="text-xs text-text-tertiary line-clamp-1">{preview}</p>
                       {action && (
-                        <p className={`font-mono text-[9px] mt-1 ${action.startsWith('error') ? 'text-red-400' : action.includes('✓') || action.startsWith('QA:') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
+                        <p className={`font-mono text-[var(--admin-label-sm)] mt-1 ${action.startsWith('error') ? 'text-red-400' : action.includes('✓') || action.startsWith('QA:') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
                           {action}
                         </p>
                       )}
@@ -529,14 +529,14 @@ function GenerateView() {
                       <button
                         onClick={() => void runQA(p.id)}
                         disabled={!!action && !action.startsWith('error')}
-                        className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 rounded transition-colors disabled:opacity-40"
+                        className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 rounded transition-colors disabled:opacity-40"
                       >
                         QA
                       </button>
                       <button
                         onClick={() => void runAutoFix(p.id)}
                         disabled={!!action && !action.startsWith('error')}
-                        className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 rounded transition-colors disabled:opacity-40"
+                        className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 rounded transition-colors disabled:opacity-40"
                       >
                         Fix
                       </button>
@@ -552,14 +552,14 @@ function GenerateView() {
       {/* ── Global Scheduler ── */}
       <section className="border border-border bg-ground-light/20 p-5 rounded space-y-4">
         <div>
-          <h2 className="font-mono text-[9px] uppercase tracking-widest text-gold mb-1">Global Scheduler</h2>
-          <p className="font-mono text-[9px] text-text-tertiary">
+          <h2 className="font-mono font-medium text-[var(--admin-label)] text-gold mb-1">Global Scheduler</h2>
+          <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">
             Schedule all approved pieces across platforms. {approvedPieces.length} approved for selected article.
           </p>
         </div>
         <div className="grid grid-cols-3 gap-3 max-w-lg">
           <div>
-            <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Start date</label>
+            <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary block mb-1">Start date</label>
             <input
               type="date"
               value={schedStartDate}
@@ -568,7 +568,7 @@ function GenerateView() {
             />
           </div>
           <div>
-            <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Slots / day</label>
+            <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary block mb-1">Slots / day</label>
             <input
               type="number"
               min={1} max={10}
@@ -578,7 +578,7 @@ function GenerateView() {
             />
           </div>
           <div>
-            <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Platforms</label>
+            <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary block mb-1">Platforms</label>
             <div className="flex gap-1">
               {['x', 'instagram', 'facebook'].map(pl => (
                 <button
@@ -586,7 +586,7 @@ function GenerateView() {
                   onClick={() => setSchedPlatforms(prev =>
                     prev.includes(pl) ? prev.filter(p => p !== pl) : [...prev, pl]
                   )}
-                  className={`font-mono text-[7px] uppercase tracking-widest px-1.5 py-1 border rounded transition-colors ${
+                  className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-1.5 py-1 border rounded transition-colors ${
                     schedPlatforms.includes(pl)
                       ? PLATFORM_COLORS[pl]
                       : 'border-border text-text-tertiary'
@@ -602,19 +602,19 @@ function GenerateView() {
           <button
             onClick={scheduleAll}
             disabled={scheduling || clearing}
-            className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-emerald-400/40 text-emerald-400 bg-emerald-400/5 hover:bg-emerald-400/10 rounded transition-colors disabled:opacity-40"
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-emerald-400/40 text-emerald-400 bg-emerald-400/5 hover:bg-emerald-400/10 rounded transition-colors disabled:opacity-40"
           >
             {scheduling ? '⊙ Scheduling…' : 'Schedule All'}
           </button>
           <button
             onClick={clearAll}
             disabled={scheduling || clearing}
-            className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-red-400/30 text-red-400 hover:bg-red-400/10 rounded transition-colors disabled:opacity-40"
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-red-400/30 text-red-400 hover:bg-red-400/10 rounded transition-colors disabled:opacity-40"
           >
             {clearing ? '⊙ Clearing…' : 'Clear All'}
           </button>
           {schedStatus && (
-            <span className={`font-mono text-[9px] ${schedStatus.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>
+            <span className={`font-mono text-[var(--admin-label-sm)] ${schedStatus.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>
               {schedStatus}
             </span>
           )}
@@ -649,26 +649,26 @@ function SocialKanbanCard({
     }`}>
       <div className="p-3 cursor-pointer" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-          <span className={`font-mono text-[7px] uppercase tracking-widest border px-1 py-0.5 shrink-0 ${PLATFORM_COLORS[piece.platform]}`}>
+          <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1 py-0.5 shrink-0 ${PLATFORM_COLORS[piece.platform]}`}>
             {piece.platform === 'x' ? 'X' : piece.platform === 'instagram' ? 'IG' : piece.platform === 'facebook' ? 'FB' : piece.platform.toUpperCase()}
           </span>
           {posts.length > 1 && (
-            <span className="font-mono text-[7px] border border-amber-400/40 text-amber-400 px-1 py-0.5 shrink-0">
+            <span className="font-mono text-[var(--admin-label-xs)] border border-amber-400/40 text-amber-400 px-1 py-0.5 shrink-0">
               {posts.length}t
             </span>
           )}
           {piece._qa && (
-            <span className={`font-mono text-[7px] shrink-0 ${
+            <span className={`font-mono text-[var(--admin-label-xs)] shrink-0 ${
               piece._qa.result === 'pass' ? 'text-emerald-400' :
               piece._qa.result === 'flag' ? 'text-amber-400' : 'text-red-400'
             }`}>
               {piece._qa.result === 'pass' ? '✓QA' : piece._qa.result === 'flag' ? '⚑QA' : '✗QA'}
             </span>
           )}
-          <span className="font-mono text-[7px] text-text-tertiary ml-auto">D{piece.day_offset}</span>
+          <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary ml-auto">D{piece.day_offset}</span>
         </div>
 
-        <p className="font-mono text-[8px] uppercase tracking-widest text-text-secondary mb-1">
+        <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-secondary mb-1">
           {CONTENT_TYPE_LABELS[piece.content_type] ?? piece.content_type}
         </p>
         <p className="text-xs text-text-tertiary leading-snug line-clamp-2">
@@ -676,7 +676,7 @@ function SocialKanbanCard({
         </p>
 
         {piece.scheduled_at && (
-          <p className="font-mono text-[7px] text-gold/80 mt-1">{fmtScheduled(piece.scheduled_at)}</p>
+          <p className="font-mono text-[var(--admin-label-xs)] text-gold/80 mt-1">{fmtScheduled(piece.scheduled_at)}</p>
         )}
 
         {selectedDesign && !expanded && (
@@ -688,7 +688,7 @@ function SocialKanbanCard({
 
         <ValidationChips piece={piece} />
 
-        <p className="font-mono text-[7px] text-text-tertiary/30 mt-1">{expanded ? '↑' : '↓'}</p>
+        <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/30 mt-1">{expanded ? '↑' : '↓'}</p>
       </div>
 
       {expanded && (
@@ -706,7 +706,7 @@ function SocialKanbanCard({
 
           {piece.status === 'published' && piece.supplementary?.published_tweet_url && (
             <a href={piece.supplementary.published_tweet_url} target="_blank" rel="noopener noreferrer"
-              className="font-mono text-[8px] text-sky-400 hover:text-sky-300 block">
+              className="font-mono text-[var(--admin-label-xs)] text-sky-400 hover:text-sky-300 block">
               ↗ View on X
             </a>
           )}
@@ -714,23 +714,23 @@ function SocialKanbanCard({
           <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/30">
             {piece.status === 'draft' && (
               <button onClick={() => onSetStatus(piece.id, 'approved')}
-                className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/20 transition-colors">
+                className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/20 transition-colors">
                 Approve
               </button>
             )}
             {piece.status === 'approved' && (
               <>
                 <button onClick={() => onSetStatus(piece.id, 'draft')}
-                  className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
+                  className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
                   Unapprove
                 </button>
                 <button onClick={() => onSchedule(piece.id)}
-                  className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 bg-gold/10 border border-gold/40 text-gold hover:bg-gold/20 transition-colors ml-auto">
+                  className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 bg-gold/10 border border-gold/40 text-gold hover:bg-gold/20 transition-colors ml-auto">
                   Schedule
                 </button>
                 {piece.platform === 'x' && (
                   <button onClick={() => onPublish(piece.id)} disabled={piece._publishing}
-                    className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 disabled:opacity-50">
+                    className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 disabled:opacity-50">
                     {piece._publishing ? 'Posting...' : 'Post Now'}
                   </button>
                 )}
@@ -739,19 +739,19 @@ function SocialKanbanCard({
             {piece.status === 'scheduled' && (
               <>
                 <button onClick={() => onUnschedule(piece.id)}
-                  className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
+                  className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
                   Unschedule
                 </button>
                 {piece.platform === 'x' && (
                   <button onClick={() => onPublish(piece.id)} disabled={piece._publishing}
-                    className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 disabled:opacity-50 ml-auto">
+                    className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 disabled:opacity-50 ml-auto">
                     {piece._publishing ? 'Posting...' : 'Post Now'}
                   </button>
                 )}
               </>
             )}
             {piece._publishError && (
-              <p className="w-full font-mono text-[8px] text-red-400">{piece._publishError}</p>
+              <p className="w-full font-mono text-[var(--admin-label-xs)] text-red-400">{piece._publishError}</p>
             )}
           </div>
         </div>
@@ -768,12 +768,12 @@ function SocialKanbanColumn({
   return (
     <div className="flex flex-col min-w-[240px] flex-1">
       <div className={`flex items-center justify-between px-3 py-2 border-b mb-2 ${accentClass}`}>
-        <span className="font-mono text-[9px] uppercase tracking-widest">{title}</span>
-        <span className="font-mono text-[9px] opacity-60">{count}</span>
+        <span className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest">{title}</span>
+        <span className="font-mono text-[var(--admin-label-sm)] opacity-60">{count}</span>
       </div>
       <div className="space-y-2 flex-1">
         {count === 0
-          ? <p className="font-mono text-[8px] text-text-tertiary/40 text-center py-6">{emptyText}</p>
+          ? <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/40 text-center py-6">{emptyText}</p>
           : children}
       </div>
     </div>
@@ -933,7 +933,7 @@ function SocialQueueView() {
       {/* Article selector */}
       <div className="flex items-end gap-4 flex-wrap">
         <div className="flex-1 min-w-[240px]">
-          <label className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary block mb-1">Article</label>
+          <label className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary block mb-1">Article</label>
           {loadingDossiers ? (
             <p className="text-sm text-text-tertiary">Loading...</p>
           ) : (
@@ -947,7 +947,7 @@ function SocialQueueView() {
         <div className="flex gap-0 border border-border">
           {['all', 'x', 'instagram', 'facebook'].map(p => (
             <button key={p} onClick={() => setPlatformFilter(p)}
-              className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${platformFilter === p ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
+              className={`font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${platformFilter === p ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
               {p === 'all' ? 'All' : p === 'x' ? 'X' : p === 'instagram' ? 'IG' : 'FB'}
             </button>
           ))}
@@ -958,7 +958,7 @@ function SocialQueueView() {
         <p className="font-mono text-sm text-text-tertiary animate-pulse">Loading...</p>
       ) : pieces.length === 0 && selectedTopic ? (
         <div className="border border-border bg-ground-light/20 p-8 text-center">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary mb-2">No content yet</p>
+          <p className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary mb-2">No content yet</p>
           <p className="text-sm text-text-secondary">Go to Social Queue in the main admin to generate content for this article.</p>
         </div>
       ) : (
@@ -993,7 +993,7 @@ function SocialQueueView() {
             {publishedVisible.map(p => <SocialKanbanCard key={p.id} piece={p} {...sharedCardProps} />)}
             {hasMorePublished && (
               <button onClick={() => setPublishedPage(prev => prev + 1)}
-                className="w-full font-mono text-[8px] uppercase tracking-widest text-text-tertiary hover:text-text-secondary py-2 border border-border/40 transition-colors">
+                className="w-full font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary hover:text-text-secondary py-2 border border-border/40 transition-colors">
                 Show more ({colPublished.length - publishedVisible.length} remaining)
               </button>
             )}
@@ -1155,24 +1155,24 @@ function RepliesView() {
         <div className="flex gap-4">
           <div>
             <span className="font-serif text-xl text-emerald-400">{counts.respond}</span>
-            <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Respond</p>
+            <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Respond</p>
           </div>
           <div>
             <span className="font-serif text-xl text-amber-400">{counts.consider}</span>
-            <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Consider</p>
+            <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Consider</p>
           </div>
           <div>
             <span className="font-serif text-xl text-violet-400">{counts.posted}</span>
-            <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Posted</p>
+            <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Posted</p>
           </div>
         </div>
         <button onClick={fetchFromX} disabled={fetching}
-          className="ml-auto font-mono text-[9px] uppercase tracking-widest px-4 py-2 bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-colors disabled:opacity-50">
+          className="ml-auto font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 transition-colors disabled:opacity-50">
           {fetching ? 'Fetching...' : '↓ Fetch from X'}
         </button>
       </div>
 
-      {fetchStatus && <p className="font-mono text-[10px] text-text-secondary border-l-2 border-gold/40 pl-3">{fetchStatus}</p>}
+      {fetchStatus && <p className="font-mono text-[var(--admin-label-sm)] text-text-secondary border-l-2 border-gold/40 pl-3">{fetchStatus}</p>}
 
       {/* Keyboard hint bar */}
       <div className="flex items-center gap-4 border border-border/40 bg-ground-light/20 px-3 py-2">
@@ -1184,12 +1184,12 @@ function RepliesView() {
           ['⌘↵', 'post'],
         ].map(([key, label]) => (
           <span key={key} className="flex items-center gap-1">
-            <kbd className="font-mono text-[8px] border border-border px-1.5 py-0.5 bg-ground text-text-secondary">{key}</kbd>
-            <span className="font-mono text-[8px] text-text-tertiary">{label}</span>
+            <kbd className="font-mono text-[var(--admin-label-xs)] border border-border px-1.5 py-0.5 bg-ground text-text-secondary">{key}</kbd>
+            <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">{label}</span>
           </span>
         ))}
         {filtered.length > 0 && (
-          <span className="ml-auto font-mono text-[9px] text-text-tertiary">
+          <span className="ml-auto font-mono text-[var(--admin-label-sm)] text-text-tertiary">
             {currentIndex + 1} / {filtered.length}
           </span>
         )}
@@ -1199,7 +1199,7 @@ function RepliesView() {
       <div className="flex gap-0 border border-border w-fit">
         {(['respond', 'consider', 'all'] as const).map(p => (
           <button key={p} onClick={() => { setPriorityFilter(p); setCurrentIndex(0); }}
-            className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${priorityFilter === p ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
+            className={`font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${priorityFilter === p ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
             {p}
           </button>
         ))}
@@ -1209,7 +1209,7 @@ function RepliesView() {
         <p className="font-mono text-sm text-text-tertiary animate-pulse">Loading...</p>
       ) : filtered.length === 0 ? (
         <div className="border border-border bg-ground-light/20 p-8 text-center">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary">
+          <p className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary">
             {replies.length === 0 ? 'No replies yet' : 'Nothing in this queue'}
           </p>
         </div>
@@ -1222,7 +1222,7 @@ function RepliesView() {
           }`}>
             {/* Priority + metadata */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`font-mono text-[8px] uppercase tracking-widest border px-1.5 py-0.5 ${
+              <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 ${
                 current.priority === 'respond' ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/5' :
                 current.priority === 'consider' ? 'text-amber-400 border-amber-400/30 bg-amber-400/5' :
                 'text-text-tertiary border-border'
@@ -1230,14 +1230,14 @@ function RepliesView() {
                 {current.priority}
               </span>
               <a href={`https://x.com/${current.author_username}`} target="_blank" rel="noopener noreferrer"
-                className="font-mono text-[9px] text-sky-400/80 hover:text-sky-400 transition-colors">
+                className="font-mono text-[var(--admin-label-sm)] text-sky-400/80 hover:text-sky-400 transition-colors">
                 @{current.author_username}
               </a>
-              <span className="font-mono text-[8px] text-text-tertiary border border-border px-1.5 py-0.5">
+              <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary border border-border px-1.5 py-0.5">
                 {current.topic.slice(0, 35)}
               </span>
               {current.created_at_x && (
-                <span className="font-mono text-[8px] text-text-tertiary ml-auto">
+                <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary ml-auto">
                   {new Date(current.created_at_x).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </span>
               )}
@@ -1247,23 +1247,23 @@ function RepliesView() {
             <p className="text-base text-text-primary leading-relaxed">{current.text}</p>
 
             {current.priority_reason && (
-              <p className="font-mono text-[8px] text-text-tertiary border-l border-border/50 pl-2 italic">
+              <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary border-l border-border/50 pl-2 italic">
                 {current.priority_reason}
               </p>
             )}
 
             <a href={`https://x.com/i/web/status/${current.tweet_id}`} target="_blank" rel="noopener noreferrer"
-              className="font-mono text-[8px] text-text-tertiary hover:text-sky-400 transition-colors block">
+              className="font-mono text-[var(--admin-label-xs)] text-text-tertiary hover:text-sky-400 transition-colors block">
               ↗ View on X
             </a>
 
             {/* Draft reply */}
             <div className="space-y-2 pt-2 border-t border-border/50">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Draft Reply</span>
+                <span className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Draft Reply</span>
                 {!editMode && (
                   <button onClick={() => { setEditMode(true); setTimeout(() => textareaRef.current?.focus(), 50); }}
-                    className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
+                    className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
                     Edit (E)
                   </button>
                 )}
@@ -1279,15 +1279,15 @@ function RepliesView() {
                     placeholder="Draft a reply..."
                   />
                   <div className="flex items-center gap-2">
-                    <span className={`font-mono text-[9px] ${overLimit ? 'text-red-400' : 'text-text-tertiary'}`}>
+                    <span className={`font-mono text-[var(--admin-label-sm)] ${overLimit ? 'text-red-400' : 'text-text-tertiary'}`}>
                       {draftText.length}/280
                     </span>
                     <button onClick={() => saveDraft(current.id, draftText)} disabled={savingDraft}
-                      className="font-mono text-[9px] uppercase tracking-widest px-3 py-1 bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 disabled:opacity-50 ml-auto">
+                      className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1 bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 disabled:opacity-50 ml-auto">
                       {savingDraft ? 'Saving...' : 'Save'}
                     </button>
                     <button onClick={() => { setEditMode(false); setDraftText(current.draft_reply ?? ''); }}
-                      className="font-mono text-[9px] uppercase tracking-widest px-3 py-1 border border-border text-text-tertiary hover:text-text-secondary">
+                      className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1 border border-border text-text-tertiary hover:text-text-secondary">
                       Cancel
                     </button>
                   </div>
@@ -1297,7 +1297,7 @@ function RepliesView() {
                   {draftText ? (
                     <>
                       <p className="text-sm text-text-secondary leading-relaxed">{draftText}</p>
-                      <span className={`font-mono text-[8px] ${draftText.length > 280 ? 'text-red-400' : 'text-text-tertiary'}`}>
+                      <span className={`font-mono text-[var(--admin-label-xs)] ${draftText.length > 280 ? 'text-red-400' : 'text-text-tertiary'}`}>
                         {draftText.length}/280
                       </span>
                     </>
@@ -1311,30 +1311,30 @@ function RepliesView() {
             {/* Actions */}
             <div className="flex items-center gap-3 pt-1">
               <button onClick={handlePost} disabled={posting || !draftText.trim() || overLimit}
-                className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 bg-sky-400/10 border border-sky-400/40 text-sky-400 hover:bg-sky-400/20 transition-colors disabled:opacity-40">
+                className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 bg-sky-400/10 border border-sky-400/40 text-sky-400 hover:bg-sky-400/20 transition-colors disabled:opacity-40">
                 {posting ? 'Posting...' : '↑ Post (⌘↵)'}
               </button>
               <button onClick={() => handleSkip(current.id)}
-                className="font-mono text-[9px] uppercase tracking-widest px-3 py-2 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
+                className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-2 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
                 Skip (S)
               </button>
               <div className="flex items-center gap-2 ml-auto">
                 <button onClick={() => setCurrentIndex(i => Math.max(i - 1, 0))} disabled={currentIndex === 0}
-                  className="font-mono text-[9px] uppercase tracking-widest px-2 py-1.5 border border-border text-text-tertiary hover:text-text-secondary disabled:opacity-30 transition-colors">
+                  className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-2 py-1.5 border border-border text-text-tertiary hover:text-text-secondary disabled:opacity-30 transition-colors">
                   ↑ K
                 </button>
                 <button onClick={() => setCurrentIndex(i => Math.min(i + 1, filtered.length - 1))} disabled={currentIndex >= filtered.length - 1}
-                  className="font-mono text-[9px] uppercase tracking-widest px-2 py-1.5 border border-border text-text-tertiary hover:text-text-secondary disabled:opacity-30 transition-colors">
+                  className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-2 py-1.5 border border-border text-text-tertiary hover:text-text-secondary disabled:opacity-30 transition-colors">
                   ↓ J
                 </button>
               </div>
-              {postError && <p className="font-mono text-[8px] text-red-400">{postError}</p>}
+              {postError && <p className="font-mono text-[var(--admin-label-xs)] text-red-400">{postError}</p>}
             </div>
           </div>
 
           {/* Queue list — compact */}
           <div className="space-y-1 overflow-y-auto max-h-[560px]">
-            <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-2">Queue</p>
+            <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary mb-2">Queue</p>
             {filtered.map((r, i) => (
               <button key={r.id} onClick={() => setCurrentIndex(i)}
                 className={`w-full text-left border rounded px-3 py-2 transition-colors ${
@@ -1343,15 +1343,15 @@ function RepliesView() {
                     : r.reply_status !== 'pending' ? 'border-border/30 opacity-40' : 'border-border/40 hover:border-border'
                 }`}>
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className={`font-mono text-[7px] ${
+                  <span className={`font-mono text-[var(--admin-label-xs)] ${
                     r.priority === 'respond' ? 'text-emerald-400' :
                     r.priority === 'consider' ? 'text-amber-400' : 'text-text-tertiary'
                   }`}>
                     {r.priority.toUpperCase().slice(0, 3)}
                   </span>
-                  <span className="font-mono text-[8px] text-sky-400/70">@{r.author_username}</span>
+                  <span className="font-mono text-[var(--admin-label-xs)] text-sky-400/70">@{r.author_username}</span>
                   {r.reply_status !== 'pending' && (
-                    <span className="font-mono text-[7px] text-violet-400 ml-auto">
+                    <span className="font-mono text-[var(--admin-label-xs)] text-violet-400 ml-auto">
                       {r.reply_status === 'posted' ? '✓' : '—'}
                     </span>
                   )}
@@ -1440,11 +1440,11 @@ function PromoView() {
     <div className="space-y-10">
       {/* Create form */}
       <section>
-        <h2 className="font-mono text-[9px] uppercase tracking-widest text-gold mb-6">Create Promo Code</h2>
+        <h2 className="font-mono font-medium text-[var(--admin-label)] text-gold mb-6">Create Promo Code</h2>
         <form onSubmit={handleCreate} className="space-y-4 max-w-lg">
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Code</label>
+              <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary block mb-1">Code</label>
               <input value={form.code}
                 onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
                 placeholder="LAUNCH2026" required
@@ -1452,13 +1452,13 @@ function PromoView() {
             </div>
             <div className="flex items-end">
               <button type="button" onClick={generateCode}
-                className="font-mono text-[9px] uppercase tracking-widest px-3 py-2 border border-border text-text-tertiary hover:text-gold hover:border-gold/40 transition-colors">
+                className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-2 border border-border text-text-tertiary hover:text-gold hover:border-gold/40 transition-colors">
                 Generate
               </button>
             </div>
           </div>
           <div>
-            <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Description</label>
+            <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary block mb-1">Description</label>
             <input value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               placeholder="e.g. Influencer collab — April 2026"
@@ -1466,30 +1466,30 @@ function PromoView() {
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Max uses</label>
+              <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary block mb-1">Max uses</label>
               <input type="number" value={form.max_uses}
                 onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))}
                 placeholder="Unlimited" min="1"
                 className="w-full bg-ground border border-border px-3 py-2 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-gold/40" />
             </div>
             <div>
-              <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Duration (days)</label>
+              <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary block mb-1">Duration (days)</label>
               <input type="number" value={form.duration_days}
                 onChange={e => setForm(f => ({ ...f, duration_days: e.target.value }))}
                 placeholder="Permanent" min="1"
                 className="w-full bg-ground border border-border px-3 py-2 font-mono text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-gold/40" />
             </div>
             <div>
-              <label className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1">Code expires</label>
+              <label className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary block mb-1">Code expires</label>
               <input type="date" value={form.expires_at}
                 onChange={e => setForm(f => ({ ...f, expires_at: e.target.value }))}
                 className="w-full bg-ground border border-border px-3 py-2 font-mono text-sm text-text-primary focus:outline-none focus:border-gold/40" />
             </div>
           </div>
-          {error   && <p className="font-mono text-[10px] text-red-400">{error}</p>}
-          {success && <p className="font-mono text-[10px] text-emerald-400">{success}</p>}
+          {error   && <p className="font-mono text-[var(--admin-label-sm)] text-red-400">{error}</p>}
+          {success && <p className="font-mono text-[var(--admin-label-sm)] text-emerald-400">{success}</p>}
           <button type="submit" disabled={creating}
-            className="font-mono text-[9px] uppercase tracking-widest px-5 py-2 bg-gold text-ground hover:bg-gold/90 transition-colors disabled:opacity-50">
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-5 py-2 bg-gold text-ground hover:bg-gold/90 transition-colors disabled:opacity-50">
             {creating ? 'Creating...' : 'Create Code'}
           </button>
         </form>
@@ -1497,16 +1497,16 @@ function PromoView() {
 
       {/* Code list */}
       <section>
-        <h2 className="font-mono text-[9px] uppercase tracking-widest text-gold mb-4">All Codes</h2>
+        <h2 className="font-mono font-medium text-[var(--admin-label)] text-gold mb-4">All Codes</h2>
         {loading ? (
-          <p className="font-mono text-[10px] text-text-tertiary">Loading...</p>
+          <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">Loading...</p>
         ) : codes.length === 0 ? (
-          <p className="font-mono text-[10px] text-text-tertiary">No codes yet.</p>
+          <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">No codes yet.</p>
         ) : (
           <div className="border border-border divide-y divide-border/40">
             <div className="grid grid-cols-[140px_1fr_80px_80px_90px_80px_100px] gap-3 px-4 py-2 bg-ground-light/20">
               {['Code', 'Description', 'Uses', 'Duration', 'Expires', 'Status', ''].map(h => (
-                <span key={h} className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">{h}</span>
+                <span key={h} className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">{h}</span>
               ))}
             </div>
             {codes.map(c => {
@@ -1515,11 +1515,11 @@ function PromoView() {
               return (
                 <div key={c.id} className="grid grid-cols-[140px_1fr_80px_80px_90px_80px_100px] gap-3 px-4 py-3 items-center hover:bg-ground-light/10 transition-colors">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[11px] text-gold tracking-wider">{c.code}</span>
+                    <span className="font-mono text-[var(--admin-label)] text-gold tracking-wider">{c.code}</span>
                     <button
                       onClick={() => copyCode(c.code)}
                       title="Copy code"
-                      className={`font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 border transition-colors shrink-0 ${
+                      className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-1.5 py-0.5 border transition-colors shrink-0 ${
                         isCopied
                           ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/5'
                           : 'text-text-tertiary border-border hover:text-gold hover:border-gold/40'
@@ -1529,20 +1529,20 @@ function PromoView() {
                     </button>
                   </div>
                   <span className="text-xs text-text-secondary truncate">{c.description ?? '—'}</span>
-                  <span className="font-mono text-[10px] text-text-secondary">
+                  <span className="font-mono text-[var(--admin-label-sm)] text-text-secondary">
                     {c.uses_count}{c.max_uses !== null ? `/${c.max_uses}` : ''}
                   </span>
-                  <span className="font-mono text-[10px] text-text-secondary">
+                  <span className="font-mono text-[var(--admin-label-sm)] text-text-secondary">
                     {c.duration_days ? `${c.duration_days}d` : 'Forever'}
                   </span>
-                  <span className={`font-mono text-[10px] ${expired ? 'text-red-400' : 'text-text-tertiary'}`}>
+                  <span className={`font-mono text-[var(--admin-label-sm)] ${expired ? 'text-red-400' : 'text-text-tertiary'}`}>
                     {c.expires_at ? new Date(c.expires_at).toLocaleDateString() : '—'}
                   </span>
-                  <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 ${activeBadge(c.active && !expired)}`}>
+                  <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 ${activeBadge(c.active && !expired)}`}>
                     {!c.active ? 'Disabled' : expired ? 'Expired' : 'Active'}
                   </span>
                   <button onClick={() => toggleActive(c.id, c.active)}
-                    className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
+                    className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors">
                     {c.active ? 'Disable' : 'Enable'}
                   </button>
                 </div>
@@ -1576,7 +1576,7 @@ export default function DistributionPage() {
         {/* Section heading */}
         <div className="mb-6">
           <h1 className="font-serif text-2xl text-text-primary">Distribution Desk</h1>
-          <p className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mt-1">
+          <p className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary mt-1">
             {view === 'social'      && 'Social Queue — 6-stage pipeline'}
             {view === 'generate'    && 'Generate & QA — generate content, run QA, schedule'}
             {view === 'calendar'    && 'Calendar — scheduled posts by date'}

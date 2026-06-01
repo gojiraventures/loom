@@ -60,10 +60,12 @@
      base = primary labels, button text, headers  (was 9–11px)
      body = readable body / descriptive text      (was unspecified)
   */
-  --admin-label-xs:   11px;
-  --admin-label-sm:   12px;
-  --admin-label:      13px;
-  --admin-body:       13px;
+  --admin-label-xs:   11px;   /* micro labels, pills, badges, single-word tags */
+  --admin-label-sm:   12px;   /* secondary metadata, sub-nav, form field labels */
+  --admin-label:      13px;   /* primary labels, button text, section sub-headers */
+  --admin-body:       14px;   /* descriptive / reading text — blurbs, descriptions */
+  --admin-title-sm:   16px;   /* card / entity titles */
+  --admin-title:      20px;   /* section / page titles */
 
   /* Spacing */
   --spacing-content: 800px;

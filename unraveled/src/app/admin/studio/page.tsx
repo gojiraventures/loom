@@ -275,11 +275,11 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
       <div className="mb-6 flex items-center gap-3">
         <button
           onClick={() => setOpen(true)}
-          className="font-mono text-[10px] uppercase tracking-widest px-4 py-2 border border-gold/50 text-gold bg-gold/5 hover:bg-gold/10 rounded transition-colors"
+          className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-gold/50 text-gold bg-gold/5 hover:bg-gold/10 rounded transition-colors"
         >
           + New Research
         </button>
-        <span className="font-mono text-[9px] text-text-tertiary">Launch Now · Add to Queue · Save to Backlog</span>
+        <span className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">Launch Now · Add to Queue · Save to Backlog</span>
       </div>
     );
   }
@@ -287,7 +287,7 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
   return (
     <div className="mb-8 border border-gold/30 bg-ground-light/70 p-5 rounded">
       <div className="flex items-center justify-between mb-4">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-gold">New Research</span>
+        <span className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-gold">New Research</span>
         <button
           onClick={() => { setOpen(false); reset(); }}
           className="text-text-tertiary hover:text-text-primary text-sm transition-colors"
@@ -299,7 +299,7 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary block mb-1">Topic *</label>
+            <label className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary block mb-1">Topic *</label>
             <input
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
@@ -308,7 +308,7 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
             />
           </div>
           <div>
-            <label className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary block mb-1">Title</label>
+            <label className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary block mb-1">Title</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -319,7 +319,7 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
         </div>
 
         <div>
-          <label className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary block mb-1">Research Questions</label>
+          <label className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary block mb-1">Research Questions</label>
           {questions.map((q, i) => (
             <div key={i} className="flex gap-2 mb-1.5">
               <input
@@ -341,7 +341,7 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
           {questions.length < 9 && (
             <button
               onClick={() => setQuestions((qs) => [...qs, ''])}
-              className="font-mono text-[9px] text-text-tertiary hover:text-gold transition-colors"
+              className="font-mono text-[var(--admin-label-sm)] text-text-tertiary hover:text-gold transition-colors"
             >
               + question
             </button>
@@ -350,7 +350,7 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary block mb-1">Description / Angle</label>
+            <label className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary block mb-1">Description / Angle</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -360,7 +360,7 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
             />
           </div>
           <div>
-            <label className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary block mb-1">Source URLs (one per line)</label>
+            <label className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary block mb-1">Source URLs (one per line)</label>
             <textarea
               value={sourceUrls}
               onChange={(e) => setSourceUrls(e.target.value)}
@@ -372,7 +372,7 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
         </div>
 
         {status && (
-          <div className={`font-mono text-[10px] ${status.startsWith('Error') ? 'text-red-400' : status.includes('✓') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
+          <div className={`font-mono text-[var(--admin-label-sm)] ${status.startsWith('Error') ? 'text-red-400' : status.includes('✓') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
             {status}
           </div>
         )}
@@ -381,21 +381,21 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
           <button
             onClick={launchNow}
             disabled={busy}
-            className="font-mono text-[10px] uppercase tracking-widest px-4 py-2 border border-sky-400/40 text-sky-400 bg-sky-400/5 hover:bg-sky-400/10 rounded transition-colors disabled:opacity-50"
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-sky-400/40 text-sky-400 bg-sky-400/5 hover:bg-sky-400/10 rounded transition-colors disabled:opacity-50"
           >
             Launch Now
           </button>
           <button
             onClick={addToQueue}
             disabled={busy}
-            className="font-mono text-[10px] uppercase tracking-widest px-4 py-2 border border-amber-400/40 text-amber-400 bg-amber-400/5 hover:bg-amber-400/10 rounded transition-colors disabled:opacity-50"
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-amber-400/40 text-amber-400 bg-amber-400/5 hover:bg-amber-400/10 rounded transition-colors disabled:opacity-50"
           >
             Add to Queue
           </button>
           <button
             onClick={saveToBacklog}
             disabled={busy}
-            className="font-mono text-[10px] uppercase tracking-widest px-4 py-2 border border-border text-text-secondary hover:text-text-primary hover:border-gold/30 rounded transition-colors disabled:opacity-50"
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-border text-text-secondary hover:text-text-primary hover:border-gold/30 rounded transition-colors disabled:opacity-50"
           >
             Save to Backlog
           </button>
@@ -571,21 +571,21 @@ function SessionDetailPanel({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-serif text-base text-text-primary">{session.title || session.topic}</span>
-            <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5 rounded">
+            <span className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary border border-border px-1.5 py-0.5 rounded">
               {session.status}
             </span>
             {session.session_type === 'enhancement' && (
-              <span className="font-mono text-[9px] uppercase tracking-widest text-gold/70 border border-gold/20 px-1.5 py-0.5 rounded">
+              <span className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-gold/70 border border-gold/20 px-1.5 py-0.5 rounded">
                 enhancement
               </span>
             )}
           </div>
-          <div className="font-mono text-[10px] text-text-tertiary mt-0.5">{session.topic}</div>
+          <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary mt-0.5">{session.topic}</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <a
             href={`/admin/dossiers/${encodeURIComponent(session.topic)}`}
-            className="font-mono text-[9px] uppercase tracking-widest text-gold/70 hover:text-gold border border-gold/20 hover:border-gold/40 px-2 py-1 rounded transition-colors"
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-gold/70 hover:text-gold border border-gold/20 hover:border-gold/40 px-2 py-1 rounded transition-colors"
           >
             Open Dossier →
           </a>
@@ -601,7 +601,7 @@ function SessionDetailPanel({
       <div className="p-5 space-y-5">
         {/* Phase timeline */}
         <div>
-          <div className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mb-3">Research Pipeline</div>
+          <div className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary mb-3">Research Pipeline</div>
           <div className="space-y-3">
             {PHASE_JOB_TYPES.map(({ label, types }, i) => {
               const phaseJobs = sessionJobs.filter((j) => types.includes(j.job_type));
@@ -613,14 +613,14 @@ function SessionDetailPanel({
               return (
                 <div key={label} className="flex items-start gap-3">
                   <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${ring} ${ps === 'running' ? 'animate-pulse' : ''}`}>
-                    <span className={`font-mono text-[8px] ${color}`}>{i + 1}</span>
+                    <span className={`font-mono text-[var(--admin-label-xs)] ${color}`}>{i + 1}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] text-text-primary">{label}</span>
-                      {psIcon && <span className={`font-mono text-[9px] ${color}`}>{psIcon}</span>}
+                      <span className="font-mono text-[var(--admin-label-sm)] text-text-primary">{label}</span>
+                      {psIcon && <span className={`font-mono text-[var(--admin-label-sm)] ${color}`}>{psIcon}</span>}
                       {phaseJobs.length > 0 && (
-                        <span className="font-mono text-[9px] text-text-tertiary">
+                        <span className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">
                           {phaseJobs.length} job{phaseJobs.length !== 1 ? 's' : ''}
                         </span>
                       )}
@@ -628,22 +628,22 @@ function SessionDetailPanel({
                     {/* Awaiting approval jobs */}
                     {phaseJobs.filter((j) => j.status === 'awaiting_approval').map((j) => (
                       <div key={j.id} className="mt-1.5 flex items-center gap-2 pl-2 flex-wrap">
-                        <span className="font-mono text-[9px] text-gold">{JOB_TYPE_LABELS[j.job_type] ?? j.job_type}</span>
+                        <span className="font-mono text-[var(--admin-label-sm)] text-gold">{JOB_TYPE_LABELS[j.job_type] ?? j.job_type}</span>
                         {actionStatus[j.id] ? (
-                          <span className={`font-mono text-[9px] ${actionStatus[j.id].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
+                          <span className={`font-mono text-[var(--admin-label-sm)] ${actionStatus[j.id].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
                             {actionStatus[j.id]}
                           </span>
                         ) : (
                           <div className="flex gap-1.5">
                             <button
                               onClick={() => approveJob(j.id)}
-                              className="font-mono text-[9px] text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/10 px-2 py-0.5 rounded transition-colors"
+                              className="font-mono text-[var(--admin-label-sm)] text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/10 px-2 py-0.5 rounded transition-colors"
                             >
                               Approve
                             </button>
                             <button
                               onClick={() => rejectJob(j.id)}
-                              className="font-mono text-[9px] text-red-400 border border-red-400/30 hover:bg-red-400/10 px-2 py-0.5 rounded transition-colors"
+                              className="font-mono text-[var(--admin-label-sm)] text-red-400 border border-red-400/30 hover:bg-red-400/10 px-2 py-0.5 rounded transition-colors"
                             >
                               Reject
                             </button>
@@ -654,18 +654,18 @@ function SessionDetailPanel({
                     {/* Failed jobs */}
                     {phaseJobs.filter((j) => j.status === 'failed').map((j) => (
                       <div key={j.id} className="mt-1.5 flex items-center gap-2 pl-2 flex-wrap">
-                        <span className="font-mono text-[9px] text-red-400">{JOB_TYPE_LABELS[j.job_type] ?? j.job_type}</span>
+                        <span className="font-mono text-[var(--admin-label-sm)] text-red-400">{JOB_TYPE_LABELS[j.job_type] ?? j.job_type}</span>
                         {j.last_error && (
-                          <span className="font-mono text-[9px] text-red-400/60 truncate max-w-xs">{j.last_error}</span>
+                          <span className="font-mono text-[var(--admin-label-sm)] text-red-400/60 truncate max-w-xs">{j.last_error}</span>
                         )}
                         {actionStatus[j.id] ? (
-                          <span className={`font-mono text-[9px] ${actionStatus[j.id].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
+                          <span className={`font-mono text-[var(--admin-label-sm)] ${actionStatus[j.id].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
                             {actionStatus[j.id]}
                           </span>
                         ) : (
                           <button
                             onClick={() => retryJob(j.id)}
-                            className="font-mono text-[9px] text-gold border border-gold/30 hover:bg-gold/10 px-2 py-0.5 rounded transition-colors"
+                            className="font-mono text-[var(--admin-label-sm)] text-gold border border-gold/30 hover:bg-gold/10 px-2 py-0.5 rounded transition-colors"
                           >
                             Retry
                           </button>
@@ -685,57 +685,57 @@ function SessionDetailPanel({
             <>
               <button
                 onClick={() => reviewSession('approve')}
-                className="font-mono text-[9px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 bg-emerald-400/5 hover:bg-emerald-400/10 px-3 py-1.5 rounded transition-colors"
+                className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 bg-emerald-400/5 hover:bg-emerald-400/10 px-3 py-1.5 rounded transition-colors"
               >
                 Approve Session →
               </button>
               <button
                 onClick={() => reviewSession('reject')}
-                className="font-mono text-[9px] uppercase tracking-widest text-red-400 border border-red-400/30 hover:bg-red-400/10 px-3 py-1.5 rounded transition-colors"
+                className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-red-400 border border-red-400/30 hover:bg-red-400/10 px-3 py-1.5 rounded transition-colors"
               >
                 Reject Session
               </button>
             </>
           )}
           {actionStatus['review'] && (
-            <span className={`font-mono text-[9px] self-center ${actionStatus['review'].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
+            <span className={`font-mono text-[var(--admin-label-sm)] self-center ${actionStatus['review'].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
               {actionStatus['review']}
             </span>
           )}
           {canContinue && !continueStatus && (
             <button
               onClick={continueSession}
-              className="font-mono text-[9px] uppercase tracking-widest text-sky-400 border border-sky-400/30 bg-sky-400/5 hover:bg-sky-400/10 px-3 py-1.5 rounded transition-colors"
+              className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-sky-400 border border-sky-400/30 bg-sky-400/5 hover:bg-sky-400/10 px-3 py-1.5 rounded transition-colors"
             >
               Continue →
             </button>
           )}
           {continueStatus && (
-            <span className={`font-mono text-[9px] self-center ${continueStatus.startsWith('error') || continueStatus === 'failed' ? 'text-red-400' : continueStatus === 'complete ✓' ? 'text-emerald-400' : 'text-sky-400'}`}>
+            <span className={`font-mono text-[var(--admin-label-sm)] self-center ${continueStatus.startsWith('error') || continueStatus === 'failed' ? 'text-red-400' : continueStatus === 'complete ✓' ? 'text-emerald-400' : 'text-sky-400'}`}>
               {continueStatus}
             </span>
           )}
           {!rerunStatus ? (
             <button
               onClick={rerunSession}
-              className="font-mono text-[9px] uppercase tracking-widest text-amber-400 border border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 px-3 py-1.5 rounded transition-colors"
+              className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-amber-400 border border-amber-400/30 bg-amber-400/5 hover:bg-amber-400/10 px-3 py-1.5 rounded transition-colors"
             >
               Re-run →
             </button>
           ) : (
-            <span className={`font-mono text-[9px] self-center ${rerunStatus.startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
+            <span className={`font-mono text-[var(--admin-label-sm)] self-center ${rerunStatus.startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
               {rerunStatus}
             </span>
           )}
           <div className="ml-auto">
             {actionStatus['stop'] ? (
-              <span className={`font-mono text-[9px] ${actionStatus['stop'].startsWith('error') ? 'text-red-400' : 'text-text-tertiary'}`}>
+              <span className={`font-mono text-[var(--admin-label-sm)] ${actionStatus['stop'].startsWith('error') ? 'text-red-400' : 'text-text-tertiary'}`}>
                 {actionStatus['stop']}
               </span>
             ) : (
               <button
                 onClick={stopSession}
-                className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border rounded transition-colors ${
+                className={`font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1.5 border rounded transition-colors ${
                   !['complete', 'failed'].includes(session.status)
                     ? 'text-red-400 border-red-400/30 bg-red-400/5 hover:bg-red-400/15'
                     : 'text-text-tertiary border-border hover:text-red-400 hover:border-red-400/30'
@@ -748,7 +748,7 @@ function SessionDetailPanel({
         </div>
 
         {/* Metadata */}
-        <div className="border-t border-border pt-3 font-mono text-[9px] text-text-tertiary space-y-0.5">
+        <div className="border-t border-border pt-3 font-mono text-[var(--admin-label-sm)] text-text-tertiary space-y-0.5">
           <div>ID: {session.id}</div>
           {session.started_at && <div>Started: {new Date(session.started_at).toLocaleString()}</div>}
           {session.completed_at && session.started_at && (
@@ -783,10 +783,10 @@ function KanbanColumn({
   return (
     <div className="min-w-[240px] w-60 flex-shrink-0">
       <div className="flex items-center justify-between mb-2 px-0.5">
-        <span className={`font-mono text-[9px] uppercase tracking-widest ${accent ?? 'text-text-tertiary'}`}>
+        <span className={`font-mono text-[var(--admin-label-sm)] uppercase tracking-widest ${accent ?? 'text-text-tertiary'}`}>
           {title}
         </span>
-        <span className="font-mono text-[9px] text-text-tertiary">{count}</span>
+        <span className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">{count}</span>
       </div>
       <div className="space-y-2">{children}</div>
     </div>
@@ -796,7 +796,7 @@ function KanbanColumn({
 function EmptySlot() {
   return (
     <div className="border border-dashed border-border rounded px-3 py-4 text-center">
-      <span className="font-mono text-[9px] text-text-tertiary/40">Empty</span>
+      <span className="font-mono text-[var(--admin-label-sm)] text-text-tertiary/40">Empty</span>
     </div>
   );
 }
@@ -843,17 +843,17 @@ function TickControl() {
 
   return (
     <div className="flex items-center gap-3 mb-4 border border-border/40 bg-ground-light/20 px-4 py-2 rounded">
-      <span className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">Job Processor</span>
+      <span className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary">Job Processor</span>
       <button
         onClick={() => void runTick()}
         disabled={autoTick}
-        className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 transition-colors disabled:opacity-40 rounded"
+        className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1.5 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 transition-colors disabled:opacity-40 rounded"
       >
         Run Tick
       </button>
       <button
         onClick={toggleAutoTick}
-        className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border rounded transition-colors ${
+        className={`font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1.5 border rounded transition-colors ${
           autoTick
             ? 'border-emerald-400/50 text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/15'
             : 'border-border text-text-tertiary hover:text-text-secondary'
@@ -862,7 +862,7 @@ function TickControl() {
         {autoTick ? '⊙ Auto-tick ON' : 'Auto-tick OFF'}
       </button>
       {tickStatus && (
-        <span className={`font-mono text-[9px] ${tickStatus.startsWith('error') ? 'text-red-400' : tickStatus.includes('✓') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
+        <span className={`font-mono text-[var(--admin-label-sm)] ${tickStatus.startsWith('error') ? 'text-red-400' : tickStatus.includes('✓') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
           {tickStatus}
         </span>
       )}
@@ -1021,7 +1021,7 @@ export default function StudioPage() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="font-serif text-2xl mb-1">Research Studio</h1>
-          <p className="font-mono text-[10px] text-text-secondary">
+          <p className="font-mono text-[var(--admin-label-sm)] text-text-secondary">
             {backlogCol.length} backlog · {queuedCol.length} queued · {runningSessionItems.length + runningQueueItems.length} running · {approvalCol.length} need review
             <button
               onClick={() => void refresh()}
@@ -1048,33 +1048,33 @@ export default function StudioPage() {
                 <div className="text-sm text-text-primary font-medium leading-snug mb-0.5">
                   {item.title || item.topic}
                 </div>
-                <div className="font-mono text-[9px] text-text-tertiary mb-2">{item.topic}</div>
+                <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary mb-2">{item.topic}</div>
                 {item.research_questions.length > 0 && (
-                  <div className="font-mono text-[9px] text-text-tertiary mb-2">
+                  <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary mb-2">
                     {item.research_questions.length} question{item.research_questions.length !== 1 ? 's' : ''}
                   </div>
                 )}
                 {actionStatus[item.id] ? (
-                  <div className={`font-mono text-[9px] ${actionStatus[item.id].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
+                  <div className={`font-mono text-[var(--admin-label-sm)] ${actionStatus[item.id].startsWith('error') ? 'text-red-400' : 'text-emerald-400'}`}>
                     {actionStatus[item.id]}
                   </div>
                 ) : (
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => launchBacklogItem(item)}
-                      className="font-mono text-[9px] text-sky-400 border border-sky-400/30 hover:bg-sky-400/10 px-2 py-0.5 rounded transition-colors"
+                      className="font-mono text-[var(--admin-label-sm)] text-sky-400 border border-sky-400/30 hover:bg-sky-400/10 px-2 py-0.5 rounded transition-colors"
                     >
                       Launch
                     </button>
                     <button
                       onClick={() => archiveBacklogItem(item)}
-                      className="font-mono text-[9px] text-text-tertiary border border-border hover:text-red-400 hover:border-red-400/30 px-2 py-0.5 rounded transition-colors"
+                      className="font-mono text-[var(--admin-label-sm)] text-text-tertiary border border-border hover:text-red-400 hover:border-red-400/30 px-2 py-0.5 rounded transition-colors"
                     >
                       Archive
                     </button>
                   </div>
                 )}
-                <div className="font-mono text-[8px] text-text-tertiary/50 mt-1.5">{timeAgo(item.created_at)}</div>
+                <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/50 mt-1.5">{timeAgo(item.created_at)}</div>
               </div>
             ))}
           </KanbanColumn>
@@ -1086,16 +1086,16 @@ export default function StudioPage() {
                 <div className="text-sm text-text-primary font-medium leading-snug mb-0.5">
                   {item.title || item.topic}
                 </div>
-                <div className="font-mono text-[9px] text-text-tertiary mb-1">{item.topic}</div>
+                <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary mb-1">{item.topic}</div>
                 {item.session_id && (
                   <button
                     onClick={() => { const s = sessions.find((x) => x.id === item.session_id); if (s) setSelectedSession(s); }}
-                    className="font-mono text-[9px] text-gold/60 hover:text-gold transition-colors block"
+                    className="font-mono text-[var(--admin-label-sm)] text-gold/60 hover:text-gold transition-colors block"
                   >
                     → session {item.session_id.slice(0, 8)}
                   </button>
                 )}
-                <div className="font-mono text-[8px] text-text-tertiary/50 mt-1.5">{timeAgo(item.created_at)}</div>
+                <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/50 mt-1.5">{timeAgo(item.created_at)}</div>
               </div>
             ))}
           </KanbanColumn>
@@ -1118,16 +1118,16 @@ export default function StudioPage() {
                   <div className="text-sm text-text-primary font-medium leading-snug mb-0.5">
                     {s.title || s.topic}
                   </div>
-                  <div className="font-mono text-[9px] text-sky-400 mb-0.5">
+                  <div className="font-mono text-[var(--admin-label-sm)] text-sky-400 mb-0.5">
                     {SESSION_STATUS_LABELS[s.status] ?? s.status}
                   </div>
-                  <div className="font-mono text-[9px] text-text-tertiary">{s.topic}</div>
+                  <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">{s.topic}</div>
                   {activeJobs.length > 0 && (
-                    <div className="font-mono text-[9px] text-text-tertiary mt-0.5">
+                    <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary mt-0.5">
                       {activeJobs.length} active job{activeJobs.length !== 1 ? 's' : ''}
                     </div>
                   )}
-                  <div className="font-mono text-[8px] text-text-tertiary/50 mt-1.5">{timeAgo(s.created_at)}</div>
+                  <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/50 mt-1.5">{timeAgo(s.created_at)}</div>
                 </button>
               );
             })}
@@ -1136,17 +1136,17 @@ export default function StudioPage() {
                 <div className="text-sm text-text-primary font-medium leading-snug mb-0.5">
                   {item.title || item.topic}
                 </div>
-                <div className="font-mono text-[9px] text-amber-400 mb-0.5">Queue Running</div>
-                <div className="font-mono text-[9px] text-text-tertiary">{item.topic}</div>
+                <div className="font-mono text-[var(--admin-label-sm)] text-amber-400 mb-0.5">Queue Running</div>
+                <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">{item.topic}</div>
                 {item.session_id && (
                   <button
                     onClick={() => { const s = sessions.find((x) => x.id === item.session_id); if (s) setSelectedSession(s); }}
-                    className="font-mono text-[9px] text-gold/60 hover:text-gold transition-colors block mt-0.5"
+                    className="font-mono text-[var(--admin-label-sm)] text-gold/60 hover:text-gold transition-colors block mt-0.5"
                   >
                     → session {item.session_id.slice(0, 8)}
                   </button>
                 )}
-                <div className="font-mono text-[8px] text-text-tertiary/50 mt-1.5">{timeAgo(item.created_at)}</div>
+                <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/50 mt-1.5">{timeAgo(item.created_at)}</div>
               </div>
             ))}
           </KanbanColumn>
@@ -1167,13 +1167,13 @@ export default function StudioPage() {
                   <div className="text-sm text-text-primary font-medium leading-snug mb-0.5">
                     {session.title || session.topic}
                   </div>
-                  <div className="font-mono text-[9px] text-gold mb-0.5">
+                  <div className="font-mono text-[var(--admin-label-sm)] text-gold mb-0.5">
                     {isSessionReview
                       ? 'Session Review'
                       : `${approvalJobs.length} job${approvalJobs.length !== 1 ? 's' : ''} need approval`}
                   </div>
-                  <div className="font-mono text-[9px] text-text-tertiary">{session.topic}</div>
-                  <div className="font-mono text-[8px] text-text-tertiary/50 mt-1.5">{timeAgo(session.created_at)}</div>
+                  <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">{session.topic}</div>
+                  <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/50 mt-1.5">{timeAgo(session.created_at)}</div>
                 </button>
               );
             })}
@@ -1195,16 +1195,16 @@ export default function StudioPage() {
                 <div className="text-sm text-text-primary font-medium leading-snug mb-0.5">
                   {s.title || s.topic}
                 </div>
-                <div className="font-mono text-[9px] text-text-tertiary">{s.topic}</div>
+                <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">{s.topic}</div>
                 <div className="flex items-center gap-2 mt-1">
                   <a
                     href={`/admin/dossiers/${encodeURIComponent(s.topic)}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-[9px] text-gold/60 hover:text-gold transition-colors"
+                    className="font-mono text-[var(--admin-label-sm)] text-gold/60 hover:text-gold transition-colors"
                   >
                     Dossier →
                   </a>
-                  <span className="font-mono text-[8px] text-text-tertiary/50">
+                  <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/50">
                     {timeAgo(s.completed_at ?? s.created_at)}
                   </span>
                 </div>
@@ -1213,7 +1213,7 @@ export default function StudioPage() {
             {completeSessions.length > ARCHIVE_CAP && !showAllComplete && (
               <button
                 onClick={() => setShowAllComplete(true)}
-                className="w-full font-mono text-[9px] text-text-tertiary hover:text-gold border border-border rounded py-2 transition-colors"
+                className="w-full font-mono text-[var(--admin-label-sm)] text-text-tertiary hover:text-gold border border-border rounded py-2 transition-colors"
               >
                 Show all {completeSessions.length} →
               </button>
@@ -1236,22 +1236,22 @@ export default function StudioPage() {
                 <div className="text-sm text-text-primary font-medium leading-snug mb-0.5">
                   {item.title || item.topic}
                 </div>
-                <div className="font-mono text-[9px] text-red-400/60 mb-0.5">
+                <div className="font-mono text-[var(--admin-label-sm)] text-red-400/60 mb-0.5">
                   {item.type === 'session' ? 'Session' : 'Queue'} failed
                 </div>
-                <div className="font-mono text-[9px] text-text-tertiary">{item.topic}</div>
+                <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">{item.topic}</div>
                 {item.type === 'session' && (item.session?.error_log?.length ?? 0) > 0 && (
-                  <div className="font-mono text-[9px] text-red-400/50 mt-0.5 truncate">
+                  <div className="font-mono text-[var(--admin-label-sm)] text-red-400/50 mt-0.5 truncate">
                     {item.session!.error_log[item.session!.error_log.length - 1]}
                   </div>
                 )}
-                <div className="font-mono text-[8px] text-text-tertiary/50 mt-1.5">{timeAgo(item.created_at)}</div>
+                <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/50 mt-1.5">{timeAgo(item.created_at)}</div>
               </div>
             ))}
             {failedItems.length > ARCHIVE_CAP && !showAllFailed && (
               <button
                 onClick={() => setShowAllFailed(true)}
-                className="w-full font-mono text-[9px] text-text-tertiary hover:text-gold border border-border rounded py-2 transition-colors"
+                className="w-full font-mono text-[var(--admin-label-sm)] text-text-tertiary hover:text-gold border border-border rounded py-2 transition-colors"
               >
                 Show all {failedItems.length} →
               </button>

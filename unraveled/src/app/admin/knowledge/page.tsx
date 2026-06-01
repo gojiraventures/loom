@@ -253,24 +253,24 @@ function EnhancedDiffPanel({
       {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <p className="font-mono text-[8px] uppercase tracking-widest text-sky-400">
+          <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-sky-400">
             {changed.length} field{changed.length !== 1 ? 's' : ''} changed
           </p>
           {changed.length > 0 && (
             <div className="flex gap-1">
               <button onClick={() => toggleAll(true)}
-                className="font-mono text-[7px] uppercase tracking-widest border border-border text-text-tertiary hover:text-text-primary px-1.5 py-0.5 transition-colors">
+                className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border border-border text-text-tertiary hover:text-text-primary px-1.5 py-0.5 transition-colors">
                 Select All
               </button>
               <button onClick={() => toggleAll(false)}
-                className="font-mono text-[7px] uppercase tracking-widest border border-border text-text-tertiary hover:text-text-primary px-1.5 py-0.5 transition-colors">
+                className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border border-border text-text-tertiary hover:text-text-primary px-1.5 py-0.5 transition-colors">
                 Deselect All
               </button>
             </div>
           )}
         </div>
         <button onClick={onDismiss}
-          className="font-mono text-[8px] text-text-tertiary hover:text-text-secondary transition-colors">
+          className="font-mono text-[var(--admin-label-xs)] text-text-tertiary hover:text-text-secondary transition-colors">
           ✕ dismiss
         </button>
       </div>
@@ -278,21 +278,21 @@ function EnhancedDiffPanel({
       {warnings.length > 0 && (
         <div className="border border-amber-400/30 bg-amber-400/5 rounded p-2 space-y-1">
           {warnings.map((w, i) => (
-            <p key={i} className="font-mono text-[9px] text-amber-400/80">⚠ {w}</p>
+            <p key={i} className="font-mono text-[var(--admin-label-sm)] text-amber-400/80">⚠ {w}</p>
           ))}
         </div>
       )}
 
       {changed.length === 0 ? (
-        <p className="font-mono text-[9px] text-text-tertiary">No differences found — data looks current.</p>
+        <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">No differences found — data looks current.</p>
       ) : (
         <div>
           {/* Column headers */}
           <div className="grid grid-cols-[16px_80px_1fr_1fr] gap-2 mb-1.5 px-0.5">
             <span />
-            <span className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">Field</span>
-            <span className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">Current</span>
-            <span className="font-mono text-[7px] uppercase tracking-widest text-sky-400">Proposed</span>
+            <span className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Field</span>
+            <span className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Current</span>
+            <span className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-sky-400">Proposed</span>
           </div>
           <div className="space-y-1.5">
             {changed.map(({ key, label }) => {
@@ -308,7 +308,7 @@ function EnhancedDiffPanel({
                     onChange={e => setSelected(s => ({ ...s, [key as string]: e.target.checked }))}
                     className="mt-0.5 accent-sky-400"
                   />
-                  <span className="font-mono text-[8px] text-text-tertiary pt-1 truncate">{label}</span>
+                  <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary pt-1 truncate">{label}</span>
                   <span className="text-xs text-text-tertiary line-clamp-2 bg-ground rounded px-2 py-1">{currentVal || '—'}</span>
                   <span className="text-xs text-text-primary line-clamp-2 bg-ground rounded px-2 py-1 border border-sky-400/20">{freshVal}</span>
                 </label>
@@ -316,7 +316,7 @@ function EnhancedDiffPanel({
             })}
           </div>
           {unchanged.length > 0 && (
-            <p className="font-mono text-[8px] text-text-tertiary mt-2">
+            <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary mt-2">
               {unchanged.length} field{unchanged.length !== 1 ? 's' : ''} unchanged — {unchanged.map(f => f.label).join(', ')}
             </p>
           )}
@@ -328,7 +328,7 @@ function EnhancedDiffPanel({
           <button
             onClick={() => onApply(allChanged)}
             disabled={applyingDiff}
-            className="font-mono text-[8px] uppercase tracking-widest text-sky-400 border border-sky-400/30 px-3 py-1.5 rounded hover:bg-sky-400/5 transition-colors disabled:opacity-40"
+            className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-sky-400 border border-sky-400/30 px-3 py-1.5 rounded hover:bg-sky-400/5 transition-colors disabled:opacity-40"
           >
             {applyingDiff ? 'Applying...' : `Accept All (${changed.length})`}
           </button>
@@ -336,7 +336,7 @@ function EnhancedDiffPanel({
             <button
               onClick={() => onApply(selectedFields)}
               disabled={applyingDiff}
-              className="font-mono text-[8px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-3 py-1.5 rounded hover:bg-emerald-400/5 transition-colors disabled:opacity-40"
+              className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-3 py-1.5 rounded hover:bg-emerald-400/5 transition-colors disabled:opacity-40"
             >
               {applyingDiff ? 'Applying...' : `Accept Selected (${selectedCount})`}
             </button>
@@ -345,14 +345,14 @@ function EnhancedDiffPanel({
             <button
               onClick={() => onApply(selectedFields)}
               disabled={applyingDiff}
-              className="font-mono text-[8px] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-3 py-1.5 rounded hover:bg-emerald-400/5 transition-colors disabled:opacity-40"
+              className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-emerald-400 border border-emerald-400/30 px-3 py-1.5 rounded hover:bg-emerald-400/5 transition-colors disabled:opacity-40"
             >
               {applyingDiff ? 'Applying...' : `Accept Selected (${selectedCount})`}
             </button>
           )}
           <button
             onClick={onDismiss}
-            className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary px-3 py-1.5 rounded hover:text-text-secondary transition-colors"
+            className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary px-3 py-1.5 rounded hover:text-text-secondary transition-colors"
           >
             Discard
           </button>
@@ -520,22 +520,22 @@ function GlobalEntitiesView() {
       <div className="flex gap-6 border border-border bg-ground-light/20 px-4 py-3">
         <div>
           <div className="font-serif text-xl text-gold">{counts.people}</div>
-          <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">People</div>
+          <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">People</div>
         </div>
         <div>
           <div className="font-serif text-xl text-text-primary">{counts.institutions}</div>
-          <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Institutions</div>
+          <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Institutions</div>
         </div>
         {counts.stale > 0 && (
           <div>
             <div className="font-serif text-xl text-amber-400">{counts.stale}</div>
-            <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Stale</div>
+            <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Stale</div>
           </div>
         )}
         {counts.needsReview > 0 && (
           <div>
             <div className="font-serif text-xl text-sky-400">{counts.needsReview}</div>
-            <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Needs Review</div>
+            <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">Needs Review</div>
           </div>
         )}
       </div>
@@ -554,7 +554,7 @@ function GlobalEntitiesView() {
         <div className="flex gap-0 border border-border">
           {(['all', 'people', 'institutions'] as TypeFilter[]).map(t => (
             <button key={t} onClick={() => setTypeFilter(t)}
-              className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${typeFilter === t ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
+              className={`font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${typeFilter === t ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
               {t === 'all' ? 'All' : t}
             </button>
           ))}
@@ -564,7 +564,7 @@ function GlobalEntitiesView() {
         <div className="flex gap-0 border border-border">
           {(['all', 'draft', 'published', 'needs_review', 'stale'] as StatusFilter[]).map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
-              className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${statusFilter === s ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
+              className={`font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${statusFilter === s ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
               {s === 'needs_review' ? 'Review' : s}
             </button>
           ))}
@@ -573,17 +573,17 @@ function GlobalEntitiesView() {
         {/* Batch enrich */}
         <div className="flex items-center gap-2 ml-auto">
           <button onClick={batchEnrich} disabled={enriching}
-            className="font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-50">
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1.5 border border-amber-400/40 text-amber-400 hover:bg-amber-400/10 transition-colors disabled:opacity-50">
             {enriching ? '⊙ Enriching...' : '⊙ Enrich People (10)'}
           </button>
-          <button onClick={load} className="font-mono text-[9px] uppercase tracking-widest px-2 py-1.5 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
+          <button onClick={load} className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-2 py-1.5 border border-border text-text-tertiary hover:text-text-secondary transition-colors">
             ↺
           </button>
         </div>
       </div>
 
       {enrichResult && (
-        <p className={`font-mono text-[10px] border-l-2 pl-3 ${enrichResult.startsWith('Error') || enrichResult.startsWith('Request') ? 'text-red-400 border-red-400/40' : 'text-emerald-400 border-emerald-400/40'}`}>
+        <p className={`font-mono text-[var(--admin-label-sm)] border-l-2 pl-3 ${enrichResult.startsWith('Error') || enrichResult.startsWith('Request') ? 'text-red-400 border-red-400/40' : 'text-emerald-400 border-emerald-400/40'}`}>
           {enrichResult}
         </p>
       )}
@@ -605,36 +605,36 @@ function GlobalEntitiesView() {
               return (
                 <div className="border-b border-border/40 py-3 px-1 flex items-start gap-3 hover:bg-ground-light/10 transition-colors">
                   {/* Type badge */}
-                  <span className="font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 shrink-0 mt-0.5 text-gold border-gold/30 bg-gold/5">
+                  <span className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 shrink-0 mt-0.5 text-gold border-gold/30 bg-gold/5">
                     Person
                   </span>
 
                   {/* Main info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <span className="font-serif text-sm text-text-primary">{p.full_name}</span>
-                      <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 ${statusColor(p.status)}`}>
+                      <span className="font-serif text-[var(--admin-title-sm)] text-text-primary">{p.full_name}</span>
+                      <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 ${statusColor(p.status)}`}>
                         {p.status ?? 'draft'}
                       </span>
                       {stale && (
-                        <span className="font-mono text-[7px] uppercase tracking-widest border border-amber-400/30 text-amber-400 px-1.5 py-0.5">
+                        <span className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border border-amber-400/30 text-amber-400 px-1.5 py-0.5">
                           stale
                         </span>
                       )}
                       {p.credibility_tier && p.credibility_tier !== 'unclassified' && (
-                        <span className="font-mono text-[7px] uppercase tracking-widest border border-border text-text-tertiary px-1.5 py-0.5">
+                        <span className="font-mono text-[var(--admin-label-xs)] border border-border text-text-tertiary px-1.5 py-0.5">
                           {p.credibility_tier}
                         </span>
                       )}
                     </div>
                     {p.short_bio && (
-                      <p className="text-xs text-text-tertiary line-clamp-1 mt-0.5">{p.short_bio}</p>
+                      <p className="text-[var(--admin-body)] text-text-secondary leading-snug line-clamp-2 mt-0.5">{p.short_bio}</p>
                     )}
                     {/* Missing field chips */}
                     {missing.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {missing.map(f => (
-                          <span key={f} className="font-mono text-[7px] border border-red-400/20 text-red-400/70 px-1 py-0.5">
+                          <span key={f} className="font-mono text-[var(--admin-label-xs)] border border-red-400/20 text-red-400/70 px-1 py-0.5">
                             missing: {f}
                           </span>
                         ))}
@@ -647,30 +647,30 @@ function GlobalEntitiesView() {
                     {(p.topic_count ?? 0) > 0 && (
                       <div>
                         <div className="font-serif text-sm text-text-primary">{p.topic_count}</div>
-                        <div className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">dossiers</div>
+                        <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">dossiers</div>
                       </div>
                     )}
                     {(p.relationship_count ?? 0) > 0 && (
                       <div>
                         <div className="font-serif text-sm text-text-secondary">{p.relationship_count}</div>
-                        <div className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">links</div>
+                        <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">links</div>
                       </div>
                     )}
                     {rowStatus[p.id] ? (
-                      <span className={`font-mono text-[8px] ${rowStatus[p.id].startsWith('error') ? 'text-red-400' : rowStatus[p.id] === 'researching…' ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`}>
+                      <span className={`font-mono text-[var(--admin-label-xs)] ${rowStatus[p.id].startsWith('error') ? 'text-red-400' : rowStatus[p.id] === 'researching…' ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`}>
                         {rowStatus[p.id]}
                       </span>
                     ) : (
                       <button
                         onClick={() => void enrichPerson(p)}
-                        className="font-mono text-[8px] uppercase tracking-widest border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 px-2 py-1 transition-colors"
+                        className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 px-2 py-1 transition-colors"
                       >
                         Enrich
                       </button>
                     )}
                     {p.slug && (
                       <a href={`/people/${p.slug}`} target="_blank" rel="noopener noreferrer"
-                        className="font-mono text-[8px] uppercase tracking-widest border border-border text-text-tertiary hover:text-gold hover:border-gold/30 px-2 py-1 transition-colors">
+                        className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border border-border text-text-tertiary hover:text-gold hover:border-gold/30 px-2 py-1 transition-colors">
                         View
                       </a>
                     )}
@@ -684,24 +684,24 @@ function GlobalEntitiesView() {
               return (
                 <div className="border-b border-border/40 py-3 px-1 flex items-start gap-3 hover:bg-ground-light/10 transition-colors">
                   {/* Type badge */}
-                  <span className="font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 shrink-0 mt-0.5 text-sky-400 border-sky-400/30 bg-sky-400/5">
+                  <span className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 shrink-0 mt-0.5 text-sky-400 border-sky-400/30 bg-sky-400/5">
                     Inst
                   </span>
 
                   {/* Main info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <span className="font-serif text-sm text-text-primary">{inst.name}</span>
-                      <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 ${statusColor(inst.status)}`}>
+                      <span className="font-serif text-[var(--admin-title-sm)] text-text-primary">{inst.name}</span>
+                      <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 ${statusColor(inst.status)}`}>
                         {inst.status}
                       </span>
                       {inst.institution_type && (
-                        <span className="font-mono text-[7px] uppercase tracking-widest border border-border text-text-tertiary px-1.5 py-0.5">
+                        <span className="font-mono text-[var(--admin-label-xs)] border border-border text-text-tertiary px-1.5 py-0.5">
                           {inst.institution_type}
                         </span>
                       )}
                       {inst.transparency_tier && inst.transparency_tier !== 'standard' && (
-                        <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 ${
+                        <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 ${
                           inst.transparency_tier === 'classified' || inst.transparency_tier === 'defunct_classified'
                             ? 'text-red-400 border-red-400/30' :
                           inst.transparency_tier === 'opaque'
@@ -713,10 +713,10 @@ function GlobalEntitiesView() {
                       )}
                     </div>
                     {inst.short_bio && (
-                      <p className="text-xs text-text-tertiary line-clamp-1 mt-0.5">{inst.short_bio}</p>
+                      <p className="text-[var(--admin-body)] text-text-secondary leading-snug line-clamp-2 mt-0.5">{inst.short_bio}</p>
                     )}
                     {inst.headquarters_city && (
-                      <p className="font-mono text-[8px] text-text-tertiary mt-0.5">
+                      <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary mt-0.5">
                         {inst.headquarters_city}{inst.headquarters_country ? `, ${inst.headquarters_country}` : ''}
                       </p>
                     )}
@@ -724,7 +724,7 @@ function GlobalEntitiesView() {
                     {missing.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {missing.map(f => (
-                          <span key={f} className="font-mono text-[7px] border border-red-400/20 text-red-400/70 px-1 py-0.5">
+                          <span key={f} className="font-mono text-[var(--admin-label-xs)] border border-red-400/20 text-red-400/70 px-1 py-0.5">
                             missing: {f}
                           </span>
                         ))}
@@ -737,30 +737,30 @@ function GlobalEntitiesView() {
                     {(inst.people_count ?? 0) > 0 && (
                       <div>
                         <div className="font-serif text-sm text-text-primary">{inst.people_count}</div>
-                        <div className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">people</div>
+                        <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">people</div>
                       </div>
                     )}
                     {(inst.relationship_count ?? 0) > 0 && (
                       <div>
                         <div className="font-serif text-sm text-text-secondary">{inst.relationship_count}</div>
-                        <div className="font-mono text-[7px] uppercase tracking-widest text-text-tertiary">links</div>
+                        <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">links</div>
                       </div>
                     )}
                     {rowStatus[inst.id] ? (
-                      <span className={`font-mono text-[8px] ${rowStatus[inst.id].startsWith('error') ? 'text-red-400' : rowStatus[inst.id] === 'researching…' ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`}>
+                      <span className={`font-mono text-[var(--admin-label-xs)] ${rowStatus[inst.id].startsWith('error') ? 'text-red-400' : rowStatus[inst.id] === 'researching…' ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`}>
                         {rowStatus[inst.id]}
                       </span>
                     ) : (
                       <button
                         onClick={() => void enrichInstitution(inst)}
-                        className="font-mono text-[8px] uppercase tracking-widest border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 px-2 py-1 transition-colors"
+                        className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border border-sky-400/30 text-sky-400 hover:bg-sky-400/10 px-2 py-1 transition-colors"
                       >
                         Enrich
                       </button>
                     )}
                     {inst.slug && (
                       <a href={`/institutions/${inst.slug}`} target="_blank" rel="noopener noreferrer"
-                        className="font-mono text-[8px] uppercase tracking-widest border border-border text-text-tertiary hover:text-gold hover:border-gold/30 px-2 py-1 transition-colors">
+                        className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border border-border text-text-tertiary hover:text-gold hover:border-gold/30 px-2 py-1 transition-colors">
                         View
                       </a>
                     )}
@@ -996,7 +996,7 @@ function AddEntitiesView() {
   }
 
   const inputCls = 'w-full bg-ground border border-border px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-gold/40 rounded';
-  const labelCls = 'font-mono text-[8px] uppercase tracking-widest text-text-tertiary block mb-1';
+  const labelCls = 'font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary block mb-1';
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -1004,7 +1004,7 @@ function AddEntitiesView() {
       <div className="flex gap-0 border border-border w-fit">
         {(['person', 'institution', 'wishlist'] as AddTab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`font-mono text-[9px] uppercase tracking-widest px-4 py-2 border-r border-border last:border-r-0 transition-colors ${tab === t ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
+            className={`font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border-r border-border last:border-r-0 transition-colors ${tab === t ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
             {t === 'person' ? 'Add Person' : t === 'institution' ? 'Add Institution' : 'Wishlist'}
           </button>
         ))}
@@ -1015,8 +1015,8 @@ function AddEntitiesView() {
         <div className="space-y-6">
           {/* Research & Add */}
           <div className="border border-border bg-ground-light/20 p-4 rounded space-y-3">
-            <h3 className="font-mono text-[9px] uppercase tracking-widest text-sky-400">Research & Add</h3>
-            <p className="font-mono text-[9px] text-text-tertiary">Look up a person by name and pre-fill the form with AI research results.</p>
+            <h3 className="font-mono font-medium text-[var(--admin-label)] text-sky-400">Research & Add</h3>
+            <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">Look up a person by name and pre-fill the form with AI research results.</p>
             <div className="flex gap-2">
               <input
                 value={personResearchName}
@@ -1028,7 +1028,7 @@ function AddEntitiesView() {
               <button
                 onClick={() => void researchPerson()}
                 disabled={personResearching || !personResearchName.trim()}
-                className="font-mono text-[9px] uppercase tracking-widest px-4 py-1.5 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 rounded transition-colors disabled:opacity-40"
+                className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-1.5 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 rounded transition-colors disabled:opacity-40"
               >
                 {personResearching ? '⊙ Researching…' : 'Research →'}
               </button>
@@ -1037,7 +1037,7 @@ function AddEntitiesView() {
 
           {/* Form */}
           <form onSubmit={e => void savePerson(e)} className="space-y-4">
-            <h3 className="font-mono text-[9px] uppercase tracking-widest text-gold">Person Details</h3>
+            <h3 className="font-mono font-medium text-[var(--admin-label)] text-gold">Person Details</h3>
             <div>
               <label className={labelCls}>Full name *</label>
               <input value={personForm.full_name} onChange={e => setPersonForm(f => ({ ...f, full_name: e.target.value }))} required className={inputCls} placeholder="Full name" />
@@ -1079,12 +1079,12 @@ function AddEntitiesView() {
               <input value={personForm.wikipedia_url} onChange={e => setPersonForm(f => ({ ...f, wikipedia_url: e.target.value }))} className={inputCls} placeholder="https://en.wikipedia.org/…" />
             </div>
             {personStatus && (
-              <p className={`font-mono text-[10px] ${personStatus.startsWith('Error') ? 'text-red-400' : personStatus.includes('✓') ? 'text-emerald-400' : 'text-sky-400'}`}>
+              <p className={`font-mono text-[var(--admin-label-sm)] ${personStatus.startsWith('Error') ? 'text-red-400' : personStatus.includes('✓') ? 'text-emerald-400' : 'text-sky-400'}`}>
                 {personStatus}
               </p>
             )}
             <button type="submit" disabled={personSaving}
-              className="font-mono text-[9px] uppercase tracking-widest px-5 py-2 bg-gold text-ground hover:bg-gold/90 rounded transition-colors disabled:opacity-50">
+              className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-5 py-2 bg-gold text-ground hover:bg-gold/90 rounded transition-colors disabled:opacity-50">
               {personSaving ? 'Saving…' : 'Save Person'}
             </button>
           </form>
@@ -1096,8 +1096,8 @@ function AddEntitiesView() {
         <div className="space-y-6">
           {/* Research & Add */}
           <div className="border border-border bg-ground-light/20 p-4 rounded space-y-3">
-            <h3 className="font-mono text-[9px] uppercase tracking-widest text-sky-400">Research & Add</h3>
-            <p className="font-mono text-[9px] text-text-tertiary">Look up an institution by name and pre-fill the form with AI research results.</p>
+            <h3 className="font-mono font-medium text-[var(--admin-label)] text-sky-400">Research & Add</h3>
+            <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">Look up an institution by name and pre-fill the form with AI research results.</p>
             <div className="flex gap-2">
               <input
                 value={instResearchName}
@@ -1109,7 +1109,7 @@ function AddEntitiesView() {
               <button
                 onClick={() => void researchInstitution()}
                 disabled={instResearching || !instResearchName.trim()}
-                className="font-mono text-[9px] uppercase tracking-widest px-4 py-1.5 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 rounded transition-colors disabled:opacity-40"
+                className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-1.5 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 rounded transition-colors disabled:opacity-40"
               >
                 {instResearching ? '⊙ Researching…' : 'Research →'}
               </button>
@@ -1118,7 +1118,7 @@ function AddEntitiesView() {
 
           {/* Form */}
           <form onSubmit={e => void saveInstitution(e)} className="space-y-4">
-            <h3 className="font-mono text-[9px] uppercase tracking-widest text-gold">Institution Details</h3>
+            <h3 className="font-mono font-medium text-[var(--admin-label)] text-gold">Institution Details</h3>
             <div>
               <label className={labelCls}>Name *</label>
               <input value={instForm.name} onChange={e => setInstForm(f => ({ ...f, name: e.target.value }))} required className={inputCls} placeholder="Institution name" />
@@ -1164,19 +1164,19 @@ function AddEntitiesView() {
               </div>
             </div>
             {instStatus && (
-              <p className={`font-mono text-[10px] ${instStatus.startsWith('Error') ? 'text-red-400' : instStatus.includes('✓') ? 'text-emerald-400' : 'text-sky-400'}`}>
+              <p className={`font-mono text-[var(--admin-label-sm)] ${instStatus.startsWith('Error') ? 'text-red-400' : instStatus.includes('✓') ? 'text-emerald-400' : 'text-sky-400'}`}>
                 {instStatus}
               </p>
             )}
             <button type="submit" disabled={instSaving}
-              className="font-mono text-[9px] uppercase tracking-widest px-5 py-2 bg-gold text-ground hover:bg-gold/90 rounded transition-colors disabled:opacity-50">
+              className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-5 py-2 bg-gold text-ground hover:bg-gold/90 rounded transition-colors disabled:opacity-50">
               {instSaving ? 'Saving…' : 'Save Institution'}
             </button>
           </form>
 
           {/* Logo upload */}
           <div className="border border-border bg-ground-light/20 p-4 rounded space-y-3">
-            <h3 className="font-mono text-[9px] uppercase tracking-widest text-violet-400">Upload Institution Logo</h3>
+            <h3 className="font-mono font-medium text-[var(--admin-label)] text-violet-400">Upload Institution Logo</h3>
             <form onSubmit={e => void uploadLogo(e)} className="space-y-3">
               <div>
                 <label className={labelCls}>Institution name</label>
@@ -1188,16 +1188,16 @@ function AddEntitiesView() {
                   type="file"
                   accept="image/*"
                   onChange={e => setLogoFile(e.target.files?.[0] ?? null)}
-                  className="w-full font-mono text-[10px] text-text-secondary file:mr-3 file:font-mono file:text-[9px] file:uppercase file:tracking-widest file:border file:border-border file:text-text-tertiary file:bg-ground file:px-3 file:py-1 file:rounded file:transition-colors hover:file:text-gold"
+                  className="w-full font-mono text-[var(--admin-label-sm)] text-text-secondary file:mr-3 file:font-mono file:text-[var(--admin-label-sm)] file:uppercase file:tracking-widest file:border file:border-border file:text-text-tertiary file:bg-ground file:px-3 file:py-1 file:rounded file:transition-colors hover:file:text-gold"
                 />
               </div>
               {logoStatus && (
-                <p className={`font-mono text-[10px] ${logoStatus.startsWith('Error') ? 'text-red-400' : logoStatus.includes('✓') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
+                <p className={`font-mono text-[var(--admin-label-sm)] ${logoStatus.startsWith('Error') ? 'text-red-400' : logoStatus.includes('✓') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
                   {logoStatus}
                 </p>
               )}
               <button type="submit" disabled={logoUploading || !logoFile || !logoInstName.trim()}
-                className="font-mono text-[9px] uppercase tracking-widest px-4 py-2 border border-violet-400/40 text-violet-400 hover:bg-violet-400/10 rounded transition-colors disabled:opacity-40">
+                className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-violet-400/40 text-violet-400 hover:bg-violet-400/10 rounded transition-colors disabled:opacity-40">
                 {logoUploading ? 'Uploading…' : 'Upload Logo'}
               </button>
             </form>
@@ -1209,16 +1209,16 @@ function AddEntitiesView() {
       {tab === 'wishlist' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="font-mono text-[9px] text-text-tertiary">
+            <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">
               People suggested for research based on their appearance in existing profiles.
             </p>
-            <button onClick={() => void loadWishlist()} className="font-mono text-[9px] text-text-tertiary hover:text-gold transition-colors">↺ Refresh</button>
+            <button onClick={() => void loadWishlist()} className="font-mono text-[var(--admin-label-sm)] text-text-tertiary hover:text-gold transition-colors">↺ Refresh</button>
           </div>
           {loadingWishlist ? (
-            <p className="font-mono text-[10px] text-text-tertiary animate-pulse">Loading…</p>
+            <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary animate-pulse">Loading…</p>
           ) : wishlist.length === 0 ? (
             <div className="border border-border bg-ground-light/20 p-8 text-center">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary">Wishlist is empty</p>
+              <p className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary">Wishlist is empty</p>
             </div>
           ) : (
             <div className="border border-border divide-y divide-border/40">
@@ -1230,32 +1230,32 @@ function AddEntitiesView() {
                       <div className="flex items-center gap-2 flex-wrap mb-0.5">
                         <span className="font-serif text-sm text-text-primary">{item.person_name}</span>
                         {item.relationship_type && (
-                          <span className="font-mono text-[7px] uppercase border border-border text-text-tertiary px-1.5 py-0.5">
+                          <span className="font-mono text-[var(--admin-label-xs)] uppercase border border-border text-text-tertiary px-1.5 py-0.5">
                             {item.relationship_type}
                           </span>
                         )}
                       </div>
                       {item.source_person_name && (
-                        <p className="font-mono text-[9px] text-text-tertiary">via {item.source_person_name}</p>
+                        <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">via {item.source_person_name}</p>
                       )}
                       {item.description && (
-                        <p className="text-xs text-text-tertiary line-clamp-1 mt-0.5">{item.description}</p>
+                        <p className="text-[var(--admin-body)] text-text-secondary leading-snug line-clamp-2 mt-0.5">{item.description}</p>
                       )}
                     </div>
                     <div className="shrink-0 flex items-center gap-2">
                       {ws ? (
-                        <span className={`font-mono text-[9px] ${ws.startsWith('error') ? 'text-red-400' : 'text-text-tertiary'}`}>{ws}</span>
+                        <span className={`font-mono text-[var(--admin-label-sm)] ${ws.startsWith('error') ? 'text-red-400' : 'text-text-tertiary'}`}>{ws}</span>
                       ) : (
                         <>
                           <button
                             onClick={() => { researchWishlistItem(item); }}
-                            className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 rounded transition-colors"
+                            className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 rounded transition-colors"
                           >
                             Research Now
                           </button>
                           <button
                             onClick={() => void removeWishlistItem(item.id)}
-                            className="font-mono text-[8px] uppercase tracking-widest px-2 py-1 border border-border text-text-tertiary hover:text-red-400 hover:border-red-400/30 rounded transition-colors"
+                            className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-2 py-1 border border-border text-text-tertiary hover:text-red-400 hover:border-red-400/30 rounded transition-colors"
                           >
                             Remove
                           </button>
@@ -1350,15 +1350,15 @@ function EnrichmentReviewView() {
       <div className="flex gap-6 border border-border bg-ground-light/20 px-4 py-3">
         <div>
           <div className="font-serif text-xl text-amber-400">{staleCount}</div>
-          <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Stale</div>
+          <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Stale</div>
         </div>
         <div>
           <div className="font-serif text-xl text-sky-400">{reviewCount}</div>
-          <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Needs Review</div>
+          <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">Needs Review</div>
         </div>
         <div>
           <div className="font-serif text-xl text-text-secondary">{people.length}</div>
-          <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Total People</div>
+          <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Total People</div>
         </div>
       </div>
 
@@ -1367,13 +1367,13 @@ function EnrichmentReviewView() {
         <div className="flex gap-0 border border-border">
           {(['needs_review', 'stale', 'all'] as const).map(s => (
             <button key={s} onClick={() => { setStatusFilter(s); setSelectedId(null); }}
-              className={`font-mono text-[9px] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${statusFilter === s ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
+              className={`font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-3 py-1.5 border-r border-border last:border-r-0 transition-colors ${statusFilter === s ? 'text-gold bg-gold/5' : 'text-text-tertiary hover:text-text-secondary'}`}>
               {s === 'needs_review' ? 'Needs Review' : s === 'stale' ? `Stale (${staleCount})` : 'All'}
             </button>
           ))}
         </div>
         <button onClick={load}
-          className="font-mono text-[9px] uppercase tracking-widest px-2 py-1.5 border border-border text-text-tertiary hover:text-text-secondary transition-colors ml-auto">
+          className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-2 py-1.5 border border-border text-text-tertiary hover:text-text-secondary transition-colors ml-auto">
           ↺ Refresh
         </button>
       </div>
@@ -1382,7 +1382,7 @@ function EnrichmentReviewView() {
         <p className="font-mono text-sm text-text-tertiary animate-pulse">Loading...</p>
       ) : reviewQueue.length === 0 ? (
         <div className="border border-border bg-ground-light/20 p-8 text-center">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-text-tertiary">
+          <p className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary">
             {statusFilter === 'needs_review' ? 'No people flagged for review' :
              statusFilter === 'stale' ? 'No stale profiles' :
              'Nothing in the enrichment queue'}
@@ -1392,7 +1392,7 @@ function EnrichmentReviewView() {
         <div className="grid grid-cols-[280px_1fr] gap-4">
           {/* Queue list */}
           <div className="space-y-1 border-r border-border pr-4 overflow-y-auto max-h-[600px]">
-            <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-2">
+            <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary mb-2">
               {reviewQueue.length} in queue
             </p>
             {reviewQueue.map(p => {
@@ -1410,18 +1410,18 @@ function EnrichmentReviewView() {
                   }`}>
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="font-serif text-sm text-text-primary truncate flex-1">{p.full_name}</span>
-                    {isResearching && <span className="font-mono text-[7px] text-amber-400 animate-pulse">⊙</span>}
-                    {hasDiff && !isResearching && <span className="font-mono text-[7px] text-sky-400">diff</span>}
+                    {isResearching && <span className="font-mono text-[var(--admin-label-xs)] text-amber-400 animate-pulse">⊙</span>}
+                    {hasDiff && !isResearching && <span className="font-mono text-[var(--admin-label-xs)] text-sky-400">diff</span>}
                   </div>
                   <div className="flex items-center gap-1 flex-wrap">
-                    <span className={`font-mono text-[7px] uppercase border px-1 py-0 ${statusColor(p.status)}`}>
+                    <span className={`font-mono text-[var(--admin-label-xs)] uppercase border px-1 py-0 ${statusColor(p.status)}`}>
                       {p.status ?? 'draft'}
                     </span>
                     {isStale(p.last_researched_at) && (
-                      <span className="font-mono text-[7px] text-amber-400/70">stale</span>
+                      <span className="font-mono text-[var(--admin-label-xs)] text-amber-400/70">stale</span>
                     )}
                     {p.topic_count != null && p.topic_count > 0 && (
-                      <span className="font-mono text-[7px] text-text-tertiary">{p.topic_count}d</span>
+                      <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">{p.topic_count}d</span>
                     )}
                   </div>
                 </button>
@@ -1433,7 +1433,7 @@ function EnrichmentReviewView() {
           <div>
             {!selectedPerson ? (
               <div className="border border-border/40 p-8 text-center">
-                <p className="font-mono text-[9px] text-text-tertiary">Select a person from the queue to review</p>
+                <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">Select a person from the queue to review</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1443,16 +1443,16 @@ function EnrichmentReviewView() {
                     <div>
                       <h3 className="font-serif text-xl text-text-primary">{selectedPerson.full_name}</h3>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 ${statusColor(selectedPerson.status)}`}>
+                        <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 ${statusColor(selectedPerson.status)}`}>
                           {selectedPerson.status ?? 'draft'}
                         </span>
                         {selectedPerson.credibility_tier && selectedPerson.credibility_tier !== 'unclassified' && (
-                          <span className="font-mono text-[8px] text-text-tertiary border border-border px-1.5 py-0.5">
+                          <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary border border-border px-1.5 py-0.5">
                             {selectedPerson.credibility_tier}
                           </span>
                         )}
                         {isStale(selectedPerson.last_researched_at) && (
-                          <span className="font-mono text-[7px] text-amber-400 border border-amber-400/30 px-1.5 py-0.5">
+                          <span className="font-mono text-[var(--admin-label-xs)] text-amber-400 border border-amber-400/30 px-1.5 py-0.5">
                             stale{selectedPerson.last_researched_at
                               ? ` — ${new Date(selectedPerson.last_researched_at).toLocaleDateString()}`
                               : ' — never enriched'}
@@ -1466,14 +1466,14 @@ function EnrichmentReviewView() {
                     <div className="flex gap-2 shrink-0">
                       {selectedPerson.slug && (
                         <a href={`/people/${selectedPerson.slug}`} target="_blank" rel="noopener noreferrer"
-                          className="font-mono text-[8px] uppercase tracking-widest border border-border text-text-tertiary hover:text-gold hover:border-gold/30 px-2 py-1.5 transition-colors">
+                          className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border border-border text-text-tertiary hover:text-gold hover:border-gold/30 px-2 py-1.5 transition-colors">
                           View
                         </a>
                       )}
                       <button
                         onClick={() => runReresearch(selectedPerson)}
                         disabled={researching[selectedPerson.id]}
-                        className="font-mono text-[8px] uppercase tracking-widest border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 px-3 py-1.5 transition-colors disabled:opacity-50"
+                        className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border border-sky-400/40 text-sky-400 hover:bg-sky-400/10 px-3 py-1.5 transition-colors disabled:opacity-50"
                       >
                         {researching[selectedPerson.id] ? '⊙ Researching...' : '↻ Re-research'}
                       </button>
@@ -1486,9 +1486,9 @@ function EnrichmentReviewView() {
                     if (missing.length === 0) return null;
                     return (
                       <div className="flex flex-wrap gap-1 mt-3">
-                        <span className="font-mono text-[8px] text-text-tertiary">Missing:</span>
+                        <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">Missing:</span>
                         {missing.map(f => (
-                          <span key={f} className="font-mono text-[7px] border border-red-400/20 text-red-400/70 px-1.5 py-0.5">
+                          <span key={f} className="font-mono text-[var(--admin-label-xs)] border border-red-400/20 text-red-400/70 px-1.5 py-0.5">
                             {f}
                           </span>
                         ))}
@@ -1508,7 +1508,7 @@ function EnrichmentReviewView() {
                   />
                 ) : (
                   <div className="border border-border/40 bg-ground-light/10 p-6 text-center">
-                    <p className="font-mono text-[9px] text-text-tertiary">
+                    <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">
                       Click &quot;Re-research&quot; to generate a fresh AI profile and review proposed changes.
                     </p>
                   </div>
@@ -1542,7 +1542,7 @@ export default function KnowledgePage() {
       <div className="px-6 py-8 max-w-5xl">
         <div className="mb-6">
           <h1 className="font-serif text-2xl text-text-primary">Knowledge</h1>
-          <p className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary mt-1">
+          <p className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary mt-1">
             {view === 'entities' && 'Global Entities — merged people + institutions'}
             {view === 'add'      && 'Add Entities — create people, institutions & wishlist'}
             {view === 'review'   && 'Enrichment Review — approve AI-proposed updates'}

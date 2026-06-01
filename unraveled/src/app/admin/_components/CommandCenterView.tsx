@@ -148,7 +148,7 @@ function KpiTile({
       href={href}
       className="flex-1 min-w-[140px] border border-border bg-ground-light/20 px-5 py-4 hover:border-gold/30 hover:bg-gold/3 transition-colors group"
     >
-      <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-2">{label}</p>
+      <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary mb-2">{label}</p>
       <p
         className={`font-serif text-3xl leading-none ${
           warn && +value > 0 ? 'text-amber-700' : 'text-text-primary'
@@ -157,7 +157,7 @@ function KpiTile({
         {typeof value === 'number' ? value.toLocaleString() : value}
       </p>
       {sub && (
-        <p className="font-mono text-[8px] text-text-tertiary mt-1.5">{sub}</p>
+        <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary mt-1.5">{sub}</p>
       )}
     </a>
   );
@@ -176,10 +176,10 @@ function SectionHead({
 }) {
   return (
     <div className="flex items-center justify-between border-b border-border pb-2 mb-3">
-      <p className="font-mono text-[9px] uppercase tracking-widest text-text-tertiary">{title}</p>
+      <p className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-text-tertiary">{title}</p>
       <a
         href={href}
-        className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
+        className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary hover:text-gold transition-colors"
       >
         {linkLabel}
       </a>
@@ -279,24 +279,24 @@ export function CommandCenterView() {
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-1">
+          <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary mb-1">
             Command Center
           </p>
           <h1 className="font-serif text-3xl text-text-primary leading-none">Archive Room</h1>
-          <p className="font-mono text-[9px] text-text-tertiary mt-2">
+          <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary mt-2">
             Overview of research, editorial, and distribution operations.
           </p>
         </div>
         <div className="text-right space-y-1 shrink-0">
-          <p className="font-mono text-[9px] text-text-tertiary">{dateStr}</p>
-          <p className="font-mono text-[8px] text-text-tertiary">
+          <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">{dateStr}</p>
+          <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">
             Last updated{' '}
             {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
           </p>
           <button
             onClick={() => load()}
             disabled={loading}
-            className="font-mono text-[8px] uppercase tracking-widest px-3 py-1 border border-border text-text-tertiary hover:text-gold hover:border-gold/30 transition-colors disabled:opacity-40"
+            className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest px-3 py-1 border border-border text-text-tertiary hover:text-gold hover:border-gold/30 transition-colors disabled:opacity-40"
           >
             {loading ? '⟳ Loading…' : '↺ Refresh'}
           </button>
@@ -351,7 +351,7 @@ export function CommandCenterView() {
               <div className="space-y-3">
                 {/* Session status summary */}
                 <div className="border border-border bg-ground-light/10 px-4 py-3">
-                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-3">
+                  <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary mb-3">
                     Sessions (last 50)
                   </p>
                   <div className="flex flex-wrap gap-6">
@@ -365,7 +365,7 @@ export function CommandCenterView() {
                         <div className={`font-serif text-2xl ${value > 0 ? color : 'text-text-tertiary'}`}>
                           {value}
                         </div>
-                        <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">
+                        <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">
                           {label}
                         </div>
                       </div>
@@ -375,7 +375,7 @@ export function CommandCenterView() {
 
                 {/* Auto Queue status */}
                 <div className="border border-border bg-ground-light/10 px-4 py-3">
-                  <p className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary mb-3">
+                  <p className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary mb-3">
                     Auto Queue
                   </p>
                   <div className="flex flex-wrap gap-6">
@@ -383,13 +383,13 @@ export function CommandCenterView() {
                       <div className={`font-serif text-2xl ${queueRunning > 0 ? 'text-sky-600' : 'text-text-tertiary'}`}>
                         {queueRunning}
                       </div>
-                      <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Running</div>
+                      <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Running</div>
                     </div>
                     <div>
                       <div className={`font-serif text-2xl ${queuePending > 0 ? 'text-text-primary' : 'text-text-tertiary'}`}>
                         {queuePending}
                       </div>
-                      <div className="font-mono text-[8px] uppercase tracking-widest text-text-tertiary">Queued</div>
+                      <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary">Queued</div>
                     </div>
                   </div>
                 </div>
@@ -404,27 +404,27 @@ export function CommandCenterView() {
                         className="flex items-center justify-between gap-3 border border-border bg-ground-light/5 px-3 py-2 hover:border-gold/30 hover:bg-gold/3 transition-colors group"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-mono text-[9px] text-text-primary truncate group-hover:text-gold transition-colors">
+                          <p className="font-mono text-[var(--admin-label-sm)] text-text-primary truncate group-hover:text-gold transition-colors">
                             {s.title || s.topic}
                           </p>
                           {s.error_log?.length > 0 && (
-                            <p className="font-mono text-[7px] text-red-600 truncate">
+                            <p className="font-mono text-[var(--admin-label-xs)] text-red-600 truncate">
                               {s.error_log[s.error_log.length - 1]}
                             </p>
                           )}
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className={`font-mono text-[8px] uppercase tracking-widest ${sessionStatusColor(s.status)}`}>
+                          <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest ${sessionStatusColor(s.status)}`}>
                             {sessionStatusLabel(s.status)}
                           </span>
-                          <span className="font-mono text-[7px] text-text-tertiary">
+                          <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">
                             {timeAgo(s.created_at)}
                           </span>
                         </div>
                       </a>
                     ))}
                     {activeSessions.length > 5 && (
-                      <p className="font-mono text-[8px] text-text-tertiary px-1">
+                      <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary px-1">
                         +{activeSessions.length - 5} more active
                       </p>
                     )}
@@ -432,7 +432,7 @@ export function CommandCenterView() {
                 )}
 
                 {activeSessions.length === 0 && (
-                  <p className="font-mono text-[9px] text-text-tertiary px-1">No active sessions.</p>
+                  <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary px-1">No active sessions.</p>
                 )}
               </div>
             </section>
@@ -445,10 +445,10 @@ export function CommandCenterView() {
                 linkLabel="→ Distribution Desk"
               />
               {approvedPieces.length === 0 ? (
-                <p className="font-mono text-[9px] text-text-tertiary">No approved pieces awaiting scheduling.</p>
+                <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">No approved pieces awaiting scheduling.</p>
               ) : (
                 <div className="space-y-1">
-                  <p className="font-mono text-[8px] text-text-tertiary mb-2">
+                  <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary mb-2">
                     {approvedPieces.length} piece{approvedPieces.length !== 1 ? 's' : ''} approved — ready to schedule
                   </p>
                   {approvedPieces.slice(0, 5).map(p => (
@@ -457,19 +457,19 @@ export function CommandCenterView() {
                       href="/admin/distribution"
                       className="flex items-center gap-3 border border-border bg-ground-light/5 px-3 py-2 hover:border-gold/30 hover:bg-gold/3 transition-colors group"
                     >
-                      <span className={`font-mono text-[7px] uppercase tracking-widest border px-1.5 py-0.5 shrink-0 ${platformColor(p.platform)}`}>
+                      <span className={`font-mono text-[var(--admin-label-xs)] uppercase tracking-widest border px-1.5 py-0.5 shrink-0 ${platformColor(p.platform)}`}>
                         {platformLabel(p.platform)}
                       </span>
-                      <p className="font-mono text-[9px] text-text-primary flex-1 truncate group-hover:text-gold transition-colors">
+                      <p className="font-mono text-[var(--admin-label-sm)] text-text-primary flex-1 truncate group-hover:text-gold transition-colors">
                         {p.text_content?.slice(0, 80) ?? p.topic}
                       </p>
-                      <span className="font-mono text-[7px] text-text-tertiary shrink-0">
+                      <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary shrink-0">
                         {p.content_type?.replace(/_/g, ' ')}
                       </span>
                     </a>
                   ))}
                   {approvedPieces.length > 5 && (
-                    <p className="font-mono text-[8px] text-text-tertiary px-1">
+                    <p className="font-mono text-[var(--admin-label-xs)] text-text-tertiary px-1">
                       +{approvedPieces.length - 5} more
                     </p>
                   )}
@@ -490,7 +490,7 @@ export function CommandCenterView() {
               />
               {flaggedDossiers.length === 0 ? (
                 <div className="border border-emerald-400/20 bg-emerald-400/5 px-3 py-3">
-                  <p className="font-mono text-[9px] text-emerald-700">No active editorial flags.</p>
+                  <p className="font-mono text-[var(--admin-label-sm)] text-emerald-700">No active editorial flags.</p>
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -501,21 +501,21 @@ export function CommandCenterView() {
                       className="flex items-start justify-between gap-2 border border-border bg-ground-light/5 px-3 py-2.5 hover:border-gold/30 hover:bg-gold/3 transition-colors group"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="font-mono text-[9px] text-text-primary truncate group-hover:text-gold transition-colors">
+                        <p className="font-mono text-[var(--admin-label-sm)] text-text-primary truncate group-hover:text-gold transition-colors">
                           {d.title}
                         </p>
                         <div className="flex items-center gap-2 mt-0.5">
                           {d.highCount > 0 && (
-                            <span className="font-mono text-[7px] uppercase tracking-widest text-red-600">
+                            <span className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-red-600">
                               {d.highCount} high
                             </span>
                           )}
                           {d.mediumCount > 0 && (
-                            <span className="font-mono text-[7px] uppercase tracking-widest text-amber-600">
+                            <span className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-amber-600">
                               {d.mediumCount} med
                             </span>
                           )}
-                          <span className="font-mono text-[7px] text-text-tertiary">
+                          <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">
                             {d.flagCount} flag{d.flagCount !== 1 ? 's' : ''}
                           </span>
                         </div>
@@ -534,7 +534,7 @@ export function CommandCenterView() {
                 linkLabel="→ Health"
               />
               {!health ? (
-                <p className="font-mono text-[9px] text-text-tertiary">Loading health data…</p>
+                <p className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">Loading health data…</p>
               ) : (
                 <div className="border border-border bg-ground-light/10 px-4 py-3 space-y-2">
                   {[
@@ -565,9 +565,9 @@ export function CommandCenterView() {
                     },
                   ].map(({ label, value, warn }) => (
                     <div key={label} className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[8px] text-text-tertiary">{label}</span>
+                      <span className="font-mono text-[var(--admin-label-xs)] text-text-tertiary">{label}</span>
                       <span
-                        className={`font-mono text-[10px] font-medium ${
+                        className={`font-mono text-[var(--admin-label-sm)] font-medium ${
                           warn && value > 0 ? 'text-amber-700' : 'text-emerald-700'
                         }`}
                       >

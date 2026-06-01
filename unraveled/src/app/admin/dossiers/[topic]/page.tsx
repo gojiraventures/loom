@@ -181,7 +181,7 @@ function computeReadiness(
 
 function MonoLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)' }}>
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)' }}>
       {children}
     </span>
   );
@@ -205,7 +205,7 @@ function ActionBtn({ onClick, disabled, variant = 'default', children }: {
     <button
       onClick={onClick}
       disabled={disabled}
-      style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: c.color, border: `1px solid ${c.border}`, background: c.bg, padding: '5px 10px', borderRadius: '3px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, transition: 'opacity 0.15s' }}
+      style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: c.color, border: `1px solid ${c.border}`, background: c.bg, padding: '5px 10px', borderRadius: '3px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, transition: 'opacity 0.15s' }}
     >
       {children}
     </button>
@@ -216,7 +216,7 @@ function StatusMsg({ msg }: { msg: string }) {
   if (!msg) return null;
   const isError = msg.startsWith('error') || msg.startsWith('Error') || msg.startsWith('failed') || msg.startsWith('Failed');
   return (
-    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: isError ? 'var(--status-failed)' : 'var(--status-complete)' }}>
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: isError ? 'var(--status-failed)' : 'var(--status-complete)' }}>
       {msg}
     </span>
   );
@@ -926,10 +926,10 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
           sidebar={<AdminSidebar groups={SIDEBAR_GROUPS} activeView="dossiers" onSelect={() => {}} />}
         >
           <div className="px-6 py-8">
-            <a href="/admin/dossiers" style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)', textDecoration: 'none' }}>
+            <a href="/admin/dossiers" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)', textDecoration: 'none' }}>
               ← Dossiers
             </a>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--status-failed)', marginTop: '16px' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--status-failed)', marginTop: '16px' }}>
               {error || 'Dossier not found'}
             </p>
           </div>
@@ -950,7 +950,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
           <div className="flex-1 min-w-0 px-6 py-6 max-w-3xl">
 
             {/* Breadcrumb */}
-            <div className="flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)' }}>
+            <div className="flex items-center gap-2 mb-4" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)' }}>
               <a href="/admin/dossiers" style={{ color: 'var(--color-text-tertiary)', textDecoration: 'none' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-gold)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-text-tertiary)'; }}
@@ -966,11 +966,11 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
               <div className="flex-1 min-w-0">
                 <h1 className="font-serif text-2xl text-text-primary leading-tight">{dossier.title}</h1>
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border)', padding: '2px 6px', borderRadius: '3px' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border)', padding: '2px 6px', borderRadius: '3px' }}>
                     {topic}
                   </span>
                   {dossier.best_convergence_score > 0 && (
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-gold)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-gold)' }}>
                       {dossier.best_convergence_score} score
                     </span>
                   )}
@@ -999,7 +999,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                     href={`/topics/${dossier.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--status-complete)', textDecoration: 'none' }}
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--status-complete)', textDecoration: 'none' }}
                   >
                     View Live →
                   </a>
@@ -1016,7 +1016,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   onClick={() => setActiveTab(tab.id)}
                   style={{
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
+                    fontSize: 'var(--admin-label-sm)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
                     padding: '8px 14px',
@@ -1040,7 +1040,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
               <div className="space-y-6">
                 {/* Slug */}
                 <div>
-                  <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>
                     URL Slug
                   </label>
                   <div className="flex gap-2 items-center">
@@ -1066,7 +1066,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                     {dossier.featured ? '★ Featured' : '☆ Feature'}
                   </ActionBtn>
                   {!dossier.published && (
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
                       Publish first to enable featuring
                     </span>
                   )}
@@ -1075,7 +1075,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
 
                 {/* Driving Question */}
                 <div>
-                  <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>
                     Driving Question
                     <span style={{ fontWeight: 'normal', textTransform: 'none', letterSpacing: 'normal', marginLeft: '6px', opacity: 0.6 }}>
                       — shown above the article title. 15–35 words.
@@ -1098,7 +1098,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   </div>
                   <div className="flex items-center gap-3 mt-1">
                     {dqValue && (
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
                         {dqValue.trim().split(/\s+/).length} words
                       </span>
                     )}
@@ -1114,7 +1114,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                       {overviewGenerating ? '⏳ Generating…' : dossier.overview_summary ? '↺ Re-generate' : '✦ Generate'}
                     </ActionBtn>
                     {dossier.overview_summary && !overviewStatus && (
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--status-complete)', opacity: 0.7 }}>ready</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--status-complete)', opacity: 0.7 }}>ready</span>
                     )}
                     {overviewStatus && <StatusMsg msg={overviewStatus} />}
                   </div>
@@ -1153,7 +1153,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                       <MonoLabel>Synthesis Preview</MonoLabel>
                       <button
                         onClick={() => setPreviewing(!previewing)}
-                        style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', background: 'transparent', border: '1px solid var(--color-border)', padding: '3px 8px', borderRadius: '3px', cursor: 'pointer' }}
+                        style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', background: 'transparent', border: '1px solid var(--color-border)', padding: '3px 8px', borderRadius: '3px', cursor: 'pointer' }}
                       >
                         {previewing ? 'Hide' : 'Show'}
                       </button>
@@ -1174,7 +1174,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                             <div className="space-y-2 mt-2">
                               {(output.jaw_drop_layers as { level: number; title: string; content: string }[]).slice(0, 3).map((l) => (
                                 <div key={l.level} className="flex gap-3 p-2" style={{ background: 'var(--color-ground)', border: '1px solid var(--color-border)', borderRadius: '2px' }}>
-                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-gold)', flexShrink: 0, width: '16px' }}>{l.level}</span>
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-gold)', flexShrink: 0, width: '16px' }}>{l.level}</span>
                                   <div>
                                     <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-primary)' }}>{l.title}</div>
                                     <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '2px', lineHeight: 1.5 }}>{String(l.content).slice(0, 200)}…</div>
@@ -1202,7 +1202,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   </div>
                 )}
                 {!output && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>
                     No synthesis yet. Complete a research session to generate synthesis.
                   </p>
                 )}
@@ -1216,7 +1216,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                     </ActionBtn>
                     {resynthStatus && <StatusMsg msg={resynthStatus} />}
                   </div>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
                     Runs the full synthesis pass over all existing findings. Takes 2–4 min.
                   </p>
                 </div>
@@ -1232,10 +1232,10 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   </div>
                   {enhanceOpen && (
                     <div style={{ background: 'var(--color-gold-dim)', border: '1px solid var(--color-gold)', borderRadius: '3px', padding: '14px', marginTop: '8px' }}>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-gold)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
                         Enhance — New Research Round
                       </p>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)', marginBottom: '10px' }}>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)', marginBottom: '10px' }}>
                         Up to 9 questions, auto-batched in groups of 3. Results await review before merging.
                       </p>
                       <div className="space-y-2 mb-3">
@@ -1262,12 +1262,12 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                       </div>
                       {enhanceQuestions.length < 9 && (
                         <button onClick={() => setEnhanceQuestions([...enhanceQuestions, ''])}
-                          style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '10px' }}>
+                          style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '10px' }}>
                           + Add question
                         </button>
                       )}
                       <div className="mb-3">
-                        <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                        <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
                           Source Material <span style={{ fontWeight: 'normal', textTransform: 'none', letterSpacing: 'normal', opacity: 0.6 }}>(optional — articles, URLs, or excerpts agents must cite)</span>
                         </label>
                         <textarea
@@ -1282,7 +1282,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                         <ActionBtn onClick={launchEnhance} disabled={!enhanceQuestions.some((q) => q.trim())} variant="gold">
                           Launch Enhancement →
                         </ActionBtn>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
                           Runs 3–5 min. Awaits review before updating article.
                         </span>
                       </div>
@@ -1301,11 +1301,11 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   </div>
                   {deepDiveOpen && (
                     <div style={{ background: 'var(--color-teal-dim)', border: '1px solid var(--color-teal)', borderRadius: '3px', padding: '14px', marginTop: '8px' }}>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-teal)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-teal)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
                         Deep Dive — Targeted Rabbit Holes
                       </p>
                       <div className="mb-3">
-                        <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                        <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
                           Focus Areas
                         </label>
                         <textarea
@@ -1317,7 +1317,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                         />
                       </div>
                       <div className="mb-3">
-                        <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                        <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
                           Research Questions <span style={{ fontWeight: 'normal', textTransform: 'none', letterSpacing: 'normal', opacity: 0.6 }}>(one per line — blank to auto-generate)</span>
                         </label>
                         <textarea
@@ -1332,7 +1332,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                         <ActionBtn onClick={launchDeepDive} disabled={!deepDiveFocus.trim()} variant="teal">
                           Launch Deep Dive →
                         </ActionBtn>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
                           Runs 3–5 min. Synthesis includes all prior sessions.
                         </span>
                       </div>
@@ -1354,10 +1354,10 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                 </div>
 
                 {editorialData === null && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>Loading…</p>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>Loading…</p>
                 )}
                 {editorialData !== null && editorialData.length === 0 && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>
                     {dossier.published ? 'No editorial review found for this dossier. Run a review to generate flags.' : 'Publish this dossier first, then run an editorial review.'}
                   </p>
                 )}
@@ -1369,17 +1369,17 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   return (
                     <div>
                       <div className="flex items-center gap-2 mb-3">
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
                           Quality: <span style={{ color: item.quality_level === 'high' ? 'var(--status-complete)' : item.quality_level === 'medium' ? 'var(--status-running)' : 'var(--status-failed)' }}>
                             {item.quality_level ?? 'unknown'}
                           </span>
                         </span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
                           · {flags.length} flag{flags.length !== 1 ? 's' : ''}
                         </span>
                       </div>
                       {flags.length === 0 ? (
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--status-complete)' }}>No flags — editorial review clean.</p>
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--status-complete)' }}>No flags — editorial review clean.</p>
                       ) : (
                         <div className="space-y-2">
                           {sorted.map((flag, i) => {
@@ -1387,12 +1387,12 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                             return (
                               <div key={i} style={{ border: `1px solid ${sevColor}`, background: 'var(--color-ground-light)', borderRadius: '3px', padding: '10px 12px' }}>
                                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: sevColor, border: `1px solid ${sevColor}`, padding: '1px 5px', borderRadius: '2px' }}>
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: sevColor, border: `1px solid ${sevColor}`, padding: '1px 5px', borderRadius: '2px' }}>
                                     {flag.severity}
                                   </span>
-                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-secondary)' }}>{flag.type}</span>
+                                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-secondary)' }}>{flag.type}</span>
                                   {flag.section && (
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-tertiary)' }}>§ {flag.section}</span>
+                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)' }}>§ {flag.section}</span>
                                   )}
                                 </div>
                                 <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginBottom: '6px' }}>
@@ -1404,7 +1404,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                                   </blockquote>
                                 )}
                                 {flag.suggested_fix && (
-                                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-teal)', marginTop: '4px' }}>
+                                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-teal)', marginTop: '4px' }}>
                                     Fix: {flag.suggested_fix}
                                   </div>
                                 )}
@@ -1431,7 +1431,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                     {generating ? 'Generating…' : '✦ Generate AI Hero'}
                   </ActionBtn>
                   <label
-                    style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border)', padding: '5px 10px', borderRadius: '3px', cursor: 'pointer' }}
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border)', padding: '5px 10px', borderRadius: '3px', cursor: 'pointer' }}
                   >
                     ↑ Upload
                     <input
@@ -1449,9 +1449,9 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                 )}
 
                 {/* Images grid */}
-                {images === null && <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>Loading…</p>}
+                {images === null && <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>Loading…</p>}
                 {images !== null && images.length === 0 && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>
                     No images yet. Search archives or generate AI hero images.
                   </p>
                 )}
@@ -1479,11 +1479,11 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                               <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {img.title}
                               </p>
-                              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
                                 {img.source}{img.width && img.height ? ` · ${img.width}×${img.height}` : ''}{img.quality_score ? ` · Q${img.quality_score}` : ''}
                               </p>
                               {img.gemini_caption && (
-                                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--color-text-secondary)', fontStyle: 'italic', marginBottom: '4px' }}>{img.gemini_caption}</p>
+                                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--admin-label)', color: 'var(--color-text-secondary)', fontStyle: 'italic', marginBottom: '4px' }}>{img.gemini_caption}</p>
                               )}
                               {img.gemini_tweaks && img.gemini_tweaks.includes('crop:') && (
                                 <div style={{ marginBottom: '4px' }}>
@@ -1508,13 +1508,13 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                                 </ActionBtn>
                                 {img.source_page_url && (
                                   <a href={img.source_page_url} target="_blank" rel="noopener noreferrer"
-                                    style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', textDecoration: 'none', border: '1px solid var(--color-border)', padding: '5px 10px', borderRadius: '3px' }}>
+                                    style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', textDecoration: 'none', border: '1px solid var(--color-border)', padding: '5px 10px', borderRadius: '3px' }}>
                                     Source →
                                   </a>
                                 )}
                               </div>
                               {img.license && (
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: img.license.toLowerCase().includes('public domain') ? 'var(--status-complete)' : 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: img.license.toLowerCase().includes('public domain') ? 'var(--status-complete)' : 'var(--color-text-tertiary)', marginTop: '4px' }}>
                                   {img.license}
                                 </p>
                               )}
@@ -1541,7 +1541,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                       <ActionBtn onClick={loadEntities}>↺ Refresh</ActionBtn>
                     </>
                   ) : (
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>
                       No complete session found for this topic — run research first.
                     </p>
                   )}
@@ -1560,7 +1560,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                               <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-primary)' }}>{p.full_name}</span>
                               <StatusBadge status={p.status} />
                             </div>
-                            {p.topic_role && <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-gold)', marginBottom: '2px' }}>{p.topic_role}</div>}
+                            {p.topic_role && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-gold)', marginBottom: '2px' }}>{p.topic_role}</div>}
                             {p.short_bio && <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', lineHeight: 1.5 }}>{p.short_bio}</div>}
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flexShrink: 0 }}>
@@ -1576,7 +1576,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                             )}
                             {p.status === 'published' && p.slug && (
                               <a href={`/people/${p.slug}`} target="_blank" rel="noopener noreferrer"
-                                style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--status-complete)', border: '1px solid var(--status-complete)', padding: '4px 8px', borderRadius: '3px', textDecoration: 'none' }}>
+                                style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--status-complete)', border: '1px solid var(--status-complete)', padding: '4px 8px', borderRadius: '3px', textDecoration: 'none' }}>
                                 View →
                               </a>
                             )}
@@ -1600,7 +1600,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                               <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500, color: 'var(--color-text-primary)' }}>{inst.name}</span>
                               <StatusBadge status={inst.status} />
                             </div>
-                            {inst.topic_role && <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-gold)', marginBottom: '2px' }}>{inst.topic_role}</div>}
+                            {inst.topic_role && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-gold)', marginBottom: '2px' }}>{inst.topic_role}</div>}
                             {inst.short_bio && <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', lineHeight: 1.5 }}>{inst.short_bio}</div>}
                           </div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flexShrink: 0 }}>
@@ -1616,7 +1616,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                             )}
                             {inst.status === 'published' && inst.slug && (
                               <a href={`/institutions/${inst.slug}`} target="_blank" rel="noopener noreferrer"
-                                style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--status-complete)', border: '1px solid var(--status-complete)', padding: '4px 8px', borderRadius: '3px', textDecoration: 'none' }}>
+                                style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--status-complete)', border: '1px solid var(--status-complete)', padding: '4px 8px', borderRadius: '3px', textDecoration: 'none' }}>
                                 View →
                               </a>
                             )}
@@ -1629,12 +1629,12 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                 )}
 
                 {entities !== null && entities.people.length === 0 && entities.institutions.length === 0 && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>
                     No entities extracted yet. Click "Extract Entities" above.
                   </p>
                 )}
                 {entities === null && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>
                     {sessionId ? 'Loading entities…' : 'No complete session found.'}
                   </p>
                 )}
@@ -1648,7 +1648,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   <div className="space-y-3">
                     <audio controls src={audioUrl} style={{ width: '100%', height: '40px' }} />
                     {audioGeneratedAt && (
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-tertiary)' }}>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)' }}>
                         Generated {new Date(audioGeneratedAt).toLocaleDateString()}
                       </p>
                     )}
@@ -1660,14 +1660,14 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                     </div>
                   </div>
                 ) : audioUrl === undefined ? (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>Loading…</p>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>Loading…</p>
                 ) : (
                   <ActionBtn onClick={generateAudio} disabled={audioGenerating} variant="gold">
                     {audioGenerating ? '⏳ Generating…' : '▶ Generate Podcast Audio'}
                   </ActionBtn>
                 )}
                 {audioMsg && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: audioMsg.startsWith('Failed') ? 'var(--status-failed)' : 'var(--color-text-tertiary)', lineHeight: 1.6 }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: audioMsg.startsWith('Failed') ? 'var(--status-failed)' : 'var(--color-text-tertiary)', lineHeight: 1.6 }}>
                     {audioMsg}
                   </p>
                 )}
@@ -1681,17 +1681,17 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   <ActionBtn onClick={generateSocial} disabled={socialGenerating} variant="gold">
                     {socialGenerating ? 'Generating…' : socialPieces && socialPieces.length > 0 ? '↺ Regenerate Social Package' : '✦ Generate Social Package'}
                   </ActionBtn>
-                  <a href="/admin" style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', textDecoration: 'none', border: '1px solid var(--color-border)', padding: '5px 10px', borderRadius: '3px' }}>
+                  <a href="/admin" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', textDecoration: 'none', border: '1px solid var(--color-border)', padding: '5px 10px', borderRadius: '3px' }}>
                     → Manage in Social Queue
                   </a>
                   {socialMsg && <StatusMsg msg={socialMsg} />}
                 </div>
 
                 {socialPieces === null && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>Loading…</p>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>Loading…</p>
                 )}
                 {socialPieces !== null && socialPieces.length === 0 && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-tertiary)' }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--color-text-tertiary)' }}>
                     No social content yet. Generate a package above.
                   </p>
                 )}
@@ -1711,7 +1711,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                         {Object.entries(byStatus).map(([st, count]) => (
                           <div key={st} style={{ border: '1px solid var(--color-border)', background: 'var(--color-ground-light)', borderRadius: '3px', padding: '8px 12px', textAlign: 'center' }}>
                             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 600, color: 'var(--color-text-primary)' }}>{count}</div>
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginTop: '2px' }}>{st}</div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginTop: '2px' }}>{st}</div>
                           </div>
                         ))}
                       </div>
@@ -1723,7 +1723,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                             {pieces.map((piece) => (
                               <div key={piece.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid var(--color-border)', background: 'var(--color-ground-light)', borderRadius: '3px', padding: '8px 12px' }}>
                                 <StatusBadge status={piece.status} />
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
                                   {piece.content_type}
                                 </span>
                                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--color-text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1747,7 +1747,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                 {typeof output?.visual_strategy === 'string' ? (
                   <div>
                     <MonoLabel>Visual Strategy — Hero Image Prompts</MonoLabel>
-                    <pre style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--color-text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', background: 'var(--color-ground-light)', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '12px', maxHeight: '300px', overflowY: 'auto', marginTop: '8px' }}>
+                    <pre style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--admin-label)', color: 'var(--color-text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', background: 'var(--color-ground-light)', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '12px', maxHeight: '300px', overflowY: 'auto', marginTop: '8px' }}>
                       {output.visual_strategy as string}
                     </pre>
                     <div className="mt-2">
@@ -1756,7 +1756,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                       }}>
                         Copy All
                       </ActionBtn>
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
                         Paste into Grok Imagine or Gemini. All prompts are 16:9.
                       </p>
                     </div>
@@ -1792,21 +1792,21 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   </div>
                   {(dossier.recommended_components ?? []).length > 0 && (
                     <div className="space-y-2">
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
                         Enable to show on the published report.
                       </p>
                       {(dossier.selected_components?.length ? dossier.selected_components : dossier.recommended_components ?? []).map((comp) => (
                         <div key={comp.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', border: '1px solid var(--color-border)', background: 'var(--color-ground-light)', borderRadius: '3px', padding: '10px 12px' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-primary)' }}>{comp.label}</p>
-                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-tertiary)', marginTop: '2px', lineHeight: 1.4 }}>{comp.reason}</p>
+                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-primary)' }}>{comp.label}</p>
+                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)', marginTop: '2px', lineHeight: 1.4 }}>{comp.reason}</p>
                             {componentStatus[comp.id] && (
-                              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-teal)', marginTop: '4px' }}>{componentStatus[comp.id]}</p>
+                              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-teal)', marginTop: '4px' }}>{componentStatus[comp.id]}</p>
                             )}
                           </div>
                           <button
                             onClick={() => toggleComponent(comp.id, !comp.enabled)}
-                            style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', border: '1px solid', padding: '4px 8px', borderRadius: '3px', cursor: 'pointer', flexShrink: 0, background: comp.enabled ? 'var(--color-teal-dim)' : 'transparent', color: comp.enabled ? 'var(--color-teal)' : 'var(--color-text-tertiary)', borderColor: comp.enabled ? 'var(--color-teal)' : 'var(--color-border)' }}
+                            style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', border: '1px solid', padding: '4px 8px', borderRadius: '3px', cursor: 'pointer', flexShrink: 0, background: comp.enabled ? 'var(--color-teal-dim)' : 'transparent', color: comp.enabled ? 'var(--color-teal)' : 'var(--color-text-tertiary)', borderColor: comp.enabled ? 'var(--color-teal)' : 'var(--color-border)' }}
                           >
                             {comp.enabled ? 'Enabled ✓' : 'Disabled'}
                           </button>
@@ -1834,13 +1834,13 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
               background: 'var(--color-ground-light)',
             }}
           >
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '12px' }}>
               Publish Readiness
             </p>
             <ReadinessChecklist items={checklist} />
             {checklist.length > 0 && (
               <div style={{ marginTop: '16px', padding: '8px 10px', background: allPass ? 'var(--status-complete-bg)' : 'var(--color-ground)', border: `1px solid ${allPass ? 'var(--status-complete)' : 'var(--color-border)'}`, borderRadius: '3px' }}>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: allPass ? 'var(--status-complete)' : 'var(--color-text-tertiary)' }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: allPass ? 'var(--status-complete)' : 'var(--color-text-tertiary)' }}>
                   {allPass ? 'All systems go.' : 'Review items above before publishing.'}
                 </p>
               </div>
@@ -1848,7 +1848,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
 
             {/* Quick links */}
             <div style={{ marginTop: '24px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '8px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', marginBottom: '8px' }}>
                 Actions
               </p>
               {[
@@ -1862,7 +1862,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab as WorkshopTab)}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: '10px', color: activeTab === tab ? 'var(--color-gold)' : 'var(--color-text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '3px 0', transition: 'color 0.1s' }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: activeTab === tab ? 'var(--color-gold)' : 'var(--color-text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '3px 0', transition: 'color 0.1s' }}
                   onMouseEnter={(e) => { if (activeTab !== tab) (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-primary)'; }}
                   onMouseLeave={(e) => { if (activeTab !== tab) (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-secondary)'; }}
                 >
