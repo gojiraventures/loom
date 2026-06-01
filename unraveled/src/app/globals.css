@@ -54,6 +54,17 @@
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
+  /* Admin type scale
+     xs  = micro labels, pills, badges            (floor: was 7–8px)
+     sm  = secondary metadata, sub-nav, footers   (was 9–10px)
+     base = primary labels, button text, headers  (was 9–11px)
+     body = readable body / descriptive text      (was unspecified)
+  */
+  --admin-label-xs:   11px;
+  --admin-label-sm:   12px;
+  --admin-label:      13px;
+  --admin-body:       13px;
+
   /* Spacing */
   --spacing-content: 800px;
 }
@@ -74,7 +85,7 @@ html[data-theme="light"],
   --color-teal-dim: rgba(46,122,122,0.12);
   --color-text-primary: #140e08;
   --color-text-secondary: #3d2b1f;
-  --color-text-tertiary: #6b5344;
+  --color-text-tertiary: #4a3728;  /* darkened from #6b5344 — 6.2:1 → ~9.9:1 on cream */
   --color-border: rgba(20,14,8,0.10);
   --color-border-hover: rgba(20,14,8,0.20);
   --color-tradition-biblical: #9A6235;

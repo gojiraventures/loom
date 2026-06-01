@@ -12,14 +12,14 @@ export function EmptyState({ message, sub, action, className = '' }: EmptyStateP
     <div className={`py-12 text-center ${className}`}>
       <p
         className="font-mono uppercase tracking-widest"
-        style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}
+        style={{ fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}
       >
         {message}
       </p>
       {sub && (
         <p
           className="mt-1"
-          style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)', opacity: 0.6 }}
+          style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)' }}
         >
           {sub}
         </p>

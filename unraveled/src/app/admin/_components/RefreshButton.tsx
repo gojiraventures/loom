@@ -15,7 +15,7 @@ export function RefreshButton({ onClick, loading = false, className = '' }: Refr
       disabled={loading}
       className={`font-mono uppercase tracking-widest rounded border border-border transition-opacity disabled:opacity-40 px-2.5 py-1 ${className}`}
       style={{
-        fontSize: '9px',
+        fontSize: 'var(--admin-label-sm)',
         color: 'var(--color-text-tertiary)',
       }}
     >

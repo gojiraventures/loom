@@ -62,8 +62,8 @@ export function AdminSidebar({
         <div className="flex items-baseline gap-2">
           <span className="font-serif text-base text-text-primary">Unraveled</span>
           <span
-            className="font-mono text-[8px] uppercase tracking-widest border border-border px-1 py-px rounded"
-            style={{ color: 'var(--color-text-tertiary)' }}
+            className="font-mono uppercase tracking-widest border border-border px-1 py-px rounded"
+            style={{ fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)' }}
           >
             Admin
           </span>
@@ -77,7 +77,7 @@ export function AdminSidebar({
             {/* Group header */}
             <div
               className="font-mono uppercase tracking-widest px-2 mb-1"
-              style={{ fontSize: '8px', color: 'var(--color-text-tertiary)' }}
+              style={{ fontSize: 'var(--admin-label-xs)', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)' }}
             >
               {group.label}
             </div>
@@ -86,7 +86,7 @@ export function AdminSidebar({
               const active = isItemActive(item, activeView);
               const itemStyle = {
                 fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
+                fontSize: 'var(--admin-label)',
                 color: active ? 'var(--color-gold)' : 'var(--color-text-secondary)',
                 background: active ? 'var(--color-gold-dim)' : 'transparent',
                 borderLeft: active ? '2px solid var(--color-gold)' : '2px solid transparent',
@@ -135,7 +135,7 @@ export function AdminSidebar({
                         const subActive = sub.id === activeView;
                         const subStyle = {
                           fontFamily: 'var(--font-mono)',
-                          fontSize: '10px',
+                          fontSize: 'var(--admin-label-sm)',
                           color: subActive ? 'var(--color-gold)' : 'var(--color-text-tertiary)',
                           background: subActive ? 'var(--color-gold-dim)' : 'transparent',
                           borderLeft: subActive ? '1px solid var(--color-gold)' : '1px solid transparent',
@@ -178,7 +178,7 @@ export function AdminSidebar({
         <a
           href={feedbackHref}
           className="block font-mono uppercase tracking-widest transition-colors"
-          style={{ fontSize: '9px', color: 'var(--color-text-tertiary)' }}
+          style={{ fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-gold)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-text-tertiary)'; }}
         >
@@ -187,7 +187,7 @@ export function AdminSidebar({
         <a
           href={siteHref}
           className="block font-mono uppercase tracking-widest transition-colors"
-          style={{ fontSize: '9px', color: 'var(--color-text-tertiary)' }}
+          style={{ fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-gold)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-text-tertiary)'; }}
         >

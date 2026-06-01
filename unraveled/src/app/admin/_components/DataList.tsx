@@ -33,7 +33,7 @@ export function DataList<T>({
     return (
       <p
         className="py-6 text-center font-mono uppercase tracking-widest"
-        style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}
+        style={{ fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}
       >
         {emptyMessage}
       </p>
@@ -52,7 +52,7 @@ export function DataList<T>({
 
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-tertiary)' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
             {start + 1}–{Math.min(start + pageSize, items.length)} of {items.length}
           </p>
           <div className="flex gap-1">
@@ -60,7 +60,7 @@ export function DataList<T>({
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
               className="font-mono uppercase tracking-widest rounded border border-border px-2 py-1 disabled:opacity-30 transition-opacity"
-              style={{ fontSize: '9px', color: 'var(--color-text-tertiary)' }}
+              style={{ fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}
             >
               ← Prev
             </button>
@@ -68,7 +68,7 @@ export function DataList<T>({
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={page >= totalPages - 1}
               className="font-mono uppercase tracking-widest rounded border border-border px-2 py-1 disabled:opacity-30 transition-opacity"
-              style={{ fontSize: '9px', color: 'var(--color-text-tertiary)' }}
+              style={{ fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}
             >
               Next →
             </button>

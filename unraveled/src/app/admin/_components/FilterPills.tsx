@@ -27,9 +27,9 @@ export function FilterPills({ options, active, onChange, className = '' }: Filte
             className="rounded transition-colors"
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '9px',
+              fontSize: 'var(--admin-label-sm)',
               textTransform: 'uppercase',
-              letterSpacing: '0.08em',
+              letterSpacing: '0.06em',
               padding: '3px 8px',
               color: isActive ? 'var(--color-gold)' : 'var(--color-text-tertiary)',
               background: isActive ? 'var(--color-gold-dim)' : 'transparent',

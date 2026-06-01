@@ -81,7 +81,7 @@ export function StatusBadge({ status, label, className = '' }: StatusBadgeProps)
     <span
       className={`inline-flex items-center font-mono uppercase tracking-widest rounded px-1.5 py-px ${className}`}
       style={{
-        fontSize: '8px',
+        fontSize: 'var(--admin-label-xs)',
         color,
         background: bg,
         border: `1px solid ${color}`,
@@ -89,7 +89,7 @@ export function StatusBadge({ status, label, className = '' }: StatusBadgeProps)
       }}
     >
       {kind === 'running' && (
-        <span className="mr-1" style={{ fontSize: '6px' }}>●</span>
+        <span className="mr-1" style={{ fontSize: '7px' }}>●</span>
       )}
       {text}
     </span>

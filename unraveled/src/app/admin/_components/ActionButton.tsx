@@ -55,7 +55,7 @@ export function ActionButton({
       disabled={disabled || loading}
       className={`font-mono uppercase tracking-widest rounded transition-opacity disabled:opacity-40 ${SIZE_CLASSES[size]} ${className}`}
       style={{
-        fontSize: '9px',
+        fontSize: 'var(--admin-label)',
         ...VARIANT_STYLES[variant],
         opacity: disabled || loading ? 0.4 : 1,
       }}
