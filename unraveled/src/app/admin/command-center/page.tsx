@@ -41,6 +41,7 @@ const CC_SIDEBAR_GROUPS: SidebarGroup[] = [
     label: 'Admin',
     items: [
       { id: 'admin', label: 'All Tools', href: '/admin' },
+      { id: 'services', label: 'Service Health', href: '/admin/services' },
     ],
   },
 ];

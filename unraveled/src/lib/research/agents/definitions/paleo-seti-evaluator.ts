@@ -25,8 +25,8 @@ export const paleoSetiEvaluator: AgentDefinition = {
   },
 
   llm: {
-    provider: 'groq',
-    model: 'qwen-qwq-32b',
+    provider: 'gemini-flash',
+    model: 'gemini-2.5-flash',
     maxTokens: 10240,
     temperature: 0.35,
   },

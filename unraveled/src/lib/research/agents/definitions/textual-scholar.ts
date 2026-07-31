@@ -5,7 +5,7 @@ export const textualScholar: AgentDefinition = {
   name: 'Textual Scholar',
   layer: 'research',
   domain: 'sacred texts, ancient literature, linguistics, manuscript tradition',
-  description: 'Specialist in the textual evidence layer — extracting and comparing primary source passages across traditions, analyzing translation choices, identifying structural parallels, and documenting the manuscript history of key texts. Uses Gemini\'s 2M context window to hold multiple full ancient texts simultaneously.',
+  description: 'Specialist in the textual evidence layer — extracting and comparing primary source passages across traditions, analyzing translation choices, identifying structural parallels, and documenting the manuscript history of key texts. Uses Gemini\'s 1M context window to hold multiple full ancient texts simultaneously.',
 
   ocean: {
     openness: 0.75,
@@ -25,8 +25,8 @@ export const textualScholar: AgentDefinition = {
   },
 
   llm: {
-    provider: 'groq',
-    model: 'qwen-qwq-32b', // 2M context — can hold full Gilgamesh + Genesis simultaneously
+    provider: 'gemini-flash',
+    model: 'gemini-2.5-flash', // 1M context — can hold full Gilgamesh + Genesis simultaneously
     maxTokens: 16384,
     temperature: 0.35,
   },

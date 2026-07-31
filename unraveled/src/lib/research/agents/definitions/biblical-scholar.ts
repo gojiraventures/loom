@@ -25,8 +25,8 @@ export const biblicalScholar: AgentDefinition = {
   },
 
   llm: {
-    provider: 'groq',
-    model: 'qwen-qwq-32b',
+    provider: 'gemini-flash',
+    model: 'gemini-2.5-flash',
     maxTokens: 14336,
     temperature: 0.28,
   },

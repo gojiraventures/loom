@@ -91,8 +91,8 @@ export async function runDebate(
   const sharedContext = buildSharedContext(topic, findings, convergenceAnalyses);
 
   // Lineage rule: advocate and skeptic must be a DIFFERENT lineage from the primary
-  // researchers (Groq/Qwen = alibaba). Claude (anthropic) satisfies this in all modes.
-  // Never use Gemini here — cross-validator already uses Gemini; keeping debate on
+  // researchers (Gemini-Flash = google). Claude (anthropic) satisfies this in all modes.
+  // Never use Gemini here — primary research runs on Gemini; keeping debate on
   // a separate lineage (Claude) preserves maximum adversarial independence.
   const debateProvider = 'claude' as const;
   void IS_OLLAMA_MODE; // mode no longer affects debate routing

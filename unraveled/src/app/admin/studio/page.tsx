@@ -142,6 +142,7 @@ const STUDIO_SIDEBAR_GROUPS: SidebarGroup[] = [
       { id: 'agents', label: 'Agents', href: '/admin' },
       { id: 'inbox', label: 'Inbox', href: '/admin' },
       { id: 'analytics', label: 'Analytics', href: '/admin' },
+      { id: 'services', label: 'Service Health', href: '/admin/services' },
     ],
   },
 ];

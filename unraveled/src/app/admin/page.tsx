@@ -791,6 +791,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
       { id: 'agents',    label: 'Agents' },
       { id: 'inbox',     label: 'Inbox' },
       { id: 'analytics', label: 'Analytics' },
+      { id: 'services',  label: 'Service Health', href: '/admin/services' },
     ],
   },
 ];

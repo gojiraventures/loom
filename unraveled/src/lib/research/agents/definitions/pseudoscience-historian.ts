@@ -25,8 +25,11 @@ export const pseudoscienceHistorian: AgentDefinition = {
   },
 
   llm: {
+    // Groq/Qwen (alibaba) lineage anchor: kept distinct from the Gemini (google)
+    // primary researchers this agent reviews AND its own Claude (anthropic) reviewers.
+    // qwen-qwq-32b was retired by Groq — qwen/qwen3.6-27b is the current Qwen model.
     provider: 'groq',
-    model: 'qwen-qwq-32b',
+    model: 'qwen/qwen3.6-27b',
     maxTokens: 10240,
     temperature: 0.30,
   },

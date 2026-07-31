@@ -37,6 +37,12 @@ const HEALTH_SIDEBAR_GROUPS: SidebarGroup[] = [
       { id: 'distribution', label: 'Distribution Desk', href: '/admin/distribution' },
     ],
   },
+  {
+    label: 'System',
+    items: [
+      { id: 'services', label: 'Service Health', href: '/admin/services' },
+    ],
+  },
 ];
 
 // ── Types ──────────────────────────────────────────────────────────────────────

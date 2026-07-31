@@ -44,7 +44,8 @@ export async function runCrossValidation(
   );
 
   // Lineage guard: validator must be a different family from every finding it reviews.
-  // Primary researchers are Groq/Qwen (alibaba). Validator is gemini-flash (google). ✓
+  // Primary researchers are Gemini-Flash (google). Validators are Claude (anthropic),
+  // Perplexity, and pseudoscience-historian on Groq/Qwen (alibaba) — all distinct from google. ✓
   // If this ever throws, a provider change has created a lineage violation — fix the routing.
   const validatorModel = reviewerDef.llm.model;
   for (const f of toReview) {

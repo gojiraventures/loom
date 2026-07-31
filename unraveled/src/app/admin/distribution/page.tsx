@@ -157,6 +157,12 @@ const DIST_SIDEBAR_GROUPS: SidebarGroup[] = [
       { id: 'promo',       label: 'Promo Codes' },
     ],
   },
+  {
+    label: 'System',
+    items: [
+      { id: 'services', label: 'Service Health', href: '/admin/services' },
+    ],
+  },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

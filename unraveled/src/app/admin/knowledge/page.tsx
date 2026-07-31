@@ -194,6 +194,7 @@ const KNOWLEDGE_SIDEBAR_GROUPS: SidebarGroup[] = [
     label: 'System',
     items: [
       { id: 'admin', label: 'Admin Home', href: '/admin' },
+      { id: 'services', label: 'Service Health', href: '/admin/services' },
     ],
   },
 ];
