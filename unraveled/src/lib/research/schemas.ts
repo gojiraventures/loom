@@ -44,7 +44,10 @@ export const AgentFindingSchema = z.object({
 });
 
 export const AgentFindingsSchema = z.object({
-  findings: z.array(AgentFindingSchema).min(1),
+  // May be empty: an agent that genuinely turns up nothing completes with zero
+  // findings instead of failing the whole job. (Was .min(1), which spuriously
+  // failed valid "no findings found" responses.)
+  findings: z.array(AgentFindingSchema),
 });
 
 // ── Validation Result ─────────────────────────────────────────────────────────
