@@ -2,14 +2,7 @@
 
 import React from 'react';
 import { useRole } from '@/hooks/useRole';
-
-const MARKER_RE = /\[(\d+)\]/g;
-
-/** Remove [n] citation markers and tidy leftover whitespace. Exported for use
- *  in contexts where superscript links can't be nested (e.g. inside an <a>). */
-export function stripCitationMarkers(text: string): string {
-  return text.replace(MARKER_RE, '').replace(/ {2,}/g, ' ').replace(/\s+([.,;:])/g, '$1');
-}
+import { stripCitationMarkers } from '@/lib/citation-markers';
 
 const stripMarkers = stripCitationMarkers;
 
@@ -34,8 +27,8 @@ export function CitedText({ text }: { text: string }) {
   const parts: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
-  MARKER_RE.lastIndex = 0;
-  while ((m = MARKER_RE.exec(text)) !== null) {
+  const re = /\[(\d+)\]/g; // local instance — no shared lastIndex state
+  while ((m = re.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
     const n = m[1];
     parts.push(

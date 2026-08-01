@@ -12,7 +12,8 @@
 
 import Link from 'next/link';
 import type { TextSegment } from '@/lib/entity-linker';
-import { CitedText, stripCitationMarkers } from '@/components/CitedText';
+import { CitedText } from '@/components/CitedText';
+import { stripCitationMarkers } from '@/lib/citation-markers';
 
 interface Props {
   segments: TextSegment[];
