@@ -36,7 +36,10 @@ const SORT_LABELS: Record<SortOption, string> = {
 };
 
 export function TopicsGrid({ topics }: TopicsGridProps) {
-  const [sort, setSort] = useState<SortOption>('score');
+  // Default to newest: since single-subject articles legitimately score 0 (not
+  // applicable, not weak), defaulting to score sort buries fresh publishes at
+  // the very bottom of the list.
+  const [sort, setSort] = useState<SortOption>('newest');
 
   const sorted = useMemo(() => {
     const list = [...topics];
