@@ -924,6 +924,10 @@ export default function StudioPage() {
 
   const queuedCol = queueItems.filter((i) => i.status === 'queued');
 
+  // Launched sessions whose jobs haven't started yet (status 'pending') belong here.
+  // Without this they match no column and vanish from the board even though their jobs exist.
+  const queuedSessions = sessions.filter((s) => s.status === 'pending');
+
   // Running = active sessions + queue items currently running
   const runningSessionItems = sessions.filter((s) => RUNNING_STATUSES.includes(s.status));
   const runningQueueItems = queueItems.filter((i) => i.status === 'running');
@@ -1023,7 +1027,7 @@ export default function StudioPage() {
         <div className="mb-6">
           <h1 className="font-serif text-2xl mb-1">Research Studio</h1>
           <p className="font-mono text-[var(--admin-label-sm)] text-text-secondary">
-            {backlogCol.length} backlog · {queuedCol.length} queued · {runningSessionItems.length + runningQueueItems.length} running · {approvalCol.length} need review
+            {backlogCol.length} backlog · {queuedCol.length + queuedSessions.length} queued · {runningSessionItems.length + runningQueueItems.length} running · {approvalCol.length} need review
             <button
               onClick={() => void refresh()}
               className="ml-4 text-text-tertiary hover:text-gold transition-colors"
@@ -1081,8 +1085,31 @@ export default function StudioPage() {
           </KanbanColumn>
 
           {/* ── Queued ── */}
-          <KanbanColumn title="Queued" count={queuedCol.length} accent="text-amber-400">
-            {queuedCol.length === 0 ? <EmptySlot /> : queuedCol.map((item) => (
+          <KanbanColumn title="Queued" count={queuedCol.length + queuedSessions.length} accent="text-amber-400">
+            {queuedCol.length === 0 && queuedSessions.length === 0 ? <EmptySlot /> : null}
+            {queuedSessions.map((s) => {
+              const pendingJobs = jobs.filter((j) => j.session_id === s.id && j.status === 'pending');
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSession(s)}
+                  className="border border-amber-400/20 bg-ground-light/60 rounded px-3 py-2.5 w-full text-left transition-colors hover:bg-ground-light"
+                >
+                  <div className="text-sm text-text-primary font-medium leading-snug mb-0.5">
+                    {s.title || s.topic}
+                  </div>
+                  <div className="font-mono text-[var(--admin-label-sm)] text-amber-400 mb-0.5">Waiting to start</div>
+                  <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">{s.topic}</div>
+                  {pendingJobs.length > 0 && (
+                    <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary mt-0.5">
+                      {pendingJobs.length} job{pendingJobs.length !== 1 ? 's' : ''} queued
+                    </div>
+                  )}
+                  <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/50 mt-1.5">{timeAgo(s.created_at)}</div>
+                </button>
+              );
+            })}
+            {queuedCol.map((item) => (
               <div key={item.id} className="border border-amber-400/20 bg-ground-light/60 rounded px-3 py-2.5">
                 <div className="text-sm text-text-primary font-medium leading-snug mb-0.5">
                   {item.title || item.topic}
