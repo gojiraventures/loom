@@ -231,6 +231,92 @@ function SectionDivider({ label }: { label: string }) {
   );
 }
 
+// ── Image detail modal ──────────────────────────────────────────────────────
+
+// Editorial purpose of each AI hero angle — the "why this works" context.
+const ANGLE_RATIONALE: Record<string, string> = {
+  literal: 'Depicts the subject directly and unmistakably — the strongest choice for instant recognition and for thumbnails on search and social.',
+  symbolic: 'Trades literal depiction for metaphor and mood — best when the topic is abstract or the literal object would read as visually dull.',
+  environmental: 'Places the subject in its world and setting — gives the piece scale, atmosphere, and editorial gravitas.',
+  detail: 'An extreme close-up on a single telling detail — builds intrigue and a premium, gallery-like feel.',
+};
+
+function angleOf(img: TopicImage): string {
+  const t = (img.title || '').toLowerCase();
+  return (['literal', 'symbolic', 'environmental', 'detail'].find((a) => t.includes(a))) ?? '';
+}
+
+function ImageDetailModal({ img, onClose }: { img: TopicImage | null; onClose: () => void }) {
+  if (!img) return null;
+  const angle = angleOf(img);
+  const rationale = ANGLE_RATIONALE[angle];
+  const isAI = img.source?.includes('grok') || img.source?.includes('generated') || img.license === 'AI Generated';
+  const label = 'var(--admin-label-sm)';
+  const box: React.CSSProperties = { border: '1px solid var(--color-border)', borderRadius: '3px', padding: '12px', background: 'var(--color-ground)' };
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px' }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: 'var(--color-ground-light)', border: '1px solid var(--color-border)', borderRadius: '4px', maxWidth: '1000px', width: '100%', maxHeight: '90vh', overflow: 'auto', display: 'flex', flexWrap: 'wrap' }}
+      >
+        {/* Image */}
+        <div style={{ flex: '1 1 420px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '320px' }}>
+          <img src={img.cropped_url || img.image_url} alt={img.title} style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain' }} />
+        </div>
+        {/* Context */}
+        <div style={{ flex: '1 1 360px', minWidth: '320px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+            <div>
+              <p style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--color-text-primary)' }}>{img.title}</p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)', marginTop: '2px' }}>
+                {[img.author || img.source, img.width && img.height ? `${img.width}×${img.height}` : null, img.quality_score ? `Q${img.quality_score}` : null].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            <button onClick={onClose} style={{ fontSize: '18px', color: 'var(--color-text-tertiary)', lineHeight: 1, padding: '2px 6px' }}>✕</button>
+          </div>
+
+          {/* Why this image */}
+          <div style={box}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: label, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>Why this image</p>
+            {angle && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--color-text-primary)', marginBottom: rationale ? '4px' : 0 }}><strong style={{ textTransform: 'capitalize' }}>{angle} angle.</strong></p>}
+            {rationale && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>{rationale}</p>}
+            {img.gemini_caption && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--color-text-secondary)', fontStyle: 'italic', marginTop: '6px' }}>{img.gemini_caption}</p>}
+            {(img.gemini_verdict || img.gemini_aesthetic_score != null) && (
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: label, color: 'var(--color-text-tertiary)', marginTop: '6px' }}>
+                {img.gemini_verdict ? `AI review: ${img.gemini_verdict.replace(/_/g, ' ')}` : ''}{img.gemini_aesthetic_score != null ? ` · aesthetic ${img.gemini_aesthetic_score}/10` : ''}
+              </p>
+            )}
+            {!rationale && !img.gemini_caption && (
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
+                {img.description ? 'Generated to the house editorial style from the prompt below.' : 'Sourced image — see attribution below.'}
+              </p>
+            )}
+          </div>
+
+          {/* Prompt used */}
+          {img.description && (
+            <div style={box}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: label, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>
+                {isAI ? 'Prompt used' : 'Description'}
+              </p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: '220px', overflow: 'auto' }}>
+                {img.description}
+              </p>
+            </div>
+          )}
+
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)' }}>
+            {img.attribution}{img.license ? ` · ${img.license}` : ''}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Workshop page ────────────────────────────────────────────────────────────
 
 export default function DossierWorkshopPage({ params }: { params: Promise<{ topic: string }> }) {
@@ -248,6 +334,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
   const [images, setImages]     = useState<TopicImage[] | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null | undefined>(undefined); // undefined = not yet loaded
   const [socialPieces, setSocialPieces] = useState<SocialPiece[] | null>(null);
+  const [modalImage, setModalImage] = useState<TopicImage | null>(null);
 
   // Overview tab state
   const [slugInput,   setSlugInput]   = useState('');
@@ -943,6 +1030,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
 
   return (
     <div data-theme="light">
+      <ImageDetailModal img={modalImage} onClose={() => setModalImage(null)} />
       <AdminShell
         sidebar={<AdminSidebar groups={SIDEBAR_GROUPS} activeView="dossiers" onSelect={() => {}} />}
       >
@@ -1470,11 +1558,18 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                         {section.items.map((img) => (
                           <div key={img.id} style={{ display: 'flex', gap: '12px', border: '1px solid var(--color-border)', background: 'var(--color-ground-light)', borderRadius: '3px', padding: '10px', alignItems: 'flex-start' }}>
                             {(img.thumbnail_url || img.image_url) && (
-                              <img
-                                src={img.cropped_url || img.thumbnail_url || img.image_url}
-                                alt={img.title}
-                                style={{ width: '80px', height: '60px', objectFit: 'cover', flexShrink: 0, borderRadius: '2px' }}
-                              />
+                              <button
+                                onClick={() => setModalImage(img)}
+                                title="Click to enlarge and see prompt + context"
+                                style={{ position: 'relative', padding: 0, border: 0, background: 'none', cursor: 'zoom-in', flexShrink: 0, borderRadius: '2px', overflow: 'hidden' }}
+                              >
+                                <img
+                                  src={img.cropped_url || img.thumbnail_url || img.image_url}
+                                  alt={img.title}
+                                  style={{ width: '80px', height: '60px', objectFit: 'cover', display: 'block', borderRadius: '2px' }}
+                                />
+                                <span style={{ position: 'absolute', bottom: 2, right: 2, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: '9px', lineHeight: 1, padding: '2px 3px', borderRadius: '2px' }}>⤢</span>
+                              </button>
                             )}
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--color-text-primary)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
