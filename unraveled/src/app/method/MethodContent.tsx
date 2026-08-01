@@ -32,8 +32,8 @@ const PIPELINE_STEPS = [
   {
     number: '05',
     title: 'Convergence Scoring',
-    summary: 'A numerical score reflects how independently the evidence appears.',
-    detail: `The convergence score (0–100) measures structural similarity across traditions that had no plausible contact. It weights for: geographic isolation of the source traditions, specificity of the shared narrative elements (theme alone scores low; specific structural details score high), number of independent traditions reporting the same elements, and strength of the skeptical rebuttal.\n\nA high score means the pattern is hard to explain by diffusion or coincidence. It does not mean the claim is true.`,
+    summary: 'A calculated score, not a model\'s estimate.',
+    detail: `The convergence score (0–100) is computed by a fixed formula from the research pipeline's own data — it is never a number an AI model is asked to guess.\n\nFor each specific narrative element identified across the research (not themes — specific structural details), we group the traditions that report it into independent clusters — related or historically-connected cultures (e.g. Sumerian, Akkadian, Babylonian) count as one cluster, not three, so borrowing can't inflate the score. An element only counts as "convergent" once it appears in at least 3 independent clusters.\n\nThe final score combines three measured components: breadth (what fraction of elements clear that bar), depth (how many independent clusters the converging elements reach, on average), and evidence quality (a weighted average across every underlying finding, based on its evidence type, claim type — factual vs. interpretive vs. speculative — supporting strength, and source credibility tier). Speculative or circumstantial evidence is never discarded — it is weighted down, transparently, by a fixed and published set of weights.\n\nTopics that aren't cross-tradition comparisons — a single historical investigation, for example — don't get a convergence score at all. There's nothing to converge.\n\nEvery article's score comes with its full breakdown: how many elements converged, out of how many, and the exact component values. A high score means the pattern is hard to explain by diffusion or coincidence. It does not mean the claim is true.`,
   },
 ];
 
@@ -133,7 +133,7 @@ export function MethodContent() {
         </section>
 
         {/* Convergence score */}
-        <section className="border-b border-border">
+        <section id="convergence" className="border-b border-border scroll-mt-20">
           <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
             <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
               Convergence Score
@@ -151,6 +151,9 @@ export function MethodContent() {
                 </div>
               ))}
             </div>
+            <p className="text-xs text-text-tertiary max-w-2xl mt-6 leading-relaxed">
+              Single-subject investigations that don&apos;t compare across traditions carry no convergence score — the measurement doesn&apos;t apply to them.
+            </p>
           </div>
         </section>
 

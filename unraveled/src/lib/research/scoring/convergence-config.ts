@@ -76,11 +76,12 @@ export const DEFAULT_CONVERGENCE_CONFIG: ConvergenceConfig = {
     polynesian: 'oceania', maori: 'oceania', hawaiian: 'oceania',
   },
 
+  // Labels match the published bands on /method — keep these in sync.
   bands: [
-    { min: 80, label: 'Extraordinary independent convergence' },
-    { min: 60, label: 'Strong independent convergence' },
+    { min: 80, label: 'Extraordinary convergence' },
+    { min: 60, label: 'Strong convergence' },
     { min: 40, label: 'Moderate convergence' },
     { min: 20, label: 'Weak convergence' },
-    { min: 0, label: 'Minimal — likely borrowed or coincidental' },
+    { min: 0, label: 'Insufficient convergence' },
   ],
 };

@@ -128,6 +128,12 @@ export default async function TopicPage({
   const output = dossier.synthesized_output as SynthesizedOutput;
   if (!output) notFound();
 
+  // Only treat this as having a convergence score when the topic is an actual
+  // cross-tradition comparison — single-subject investigations don't get one.
+  const hasConvergenceScore = output.convergence_breakdown
+    ? output.convergence_breakdown.applicable
+    : output.convergence_score > 0;
+
   // Fetch approved media (anchors + discovered) — ordered: anchors first, then by quality
   const mediaItems = await getTopicMedia(topic);
 
@@ -238,7 +244,7 @@ export default async function TopicPage({
       name: q,
       acceptedAnswer: {
         '@type': 'Answer',
-        text: `This question remains open in the current research. The convergence score for this topic is ${output.convergence_score}/100. See the full evidence dossier at ${canonicalUrl} for the advocate and skeptic cases.`,
+        text: `This question remains open in the current research.${hasConvergenceScore ? ` The convergence score for this topic is ${output.convergence_score}/100.` : ''} See the full evidence dossier at ${canonicalUrl} for the advocate and skeptic cases.`,
       },
     })),
   } : null;
@@ -339,19 +345,24 @@ export default async function TopicPage({
                     )}
                   </p>
                 </div>
-                {/* Convergence score — frosted pill */}
-                <Tooltip
-                  content="Measures how consistently unconnected cultures describe the same core elements. Scale of 0 to 100. Higher means stronger independent agreement across traditions. Not a measure of truth. A measure of how much the accounts match."
-                  position="top-right"
-                  className="shrink-0 cursor-help"
-                >
-                  <div className="flex flex-col items-center gap-1.5 pb-1 bg-black/40 backdrop-blur-[2px] rounded px-4 py-3">
-                    <ConvergenceScore score={output.convergence_score} size={64} />
-                    <span className="font-mono text-[7px] tracking-[0.15em] uppercase text-white/50 text-center">
-                      Convergence<br />Score
-                    </span>
-                  </div>
-                </Tooltip>
+                {/* Convergence score — demoted: smaller, secondary, with an always-visible disclaimer */}
+                {hasConvergenceScore && (
+                  <Tooltip
+                    content="Measures how consistently unconnected cultures describe the same core elements. Scale of 0 to 100. Higher means stronger independent agreement across traditions. Not a measure of truth. A measure of how much the accounts match."
+                    position="top-right"
+                    className="shrink-0 cursor-help"
+                  >
+                    <div className="flex flex-col items-center gap-1 pb-1 bg-black/40 backdrop-blur-[2px] rounded px-3 py-2.5 max-w-[110px]">
+                      <ConvergenceScore score={output.convergence_score} size={44} />
+                      <span className="font-mono text-[6px] tracking-[0.12em] uppercase text-white/45 text-center">
+                        Convergence Score
+                      </span>
+                      <span className="font-mono text-[6px] text-white/30 text-center leading-tight">
+                        Not a truth score
+                      </span>
+                    </div>
+                  </Tooltip>
+                )}
               </div>
             </div>
           </div>
@@ -382,18 +393,23 @@ export default async function TopicPage({
                   ))}
                 </div>
               </div>
-              <Tooltip
-                content="Measures how consistently unconnected cultures describe the same core elements. Scale of 0 to 100. Higher means stronger independent agreement across traditions. Not a measure of truth. A measure of how much the accounts match."
-                position="top-right"
-                className="shrink-0 cursor-help"
-              >
-                <div className="flex flex-col items-center gap-1.5 pt-2">
-                  <ConvergenceScore score={output.convergence_score} size={72} />
-                  <span className="font-mono text-[8px] tracking-[0.15em] uppercase text-text-tertiary text-center">
-                    Convergence<br />Score
-                  </span>
-                </div>
-              </Tooltip>
+              {hasConvergenceScore && (
+                <Tooltip
+                  content="Measures how consistently unconnected cultures describe the same core elements. Scale of 0 to 100. Higher means stronger independent agreement across traditions. Not a measure of truth. A measure of how much the accounts match."
+                  position="top-right"
+                  className="shrink-0 cursor-help"
+                >
+                  <div className="flex flex-col items-center gap-1 pt-2 max-w-[100px]">
+                    <ConvergenceScore score={output.convergence_score} size={48} />
+                    <span className="font-mono text-[7px] tracking-[0.12em] uppercase text-text-tertiary text-center">
+                      Convergence Score
+                    </span>
+                    <span className="font-mono text-[7px] text-text-tertiary/60 text-center leading-tight">
+                      Not a truth score
+                    </span>
+                  </div>
+                </Tooltip>
+              )}
             </div>
           </div>
         </section>
@@ -432,6 +448,7 @@ export default async function TopicPage({
           <AIConsensusTeaser
             score={output.convergence_score}
             traditionsCount={output.traditions_analyzed.length}
+            breakdown={output.convergence_breakdown ?? null}
           />
           <SignupCTA
             topicTitle={output.title}
@@ -908,26 +925,49 @@ export default async function TopicPage({
       )}
 
       {/* ── Related Research ─────────────────────────────────────────────── */}
-      {/* ── Convergence Score + Source Breakdown — before Sources ────────── */}
-      {(getComponent('convergence_score_gauge') || getComponent('source_type_breakdown')) && (
+      {/* ── Convergence Methodology — the transparent breakdown, always shown when applicable ── */}
+      {hasConvergenceScore && output.convergence_breakdown && (
         <section className="border-b border-border">
-          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12 space-y-10">
-            {getComponent('convergence_score_gauge') && (
-              <div className="space-y-4">
-                <ComponentRenderer component={getComponent('convergence_score_gauge')!} />
-                <p className="text-xs text-text-tertiary leading-relaxed max-w-xl">
-                  The convergence score measures how independently a pattern appears across unconnected traditions —
-                  weighted for cultural distance, source diversity, and structural similarity.
-                  A score above 70 indicates the pattern is statistically unlikely to be explained by diffusion or coincidence alone.{' '}
-                  <a href="/method" className="text-gold hover:underline underline-offset-2">
-                    How we score convergence →
-                  </a>
-                </p>
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
+            <span className="font-mono text-[9px] tracking-[0.25em] uppercase text-text-tertiary">
+              Methodology
+            </span>
+            <h2 className="font-serif text-2xl sm:text-3xl mt-2 mb-4">How This Score Was Calculated</h2>
+            <p className="text-sm text-text-secondary max-w-2xl mb-6 leading-relaxed">
+              This is a calculated measurement, not a model&apos;s estimate — the same inputs always produce the
+              same score. It is not a probability that any claim is true.
+            </p>
+            <div className="grid sm:grid-cols-3 gap-4 mb-6 max-w-2xl">
+              <div className="border border-border rounded px-4 py-3">
+                <div className="font-mono text-2xl text-text-primary tabular-nums">
+                  {output.convergence_breakdown.convergingElements}<span className="text-text-tertiary text-base">/{output.convergence_breakdown.totalElements}</span>
+                </div>
+                <div className="font-mono text-[9px] uppercase tracking-wider text-text-tertiary mt-1">Elements converge across ≥3 independent traditions</div>
               </div>
-            )}
-            {getComponent('source_type_breakdown') && (
-              <ComponentRenderer component={getComponent('source_type_breakdown')!} />
-            )}
+              <div className="border border-border rounded px-4 py-3">
+                <div className="font-mono text-2xl text-text-primary tabular-nums">{Math.round(output.convergence_breakdown.components.depth * 100)}%</div>
+                <div className="font-mono text-[9px] uppercase tracking-wider text-text-tertiary mt-1">Average spread of converging elements</div>
+              </div>
+              <div className="border border-border rounded px-4 py-3">
+                <div className="font-mono text-2xl text-text-primary tabular-nums">{Math.round(output.convergence_breakdown.components.quality * 100)}%</div>
+                <div className="font-mono text-[9px] uppercase tracking-wider text-text-tertiary mt-1">Evidence quality (source tier + claim strength)</div>
+              </div>
+            </div>
+            <p className="text-xs text-text-tertiary leading-relaxed max-w-xl">
+              Related traditions (e.g. Sumerian, Akkadian, Babylonian) are grouped into one independence cluster so
+              borrowing between neighbors can&apos;t inflate the count. Circumstantial or speculative evidence is
+              weighted down, not discarded, by a fixed and published formula.{' '}
+              <a href="/method#convergence" className="text-gold hover:underline underline-offset-2">
+                Full methodology →
+              </a>
+            </p>
+          </div>
+        </section>
+      )}
+      {getComponent('source_type_breakdown') && (
+        <section className="border-b border-border">
+          <div className="max-w-[var(--spacing-content)] mx-auto px-6 pt-12 pb-12">
+            <ComponentRenderer component={getComponent('source_type_breakdown')!} />
           </div>
         </section>
       )}

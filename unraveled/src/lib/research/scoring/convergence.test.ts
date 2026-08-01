@@ -48,7 +48,7 @@ describe('computeConvergence — deterministic exact scores', () => {
     );
     // breadth 1.0, depth 0.6, quality 0.95 → 0.4+0.15+0.3325 = 0.8825
     expect(r.score).toBe(88);
-    expect(r.band).toBe('Extraordinary independent convergence');
+    expect(r.band).toBe('Extraordinary convergence');
     expect(r.convergingElements).toBe(2);
   });
 
