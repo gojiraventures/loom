@@ -25,11 +25,11 @@ export const pseudoscienceHistorian: AgentDefinition = {
   },
 
   llm: {
-    // Groq/Qwen (alibaba) lineage anchor: kept distinct from the Gemini (google)
-    // primary researchers this agent reviews AND its own Claude (anthropic) reviewers.
-    // qwen-qwq-32b was retired by Groq — qwen/qwen3.6-27b is the current Qwen model.
-    provider: 'groq',
-    model: 'qwen/qwen3.6-27b',
+    // Perplexity (sonar) lineage: this agent must stay a DIFFERENT family from both
+    // the Gemini (google) primary researchers it cross-validates AND its own Claude
+    // (anthropic) reviewers. Perplexity satisfies both. Groq's free tier 413'd here.
+    provider: 'perplexity',
+    model: 'sonar-pro',
     maxTokens: 10240,
     temperature: 0.30,
   },

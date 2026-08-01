@@ -164,11 +164,11 @@ async function checkGroq(): Promise<ServiceStatus> {
   return checkModelsEndpoint({
     id: 'groq',
     name: 'Groq',
-    usedFor: 'pseudoscience-historian reviewer (Qwen lineage anchor)',
+    usedFor: 'Configured — no longer in the research pipeline (moved off free tier)',
     envVar: 'GROQ_API_KEY',
     url: 'https://api.groq.com/openai/v1/models',
     headers: (key) => ({ Authorization: `Bearer ${key}` }),
-    expected: ['qwen/qwen3.6-27b'],
+    expected: [],
   });
 }
 
