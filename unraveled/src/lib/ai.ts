@@ -2,7 +2,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const XAI_API_URL = "https://api.x.ai/v1/chat/completions";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 interface AIResponse {
   content: string;
@@ -21,7 +21,7 @@ export async function queryAnthropic(
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 4096,
       system: systemPrompt || "You are a rigorous research assistant.",
       messages: [{ role: "user", content: prompt }],
@@ -29,6 +29,7 @@ export async function queryAnthropic(
   });
 
   const data = await response.json();
+  if (data.error) throw new Error(`Anthropic API error: ${data.error.message ?? JSON.stringify(data.error)}`);
   return {
     content: data.content?.[0]?.text || "",
     model: "claude",
@@ -57,6 +58,7 @@ export async function queryPerplexity(
   });
 
   const data = await response.json();
+  if (data.error) throw new Error(`Perplexity API error: ${data.error.message ?? JSON.stringify(data.error)}`);
   return {
     content: data.choices?.[0]?.message?.content || "",
     model: "perplexity",
@@ -84,6 +86,7 @@ export async function queryOpenAI(
   });
 
   const data = await response.json();
+  if (data.error) throw new Error(`OpenAI API error: ${data.error.message ?? JSON.stringify(data.error)}`);
   return {
     content: data.choices?.[0]?.message?.content || "",
     model: "gpt-4o",
@@ -111,6 +114,7 @@ export async function queryGrok(
   });
 
   const data = await response.json();
+  if (data.error) throw new Error(`xAI API error: ${data.error.message ?? JSON.stringify(data.error)}`);
   return {
     content: data.choices?.[0]?.message?.content || "",
     model: "grok-3",
@@ -138,9 +142,10 @@ export async function queryGemini(
   );
 
   const data = await response.json();
+  if (data.error) throw new Error(`Gemini API error: ${data.error.message ?? JSON.stringify(data.error)}`);
   return {
     content: data.candidates?.[0]?.content?.parts?.[0]?.text || "",
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
   };
 }
 
