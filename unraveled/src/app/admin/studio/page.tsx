@@ -566,7 +566,11 @@ function SessionDetailPanel({
   };
 
   return (
-    <div className="mt-6 border border-border bg-ground-light/40 rounded">
+    <>
+      {/* Backdrop — click to close */}
+      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
+      {/* Slide-in drawer so the panel is always visible on click, regardless of scroll */}
+      <aside className="fixed right-0 top-0 h-screen w-[560px] max-w-[92vw] overflow-y-auto bg-ground border-l border-border z-50 shadow-2xl">
       {/* Header */}
       <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -764,7 +768,8 @@ function SessionDetailPanel({
           )}
         </div>
       </div>
-    </div>
+      </aside>
+    </>
   );
 }
 
