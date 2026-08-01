@@ -23,7 +23,10 @@ import {
 import { dispatch } from '@/lib/research/jobs/dispatcher';
 import crypto from 'crypto';
 
-export const maxDuration = 30;
+// 300s (Pro max): the after() block runs up to 10 jobs to completion inside this
+// invocation. At 30s the function was killed mid-run, stranding jobs in 'running'
+// and blocking everything downstream that depends on them.
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization');

@@ -19,7 +19,8 @@ import {
 import { dispatch } from '@/lib/research/jobs/dispatcher';
 import crypto from 'crypto';
 
-export const maxDuration = 30;
+// 300s (Pro max): jobs run to completion in after(); 30s stranded slow jobs mid-run.
+export const maxDuration = 300;
 
 export async function POST() {
   const staleReset = await resetStaleJobLocks().catch((err: unknown) => {
