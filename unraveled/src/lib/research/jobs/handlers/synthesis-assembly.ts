@@ -4,6 +4,7 @@ import { getFindingsBySession } from '@/lib/research/storage/findings';
 import { getConvergenceBySession } from '@/lib/research/storage/convergence';
 import { updateSessionStatus } from '@/lib/research/storage/sessions';
 import { getJobsForSession } from '@/lib/research/storage/jobs';
+import { resolveSourceLinks } from '@/lib/research/integrity/source-resolver';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SynthesisOutline } from '../section-prompts';
 import type { SynthesizedOutput, JawDropLayer, LegendaryPattern, CircumstantialSignal, SourceReference } from '@/lib/research/types';
@@ -150,7 +151,17 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
     const circumstantialConvergence = (get('circumstantial_convergence', 'circumstantial_convergence') as CircumstantialSignal[]) || [];
     const openQuestions = (get('open_questions', 'open_questions') as string[]) || [];
     const howCulturesDescribe = (get('how_cultures_describe', 'how_cultures_describe') as Record<string, string>) || {};
-    const sources = (get('sources', 'sources') as SourceReference[]) || [];
+    const rawSources = (get('sources', 'sources') as SourceReference[]) || [];
+    // Attach real, verified URLs so the bibliography links out. Never fabricates —
+    // unresolvable sources keep url = null. Non-fatal if the registries are slow.
+    let sources = rawSources;
+    try {
+      const linked = await resolveSourceLinks(rawSources);
+      sources = linked.sources;
+      console.log(`[synthesis-assembly] resolved ${linked.resolved}/${rawSources.length} source links`);
+    } catch (err) {
+      console.warn('[synthesis-assembly] source link resolution failed:', err instanceof Error ? err.message : err);
+    }
 
     // shared_elements_matrix lives inside convergence_deep_dive
     const convDeepDive = get('convergence_deep_dive', 'convergence_deep_dive') as Record<string, unknown> | null;

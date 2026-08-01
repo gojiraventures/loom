@@ -949,7 +949,7 @@ export default async function TopicPage({
             </div>
             {/* Remaining sources — requires free account */}
             {output.sources.length > 3 && (
-              <ContentGate requiredRole="registered" feature="Full source bibliography">
+              <ContentGate requiredRole="paid" feature="Full linked source bibliography">
                 <div className="space-y-0">
                   {output.sources.slice(3).map((s, i) => (
                     <SourceRow key={i + 3} s={s} i={i + 3} />
