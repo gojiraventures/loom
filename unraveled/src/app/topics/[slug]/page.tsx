@@ -1006,7 +1006,7 @@ type Source = SynthesizedOutput['sources'][number];
 
 function SourceRow({ s, i }: { s: Source; i: number }) {
   return (
-    <div className="flex items-start gap-4 py-3 border-b border-border/40 last:border-b-0">
+    <div id={`source-${i + 1}`} className="flex items-start gap-4 py-3 border-b border-border/40 last:border-b-0 scroll-mt-24">
       <span className="font-mono text-[9px] text-text-tertiary shrink-0 w-5 mt-0.5">
         {String(i + 1).padStart(2, '0')}
       </span>
