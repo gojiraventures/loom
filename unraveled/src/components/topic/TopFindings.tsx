@@ -23,7 +23,7 @@ function twoSentences(text: string): string {
  *  shouldn't appear in the overview "hard to explain away" teaser — they read as product
  *  failures to new visitors. They remain visible in the full deep-dive. */
 function isMetaToolFinding(layer: JawDropLayer): boolean {
-  const needle = layer.title.toLowerCase() + ' ' + layer.evidence_hook.toLowerCase();
+  const needle = (layer.title ?? '').toLowerCase() + ' ' + (layer.evidence_hook ?? '').toLowerCase();
   return (
     needle.includes('research tool') ||
     needle.includes('automated research') ||

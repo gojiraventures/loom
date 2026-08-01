@@ -70,7 +70,7 @@ EXECUTIVE SUMMARY:
 ${summary}
 
 TOP FINDINGS (jaw-drop layers, level = importance, 1 = highest):
-${surprises.map((s, i) => `[${i + 1}] ${s.title}: ${s.content?.slice(0, 300) ?? ''}\nPullquote: "${s.evidence_hook}"`).join('\n\n')}
+${surprises.map((s, i) => `[${i + 1}] ${s.title}: ${s.content?.slice(0, 300) ?? ''}\nPullquote: "${s.evidence_hook ?? ''}"`).join('\n\n')}
 
 ADVOCATE CASE (strongest argument FOR convergence):
 ${advocate}
