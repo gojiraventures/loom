@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: '/reports', label: 'Reports' },
   { href: '/people', label: 'Dossiers' },
   { href: '/explore', label: 'Relationships' },
+  { href: '/search', label: 'Search' },
   { href: '/vote', label: 'Vote' },
 ];
 
