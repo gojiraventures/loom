@@ -12,6 +12,7 @@
 
 import Link from 'next/link';
 import type { TextSegment } from '@/lib/entity-linker';
+import { CitedText, stripCitationMarkers } from '@/components/CitedText';
 
 interface Props {
   segments: TextSegment[];
@@ -29,15 +30,17 @@ export function LinkedText({ segments, className }: Props) {
     <span className={className}>
       {segments.map((seg, i) =>
         seg.entity ? (
+          // Superscript links can't nest inside an <a> — strip markers from entity text.
           <Link
             key={i}
             href={seg.entity.href}
             className={TYPE_STYLES[seg.entity.type]}
           >
-            {seg.text}
+            {stripCitationMarkers(seg.text)}
           </Link>
         ) : (
-          <span key={i}>{seg.text}</span>
+          // Plain segments render citation markers as superscript links (paid) or clean text.
+          <span key={i}><CitedText text={seg.text} /></span>
         )
       )}
     </span>

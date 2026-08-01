@@ -5,6 +5,7 @@ import { getConvergenceBySession } from '@/lib/research/storage/convergence';
 import { updateSessionStatus } from '@/lib/research/storage/sessions';
 import { getJobsForSession } from '@/lib/research/storage/jobs';
 import { resolveSourceLinks } from '@/lib/research/integrity/source-resolver';
+import { annotateSynthesizedProse } from '@/lib/research/integrity/inline-citations';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SynthesisOutline } from '../section-prompts';
 import type { SynthesizedOutput, JawDropLayer, LegendaryPattern, CircumstantialSignal, SourceReference } from '@/lib/research/types';
@@ -196,11 +197,20 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
       (s, i, arr) => arr.findIndex((x) => x.title === s.title) === i,
     );
 
+    // Insert inline [n] citation markers into the prose (grounded to the source
+    // list). Rendered as superscript links for paid subscribers. Non-fatal.
+    let citedOutput = synthesizedOutput;
+    try {
+      citedOutput = await annotateSynthesizedProse(synthesizedOutput);
+    } catch (err) {
+      console.warn('[synthesis-assembly] inline citation annotation failed:', err instanceof Error ? err.message : err);
+    }
+
     const { error: dossierError } = await supabase.from('topic_dossiers').upsert({
       topic,
       title: synthesizedOutput.title,
       summary: executiveSummary.slice(0, 500) || `Cross-tradition research on: ${topic}`,
-      synthesized_output: synthesizedOutput,
+      synthesized_output: citedOutput,
       best_convergence_score: Math.round(bestScore),
       key_traditions: traditions,
       key_open_questions: openQuestions.slice(0, 10),

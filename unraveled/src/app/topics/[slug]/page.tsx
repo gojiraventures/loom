@@ -30,6 +30,7 @@ import type { ComponentRecord } from '@/lib/interactive/types';
 import { ViewToggle } from '@/components/topic/ViewToggle';
 import { loadEntityIndex, segmentText } from '@/lib/entity-linker';
 import { LinkedText } from '@/components/LinkedText';
+import { CitedText } from '@/components/CitedText';
 import { AudioHero } from '@/components/topic/AudioHero';
 import { OverviewSummary } from '@/components/topic/OverviewSummary';
 import { OriginContext } from '@/components/topic/OriginContext';
@@ -455,7 +456,7 @@ export default async function TopicPage({
             <div className="prose-sm max-w-2xl">
               {(quickBrief ?? output.executive_summary).split('\n\n').map((para, i) => (
                 <p key={i} className={`text-text-secondary leading-relaxed ${i > 0 ? 'mt-4' : ''}`}>
-                  {para}
+                  <CitedText text={para} />
                 </p>
               ))}
             </div>
@@ -559,7 +560,7 @@ export default async function TopicPage({
                     <div className="flex-1">
                       <h3 className="font-serif text-lg sm:text-xl mb-2.5">{layer.title}</h3>
                       <p className="text-sm text-text-secondary leading-[1.8] mb-3">
-                        {layer.content}
+                        <CitedText text={layer.content} />
                       </p>
                       <p className="font-mono text-[11px] text-gold/80 border-l-2 border-gold/25 pl-3 italic">
                         {layer.evidence_hook}

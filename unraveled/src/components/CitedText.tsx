@@ -5,10 +5,13 @@ import { useRole } from '@/hooks/useRole';
 
 const MARKER_RE = /\[(\d+)\]/g;
 
-function stripMarkers(text: string): string {
-  // Remove markers and any leftover double-spaces they leave behind.
+/** Remove [n] citation markers and tidy leftover whitespace. Exported for use
+ *  in contexts where superscript links can't be nested (e.g. inside an <a>). */
+export function stripCitationMarkers(text: string): string {
   return text.replace(MARKER_RE, '').replace(/ {2,}/g, ' ').replace(/\s+([.,;:])/g, '$1');
 }
+
+const stripMarkers = stripCitationMarkers;
 
 /**
  * Renders prose that may contain [n] citation markers.

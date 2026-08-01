@@ -11,45 +11,54 @@ interface RoleState {
 }
 
 /**
- * Returns the current user's role from the profiles table.
- * Returns 'anonymous' when not logged in.
- * Reads from profiles via RLS so only the user's own row is visible.
+ * Shared, module-level role cache. Many components (every CitedText marker,
+ * every ContentGate) call useRole; without this each instance would run its
+ * own auth + profile query and its own auth subscription. Instead we fetch
+ * once per page load and fan the result out to all subscribers.
  */
+let cache: RoleState = { role: 'anonymous', loading: true };
+let started = false;
+const listeners = new Set<(s: RoleState) => void>();
+
+function publish(next: RoleState) {
+  cache = next;
+  listeners.forEach((l) => l(cache));
+}
+
+async function loadRole() {
+  const supabase = createBrowserSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return publish({ role: 'anonymous', loading: false });
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, promo_expires_at')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  let role: Role = (profile?.role as Role) ?? 'registered';
+  if (role === 'paid' && profile?.promo_expires_at && new Date(profile.promo_expires_at) < new Date()) {
+    role = 'registered';
+  }
+  publish({ role, loading: false });
+}
+
+function ensureStarted() {
+  if (started) return;
+  started = true;
+  const supabase = createBrowserSupabaseClient();
+  loadRole();
+  supabase.auth.onAuthStateChange(() => loadRole());
+}
+
 export function useRole(): RoleState {
-  const [state, setState] = useState<RoleState>({ role: 'anonymous', loading: true });
+  const [state, setState] = useState<RoleState>(cache);
 
   useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
-
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setState({ role: 'anonymous', loading: false });
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, promo_expires_at')
-        .eq('id', user.id)
-        .maybeSingle(); // returns null (not 406) when no row exists
-
-      let role: Role = (profile?.role as Role) ?? 'registered';
-      // Downgrade expired promo access
-      if (role === 'paid' && profile?.promo_expires_at && new Date(profile.promo_expires_at) < new Date()) {
-        role = 'registered';
-      }
-
-      setState({ role, loading: false });
-    }
-
-    load();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      load();
-    });
-
-    return () => subscription.unsubscribe();
+    ensureStarted();
+    listeners.add(setState);
+    setState(cache); // sync with any result that arrived before mount
+    return () => { listeners.delete(setState); };
   }, []);
 
   return state;
