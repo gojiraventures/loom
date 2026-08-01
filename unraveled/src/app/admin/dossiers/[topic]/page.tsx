@@ -504,6 +504,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
   };
 
   const unpublish = async () => {
+    if (!window.confirm(`Unpublish "${dossier?.title ?? topic}"?\n\nThis removes the live article from the site (search, listings, and its public URL). You can re-publish it anytime.`)) return;
     setPublishStatus('unpublishing…');
     try {
       const res = await fetch('/api/admin/publish', {
