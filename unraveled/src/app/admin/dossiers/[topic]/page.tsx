@@ -338,6 +338,7 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
 
   // Overview tab state
   const [slugInput,   setSlugInput]   = useState('');
+  const [slugSuggesting, setSlugSuggesting] = useState(false);
   const [publishStatus, setPublishStatus] = useState('');
   const [featStatus,    setFeatStatus]    = useState('');
   const [dqValue, setDqValue] = useState('');
@@ -414,6 +415,8 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
       setDossier(d);
       setSlugInput(d.slug ?? '');
       setDqValue(d.driving_question ?? '');
+      // Auto-suggest an SEO/GEO slug when none exists yet, so publish isn't blocked.
+      if (!d.slug) suggestSlug();
 
       // Most-recent complete session for this topic
       const sessions = (sessData.sessions ?? [])
@@ -465,6 +468,21 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
   useEffect(() => { loadDossier(); }, [loadDossier]);
 
   // ── Overview actions ───────────────────────────────────────────────────────
+
+  const suggestSlug = async () => {
+    setSlugSuggesting(true);
+    try {
+      const res = await fetch('/api/admin/dossier/slug', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      const data = await res.json() as { slug?: string; error?: string };
+      if (res.ok && data.slug) setSlugInput(data.slug);
+    } catch { /* non-fatal — admin can type one */ } finally {
+      setSlugSuggesting(false);
+    }
+  };
 
   const publishOrUpdate = async () => {
     if (!slugInput.trim()) return;
@@ -1142,9 +1160,12 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                     <input
                       value={slugInput}
                       onChange={(e) => setSlugInput(e.target.value)}
-                      placeholder="url-slug"
+                      placeholder={slugSuggesting ? 'generating…' : 'auto-generated on publish'}
                       style={{ flex: 1, maxWidth: '320px', background: 'var(--color-ground)', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '6px 10px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--color-text-primary)', outline: 'none' }}
                     />
+                    <ActionBtn onClick={suggestSlug} disabled={slugSuggesting} variant="teal">
+                      {slugSuggesting ? '…' : '✦ Suggest'}
+                    </ActionBtn>
                     <ActionBtn onClick={publishOrUpdate} disabled={!slugInput.trim() || publishStatus.endsWith('…')}>
                       {dossier.published ? 'Update Slug' : 'Save Slug'}
                     </ActionBtn>

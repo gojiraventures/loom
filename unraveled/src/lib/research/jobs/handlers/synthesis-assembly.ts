@@ -6,6 +6,7 @@ import { updateSessionStatus } from '@/lib/research/storage/sessions';
 import { getJobsForSession } from '@/lib/research/storage/jobs';
 import { resolveSourceLinks } from '@/lib/research/integrity/source-resolver';
 import { annotateSynthesizedProse } from '@/lib/research/integrity/inline-citations';
+import { generateSeoSlug, ensureUniqueSlug } from '@/lib/slug';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SynthesisOutline } from '../section-prompts';
 import type { SynthesizedOutput, JawDropLayer, LegendaryPattern, CircumstantialSignal, SourceReference } from '@/lib/research/types';
@@ -206,11 +207,26 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
       console.warn('[synthesis-assembly] inline citation annotation failed:', err instanceof Error ? err.message : err);
     }
 
+    // Auto-generate an SEO/GEO-optimized slug for new dossiers. Never overwrite an
+    // existing slug (published URLs must stay stable).
+    const { data: existingDossier } = await supabase
+      .from('topic_dossiers').select('slug').eq('topic', topic).maybeSingle();
+    let slug: string | null = existingDossier?.slug ?? null;
+    if (!slug) {
+      try {
+        const base = await generateSeoSlug({ title: synthesizedOutput.title, topic, summary: executiveSummary });
+        slug = await ensureUniqueSlug(supabase, base, topic);
+      } catch (err) {
+        console.warn('[synthesis-assembly] slug generation failed:', err instanceof Error ? err.message : err);
+      }
+    }
+
     const { error: dossierError } = await supabase.from('topic_dossiers').upsert({
       topic,
       title: synthesizedOutput.title,
       summary: executiveSummary.slice(0, 500) || `Cross-tradition research on: ${topic}`,
       synthesized_output: citedOutput,
+      ...(slug ? { slug } : {}),
       best_convergence_score: Math.round(bestScore),
       key_traditions: traditions,
       key_open_questions: openQuestions.slice(0, 10),
