@@ -379,6 +379,8 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
   const [searchMsg, setSearchMsg] = useState('');
   const [generating, setGenerating] = useState(false);
   const [generateMsg, setGenerateMsg] = useState('');
+  const [heroKeywords, setHeroKeywords] = useState('');
+  const [heroReference, setHeroReference] = useState<{ dataUrl: string; name: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
   const [cropStatus, setCropStatus] = useState<Record<string, string>>({});
@@ -851,12 +853,16 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
 
   const generateHeroImages = async () => {
     setGenerating(true);
-    setGenerateMsg('Grok is writing prompts and generating images — ~2 min…');
+    setGenerateMsg(`Gemini is writing prompts and generating images${heroReference ? ' (reference-guided)' : ''} — ~2 min…`);
     try {
       const res = await fetch('/api/admin/images/generate-hero', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({
+          topic,
+          keywords: heroKeywords.trim() || undefined,
+          referenceImage: heroReference?.dataUrl,
+        }),
       });
       const data = await res.json() as { generated?: number; errors?: string[]; error?: string };
       if (!res.ok) throw new Error(data.error ?? 'Unknown error');
@@ -1533,6 +1539,49 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                   </label>
                   <ActionBtn onClick={reloadImages}>↺ Refresh</ActionBtn>
                 </div>
+
+                {/* Hero generation steering — keywords + optional reference image.
+                    House style/art direction is always preserved; these only influence subject/composition. */}
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: '3px', padding: '10px', background: 'var(--color-ground-light)' }}>
+                  <MonoLabel>AI Hero — steering (optional)</MonoLabel>
+                  <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: '8px' }}>
+                    <input
+                      type="text"
+                      value={heroKeywords}
+                      onChange={(e) => setHeroKeywords(e.target.value)}
+                      placeholder="Keywords to influence subject/mood (e.g. towering winged figures, ziggurat, ominous)"
+                      style={{ flex: '1 1 320px', minWidth: '240px', fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--color-text-primary)', background: 'var(--color-ground)', border: '1px solid var(--color-border)', borderRadius: '3px', padding: '6px 8px' }}
+                    />
+                    <label
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border)', padding: '6px 10px', borderRadius: '3px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      ↑ Reference image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          const r = new FileReader();
+                          r.onload = () => setHeroReference({ dataUrl: String(r.result), name: f.name });
+                          r.readAsDataURL(f);
+                        }}
+                      />
+                    </label>
+                    {heroReference && (
+                      <span className="flex items-center gap-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-secondary)' }}>
+                        <img src={heroReference.dataUrl} alt="reference" style={{ width: '28px', height: '28px', objectFit: 'cover', borderRadius: '2px' }} />
+                        <span style={{ maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{heroReference.name}</span>
+                        <button onClick={() => setHeroReference(null)} style={{ color: 'var(--color-text-tertiary)' }}>✕</button>
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--color-text-tertiary)', marginTop: '6px' }}>
+                    Upload only images you have the right to use — the reference guides composition; the output is a new AI image in the house style.
+                  </p>
+                </div>
+
                 {(searchMsg || generateMsg || uploadMsg) && (
                   <StatusMsg msg={searchMsg || generateMsg || uploadMsg} />
                 )}

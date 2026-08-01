@@ -208,6 +208,7 @@ export async function generateHeroPrompts(
   title: string,
   drivingQuestion: string | null | undefined,
   articleSummary: string,
+  keywords?: string | null,
 ): Promise<HeroPrompt[]> {
   const apiKey = process.env.XAI_IMAGE_API_KEY;
   if (!apiKey) throw new Error('XAI_IMAGE_API_KEY is not set');
@@ -215,7 +216,7 @@ export async function generateHeroPrompts(
   const userMessage = `Article:
 TITLE: ${title}
 ${drivingQuestion ? `DRIVING QUESTION (the intellectual paradox): ${drivingQuestion}` : ''}
-
+${keywords?.trim() ? `\nEDITOR'S CREATIVE DIRECTION (weave these subject/theme cues into every prompt — but DO NOT change the house style, lighting, or palette rules): ${keywords.trim()}\n` : ''}
 SUMMARY:
 ${articleSummary.slice(0, 3000)}
 

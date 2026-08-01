@@ -50,6 +50,17 @@ interface QuerySet {
   wikimedia: string[];
   museum: string[];
   map: string[];
+  artistic: string[];
+}
+
+/**
+ * Free-to-use guard. Sources are already curated to open collections (Wikimedia
+ * Commons is free-only; the museums are open-access/PD), so a null/empty license
+ * is treated as OK. Only drops entries whose license clearly signals non-free use.
+ */
+function isFreeToUse(license?: string | null): boolean {
+  if (!license) return true;
+  return !/all rights reserved|fair use|non-?commercial|\bnc\b|no ?deriv|rights managed|©(?!.*(cc|public domain))/i.test(license);
 }
 
 export async function POST(req: NextRequest) {
@@ -74,8 +85,9 @@ Good: "flood myth", "deluge tablet", "Noah ark"
 1. wikimedia: 4 documentary queries — sites, maps, photos, diagrams. Can be 2–5 words.
 2. museum: 4 SHORT artifact/art keywords — sculptures, pottery, paintings, iconography. 1–3 words each.
 3. map: 4 SHORT historical map keywords — for David Rumsey map archive. 1–3 words each. Think: "dragon vein", "ancient flood", "ley line", "world map", "sacred geometry".
+4. artistic: 4 queries for ARTISTIC / ILLUSTRATIVE depictions on Wikimedia Commons — paintings, illustrations, engravings, artwork, mythological art of the subject. 2–5 words. e.g. "Anunnaki painting", "Sumerian gods illustration", "ancient astronaut art".
 
-Return ONLY valid JSON: { "wikimedia": ["q1","q2","q3","q4"], "museum": ["q1","q2","q3","q4"], "map": ["q1","q2","q3","q4"] }`,
+Return ONLY valid JSON: { "wikimedia": ["q1","q2","q3","q4"], "museum": ["q1","q2","q3","q4"], "map": ["q1","q2","q3","q4"], "artistic": ["q1","q2","q3","q4"] }`,
     userPrompt: `Article topic: "${topic}"
 Article title: "${title}"
 
@@ -87,18 +99,19 @@ Return ONLY: { "wikimedia": [...], "museum": [...], "map": [...] }`,
     temperature: 0.3,
   });
 
-  let querySet: QuerySet = { wikimedia: [], museum: [], map: [] };
+  let querySet: QuerySet = { wikimedia: [], museum: [], map: [], artistic: [] };
   try {
     const parsed = JSON.parse(queryResponse.text) as Record<string, unknown>;
     querySet.wikimedia = Array.isArray(parsed.wikimedia) ? parsed.wikimedia as string[] : [topic];
     querySet.museum = Array.isArray(parsed.museum) ? parsed.museum as string[] : [topic];
     querySet.map = Array.isArray(parsed.map) ? parsed.map as string[] : [topic];
+    querySet.artistic = Array.isArray(parsed.artistic) ? parsed.artistic as string[] : [`${topic} art`];
   } catch {
-    querySet = { wikimedia: [topic, title], museum: [topic], map: [topic] };
+    querySet = { wikimedia: [topic, title], museum: [topic], map: [topic], artistic: [`${topic} art`, `${topic} painting`] };
   }
 
   // Fan out to all five sources in parallel
-  const [wikimediaResults, metResults, clevelandResults, locResults, smithsonianResults, rumseyResults] = await Promise.all([
+  const [wikimediaResults, metResults, clevelandResults, locResults, smithsonianResults, rumseyResults, artisticResults] = await Promise.all([
     Promise.all(
       querySet.wikimedia.map((q) => searchWikimediaImages(q, 10).catch(() => [] as WikimediaImage[]))
     ).then((res) => res.flatMap((imgs, i) => imgs.map((img) => ({ ...img, search_query: querySet.wikimedia[i], _source: 'wikimedia' })))),
@@ -122,13 +135,20 @@ Return ONLY: { "wikimedia": [...], "museum": [...], "map": [...] }`,
     Promise.all(
       querySet.map.map((q) => searchDavidRumseyImages(q, 6).catch(() => []))
     ).then((res) => res.flatMap((imgs) => imgs.map((img) => ({ ...img, _source: 'david_rumsey' })))),
+
+    // Artistic / illustrative depictions from Wikimedia Commons (free-license).
+    Promise.all(
+      querySet.artistic.map((q) => searchWikimediaImages(q, 8).catch(() => [] as WikimediaImage[]))
+    ).then((res) => res.flatMap((imgs, i) => imgs.map((img) => ({ ...img, search_query: querySet.artistic[i], _source: 'wikimedia' })))),
   ]);
 
-  // Deduplicate by image_url across all sources, keep top 60 by quality
+  // Deduplicate by image_url across all sources, keep top 60 by quality.
+  // Drop anything not clearly free-to-use (hard requirement for a public site).
   const seen = new Set<string>();
-  const deduped = [...wikimediaResults, ...metResults, ...clevelandResults, ...locResults, ...smithsonianResults, ...rumseyResults]
+  const deduped = [...wikimediaResults, ...metResults, ...clevelandResults, ...locResults, ...smithsonianResults, ...rumseyResults, ...artisticResults]
     .filter((img) => {
       if (!img.image_url || seen.has(img.image_url)) return false;
+      if (!isFreeToUse(img.license)) return false;
       seen.add(img.image_url);
       return true;
     })
