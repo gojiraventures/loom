@@ -924,13 +924,18 @@ export default function StudioPage() {
 
   const queuedCol = queueItems.filter((i) => i.status === 'queued');
 
-  // Launched sessions whose jobs haven't started yet (status 'pending') belong here.
-  // Without this they match no column and vanish from the board even though their jobs exist.
-  const queuedSessions = sessions.filter((s) => s.status === 'pending');
-
-  // Running = active sessions + queue items currently running
-  const runningSessionItems = sessions.filter((s) => RUNNING_STATUSES.includes(s.status));
-  const runningQueueItems = queueItems.filter((i) => i.status === 'running');
+  // Per-session job progress. The board is driven off real job activity because
+  // the job processor never advances session.status — so a session can be fully
+  // working while its status field still says 'pending'.
+  const jobStats = (sid: string) => {
+    const js = jobs.filter((j) => j.session_id === sid);
+    return {
+      total: js.length,
+      complete: js.filter((j) => j.status === 'complete').length,
+      running: js.filter((j) => j.status === 'running').length,
+      pending: js.filter((j) => j.status === 'pending').length,
+    };
+  };
 
   // Needs Approval = pending_review sessions + sessions with awaiting_approval jobs
   const pendingReviewSessions = sessions.filter((s) => s.status === 'pending_review');
@@ -940,6 +945,26 @@ export default function StudioPage() {
       !pendingReviewSessions.some((r) => r.id === s.id),
   );
   const approvalCol = [...pendingReviewSessions, ...awaitingApprovalJobSessions];
+  const approvalIds = new Set(approvalCol.map((s) => s.id));
+
+  const isTerminal = (s: Session) => s.status === 'complete' || s.status === 'failed';
+
+  // Running = sessions the orchestrator marked active, PLUS launched sessions whose
+  // jobs have actually started (any running or completed job), even if their status
+  // field still says 'pending'. This is what makes progress visible on the board.
+  const runningSessionItems = sessions.filter((s) => {
+    if (approvalIds.has(s.id) || isTerminal(s)) return false;
+    if (RUNNING_STATUSES.includes(s.status)) return true;
+    const st = jobStats(s.id);
+    return st.total > 0 && (st.running > 0 || st.complete > 0);
+  });
+  const runningIds = new Set(runningSessionItems.map((s) => s.id));
+  const runningQueueItems = queueItems.filter((i) => i.status === 'running');
+
+  // Queued = launched sessions whose jobs haven't started at all yet.
+  const queuedSessions = sessions.filter(
+    (s) => s.status === 'pending' && !runningIds.has(s.id) && !approvalIds.has(s.id) && !isTerminal(s),
+  );
 
   const completeSessions = sessions
     .filter((s) => s.status === 'complete')
@@ -1136,7 +1161,12 @@ export default function StudioPage() {
           >
             {runningSessionItems.length === 0 && runningQueueItems.length === 0 ? <EmptySlot /> : null}
             {runningSessionItems.map((s) => {
-              const activeJobs = jobs.filter((j) => j.session_id === s.id && !['complete', 'failed'].includes(j.status));
+              const st = jobStats(s.id);
+              const pct = st.total > 0 ? Math.round((st.complete / st.total) * 100) : 0;
+              // Prefer the orchestrator's phase label; otherwise show job-driven progress.
+              const label = RUNNING_STATUSES.includes(s.status)
+                ? (SESSION_STATUS_LABELS[s.status] ?? s.status)
+                : 'Researching';
               return (
                 <button
                   key={s.id}
@@ -1147,13 +1177,18 @@ export default function StudioPage() {
                     {s.title || s.topic}
                   </div>
                   <div className="font-mono text-[var(--admin-label-sm)] text-sky-400 mb-0.5">
-                    {SESSION_STATUS_LABELS[s.status] ?? s.status}
+                    ● {label}
                   </div>
                   <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary">{s.topic}</div>
-                  {activeJobs.length > 0 && (
-                    <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary mt-0.5">
-                      {activeJobs.length} active job{activeJobs.length !== 1 ? 's' : ''}
-                    </div>
+                  {st.total > 0 && (
+                    <>
+                      <div className="font-mono text-[var(--admin-label-sm)] text-text-tertiary mt-1">
+                        {st.complete}/{st.total} jobs done{st.running > 0 ? ` · ${st.running} running` : ''}
+                      </div>
+                      <div className="mt-1 h-1 rounded bg-border overflow-hidden">
+                        <div className="h-full bg-sky-400/70" style={{ width: `${pct}%` }} />
+                      </div>
+                    </>
                   )}
                   <div className="font-mono text-[var(--admin-label-xs)] text-text-tertiary/50 mt-1.5">{timeAgo(s.created_at)}</div>
                 </button>
