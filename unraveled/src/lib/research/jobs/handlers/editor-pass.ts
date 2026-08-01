@@ -7,6 +7,8 @@ import { extractAndQueueEntities } from '@/lib/research/entity-extractor';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SynthesizedOutput, JawDropLayer } from '@/lib/research/types';
 import { pickComponents } from '@/lib/interactive/picker';
+import { sanitizeDashesDeep } from '@/lib/text-sanitize';
+import { annotateSynthesizedProse } from '@/lib/research/integrity/inline-citations';
 
 export interface EditorPassPayload {
   topic: string;
@@ -101,7 +103,7 @@ You are doing a final voice pass on a completed article. Your job is to rewrite 
 
 STYLE RULES — follow these precisely:
 
-1. DASHES: Maximum one em dash (—) per paragraph. Prefer commas or parentheses. En dashes only for ranges (e.g., 7,000–10,000 years ago).
+1. DASHES: Never use em dashes (—) or en dashes (–) anywhere, including in number ranges (write "7,000 to 10,000 years ago", not "7,000–10,000"). Use a comma, a colon, parentheses, or a hyphen (-), or rewrite the sentence. No exceptions.
 
 2. SENTENCE RHYTHM: Vary length elegantly. Short, crisp sentences for punch — but no fragments or slangy choppiness. Read every paragraph aloud. If it sounds like an AI research summary or a TED Talk, rewrite it.
 
@@ -159,7 +161,7 @@ Return this exact JSON structure:
       "level": 1,
       "title": "rewritten title",
       "content": "rewritten content (minimum 80 words, keep all specific evidence)",
-      "evidence_hook": "rewritten hook — one sentence that would make a sceptical professor pause"
+      "evidence_hook": "rewritten hook: one sentence that would make a sceptical professor pause"
     }
   ],
   "open_questions": ["rewritten question 1", "rewritten question 2"]
@@ -226,10 +228,24 @@ export async function handleEditorPass(job: ResearchJob): Promise<Record<string,
     console.error('[editor-pass] Visual Strategy Agent failed (non-fatal):', err);
   }
 
-  const finalOutput: SynthesizedOutput = {
+  let finalOutput: SynthesizedOutput = {
     ...revised,
     ...(visualStrategy ? { visual_strategy: visualStrategy } : {}),
   };
+
+  // This voice pass rewrites executive_summary/advocate_case/skeptic_case/
+  // jaw_drop_layers from scratch, which wipes any [n] citation markers assembly
+  // inserted. Re-annotate the rewritten prose against the unchanged source list.
+  try {
+    finalOutput = await annotateSynthesizedProse(finalOutput);
+  } catch (err) {
+    console.warn('[editor-pass] re-annotating citations after voice pass failed (non-fatal):', err instanceof Error ? err.message : err);
+  }
+
+  // Deterministic backstop: strip any em/en dashes the voice pass slipped in
+  // despite the house-style instruction, so published text is never dependent
+  // on the model actually obeying "never".
+  finalOutput = sanitizeDashesDeep(finalOutput);
 
   const { error: updateError } = await supabase
     .from('topic_dossiers')

@@ -6,6 +6,7 @@ import { updateSessionStatus } from '@/lib/research/storage/sessions';
 import { getJobsForSession } from '@/lib/research/storage/jobs';
 import { resolveSourceLinks } from '@/lib/research/integrity/source-resolver';
 import { annotateSynthesizedProse } from '@/lib/research/integrity/inline-citations';
+import { sanitizeDashesDeep } from '@/lib/text-sanitize';
 import { generateSeoSlug, ensureUniqueSlug } from '@/lib/slug';
 import { computeConvergence } from '@/lib/research/scoring/convergence';
 import { DEFAULT_CONVERGENCE_CONFIG } from '@/lib/research/scoring/convergence-config';
@@ -211,6 +212,11 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
     } catch (err) {
       console.warn('[synthesis-assembly] inline citation annotation failed:', err instanceof Error ? err.message : err);
     }
+
+    // Deterministic backstop: strip any em/en dashes that slipped past the
+    // house-style instruction in every section prompt. Never rely solely on
+    // the model obeying "never use dashes" — guarantee it here instead.
+    citedOutput = sanitizeDashesDeep(citedOutput);
 
     // Auto-generate an SEO/GEO-optimized slug for new dossiers. Never overwrite an
     // existing slug (published URLs must stay stable).

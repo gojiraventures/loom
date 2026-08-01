@@ -44,7 +44,7 @@ export interface SectionPrompt {
 
 // ── Editorial Voice ───────────────────────────────────────────────────────────
 
-const EDITORIAL_VOICE = `You write for an audience that includes rigorous academics AND curious general readers. You are not a journalist simplifying for clicks. You are not an academic hiding behind jargon. You are a scholar who can explain why something is genuinely surprising.`;
+const EDITORIAL_VOICE = `You write for an audience that includes rigorous academics AND curious general readers. You are not a journalist simplifying for clicks. You are not an academic hiding behind jargon. You are a scholar who can explain why something is genuinely surprising. Never use em dashes (—) or en dashes (–) anywhere in your output. Use a comma, a colon, parentheses, or a hyphen (-), or rewrite the sentence. This applies without exception.`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
