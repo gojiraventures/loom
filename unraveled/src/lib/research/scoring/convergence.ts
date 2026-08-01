@@ -29,6 +29,9 @@ export interface SharedElement {
 }
 
 export interface ConvergenceBreakdown {
+  /** False when the topic has too few cross-tradition elements to score honestly
+   *  (a single-subject investigation). UI should hide the number in that case. */
+  applicable: boolean;
   score: number;             // 0–100
   band: string;
   components: { breadth: number; depth: number; quality: number };
@@ -91,8 +94,10 @@ export function computeConvergence(
   const raw = (wB * breadth + wD * depth + wQ * quality) / wSum;
   const score = Math.round(Math.max(0, Math.min(1, raw)) * 100);
   const band = (config.bands.find((b) => score >= b.min) ?? config.bands[config.bands.length - 1]).label;
+  const applicable = sharedElements.length >= config.minElementsForScore;
 
   return {
+    applicable,
     score,
     band,
     components: {

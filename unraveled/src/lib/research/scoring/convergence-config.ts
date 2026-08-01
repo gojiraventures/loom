@@ -28,6 +28,9 @@ export interface ConvergenceConfig {
   minClustersToConverge: number;
   /** Cluster count at which an element's breadth is considered "full". */
   idealClusters: number;
+  /** Below this many shared elements, the topic isn't a cross-tradition convergence
+   *  study — the score is "not applicable" rather than a misleading number. */
+  minElementsForScore: number;
   /** How the three components combine (normalized internally). */
   componentWeights: { breadth: number; depth: number; quality: number };
   /** Map a tradition name (lowercased substring match) to an independence cluster. */
@@ -52,6 +55,7 @@ export const DEFAULT_CONVERGENCE_CONFIG: ConvergenceConfig = {
 
   minClustersToConverge: 3,
   idealClusters: 5,
+  minElementsForScore: 3,
   componentWeights: { breadth: 0.4, depth: 0.25, quality: 0.35 },
 
   // Independence clusters: related traditions collapse to one region so borrowed /

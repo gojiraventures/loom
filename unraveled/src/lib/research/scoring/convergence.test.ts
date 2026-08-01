@@ -83,7 +83,20 @@ describe('computeConvergence — deterministic exact scores', () => {
     expect(r.convergingElements).toBe(0);
   });
 
-  it('empty inputs → 0', () => {
-    expect(computeConvergence([], [], C).score).toBe(0);
+  it('empty inputs → 0 and not applicable', () => {
+    const r = computeConvergence([], [], C);
+    expect(r.score).toBe(0);
+    expect(r.applicable).toBe(false);
+  });
+
+  it('single-subject topics (too few shared elements) are marked not applicable', () => {
+    const oneEl = computeConvergence([hardFinding], [el('A', ['Sumerian', 'Hopi', 'Vedic'])], C);
+    expect(oneEl.applicable).toBe(false); // 1 element < minElementsForScore (3)
+    const threeEls = computeConvergence(
+      [hardFinding],
+      [el('A', ['Sumerian', 'Hopi', 'Vedic']), el('B', ['Greek', 'Norse', 'Chinese']), el('C', ['Maya', 'Yoruba', 'Aboriginal'])],
+      C,
+    );
+    expect(threeEls.applicable).toBe(true);
   });
 });
