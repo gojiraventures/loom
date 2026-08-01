@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { topic, title, research_questions, description, source_urls } = body as Record<string, unknown>;
+  const { topic, title, research_questions, description, source_urls, differentiation_context } = body as Record<string, unknown>;
 
   if (typeof topic !== 'string' || !topic.trim())
     return NextResponse.json({ error: 'topic is required' }, { status: 400 });
@@ -83,6 +83,9 @@ export async function POST(req: NextRequest) {
     contextParts.push(`TOPIC DESCRIPTION:\n${description.trim()}`);
   if (typeof source_urls === 'string' && source_urls.trim())
     contextParts.push(`SUPPLEMENTARY SOURCES:\n${source_urls.trim()}`);
+  // Freshness Gate: steer agents away from rehashing an existing article toward the approved fresh angle.
+  if (typeof differentiation_context === 'string' && differentiation_context.trim())
+    contextParts.push(`FRESHNESS DIRECTIVE — this topic overlaps existing published work. Do NOT rehash it. Pursue this distinct angle:\n${differentiation_context.trim()}`);
   const additionalContext = contextParts.length > 0 ? contextParts.join('\n\n') : undefined;
 
   // Create session

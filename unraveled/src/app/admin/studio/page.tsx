@@ -187,6 +187,14 @@ const PHASE_STATUS_RING: Record<PhaseStatus, string> = {
 
 // ── Launch Form ───────────────────────────────────────────────────────────────
 
+interface NoveltyResult {
+  overlaps: { slug: string | null; title: string; overlap_reason: string }[];
+  is_near_duplicate: boolean;
+  fresh_angle: string;
+  differentiation_guidance: string;
+  revised_questions: string[];
+}
+
 function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
   const [open, setOpen] = useState(false);
   const [topic, setTopic] = useState('');
@@ -196,9 +204,38 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
   const [sourceUrls, setSourceUrls] = useState('');
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [freshness, setFreshness] = useState<NoveltyResult | null>(null);
+  const [gateGuidance, setGateGuidance] = useState('');
 
   const reset = () => {
     setTopic(''); setTitle(''); setQuestions(['']); setDescription(''); setSourceUrls(''); setStatus('');
+    setFreshness(null); setGateGuidance('');
+  };
+
+  const runFreshnessCheck = async () => {
+    if (!topic.trim()) { setStatus('Topic is required'); return; }
+    setChecking(true); setStatus('Checking the library for overlapping articles…');
+    try {
+      const res = await fetch('/api/admin/research/novelty-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: topic.trim(), title: title.trim() || undefined, research_questions: questions.filter(Boolean) }),
+      });
+      const data = await res.json() as { result?: NoveltyResult; error?: string };
+      if (!res.ok || !data.result) throw new Error(data.error ?? 'Freshness check failed');
+      setFreshness(data.result);
+      setGateGuidance(data.result.differentiation_guidance || '');
+      setStatus(
+        data.result.overlaps.length === 0
+          ? '✓ No meaningful overlap — clear to launch a fresh report'
+          : data.result.is_near_duplicate
+            ? '⚠ Near-duplicate of existing work — review the fresh angle below before launching'
+            : `Found ${data.result.overlaps.length} related article(s) — review the fresh angle below`,
+      );
+    } catch (err) {
+      setStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally { setChecking(false); }
   };
 
   const launchNow = async () => {
@@ -214,6 +251,7 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
           research_questions: questions.filter(Boolean),
           description: description.trim() || undefined,
           source_urls: sourceUrls.split('\n').map((s) => s.trim()).filter(Boolean),
+          differentiation_context: gateGuidance.trim() || undefined,
         }),
       });
       const data = await res.json() as { session_id?: string; total_jobs?: number; error?: string };
@@ -372,6 +410,56 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
           </div>
         </div>
 
+        {freshness && (
+          <div className="border border-amber-400/30 bg-amber-400/5 rounded p-3 space-y-2.5">
+            <div className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest text-amber-400">
+              Freshness Brief{freshness.is_near_duplicate ? ' · ⚠ near-duplicate' : ''}
+            </div>
+            {freshness.overlaps.length === 0 ? (
+              <p className="text-sm text-text-secondary">No meaningful overlap with existing articles — clear to launch a fresh report.</p>
+            ) : (
+              <>
+                <div>
+                  <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary mb-1">Overlaps with</div>
+                  <ul className="space-y-1">
+                    {freshness.overlaps.map((o, i) => (
+                      <li key={i} className="text-sm text-text-secondary leading-snug">
+                        <span className="text-text-primary">{o.title}</span> — <span className="text-text-tertiary">{o.overlap_reason}</span>
+                        {o.slug && <a href={`/topics/${o.slug}`} target="_blank" rel="noopener noreferrer" className="text-gold/70 hover:text-gold ml-1">↗</a>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {freshness.fresh_angle && (
+                  <div>
+                    <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary mb-1">Fresh angle</div>
+                    <p className="text-sm text-text-primary leading-snug">{freshness.fresh_angle}</p>
+                  </div>
+                )}
+                <div>
+                  <div className="font-mono text-[var(--admin-label-xs)] uppercase tracking-widest text-text-tertiary mb-1">Directive sent to the research agents (edit if needed)</div>
+                  <textarea
+                    value={gateGuidance}
+                    onChange={(e) => setGateGuidance(e.target.value)}
+                    rows={3}
+                    className="w-full bg-ground border border-border px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:border-gold/50 rounded resize-none"
+                  />
+                </div>
+                {freshness.revised_questions?.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setQuestions(freshness.revised_questions)}
+                      className="font-mono text-[var(--admin-label-sm)] text-gold/80 hover:text-gold"
+                    >
+                      ↳ replace questions with the sharper set ({freshness.revised_questions.length})
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {status && (
           <div className={`font-mono text-[var(--admin-label-sm)] ${status.startsWith('Error') ? 'text-red-400' : status.includes('✓') ? 'text-emerald-400' : 'text-text-tertiary'}`}>
             {status}
@@ -379,6 +467,13 @@ function LaunchForm({ onRefresh }: { onRefresh: () => void }) {
         )}
 
         <div className="flex gap-2 pt-1">
+          <button
+            onClick={runFreshnessCheck}
+            disabled={checking || busy}
+            className="font-mono text-[var(--admin-label-sm)] uppercase tracking-widest px-4 py-2 border border-teal-400/40 text-teal-400 bg-teal-400/5 hover:bg-teal-400/10 rounded transition-colors disabled:opacity-50"
+          >
+            {checking ? 'Checking…' : '① Check Freshness'}
+          </button>
           <button
             onClick={launchNow}
             disabled={busy}
