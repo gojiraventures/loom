@@ -7,6 +7,8 @@ import { getJobsForSession } from '@/lib/research/storage/jobs';
 import { resolveSourceLinks } from '@/lib/research/integrity/source-resolver';
 import { annotateSynthesizedProse } from '@/lib/research/integrity/inline-citations';
 import { generateSeoSlug, ensureUniqueSlug } from '@/lib/slug';
+import { computeConvergence } from '@/lib/research/scoring/convergence';
+import { DEFAULT_CONVERGENCE_CONFIG } from '@/lib/research/scoring/convergence-config';
 import type { ResearchJob } from '@/lib/research/storage/jobs';
 import type { SynthesisOutline } from '../section-prompts';
 import type { SynthesizedOutput, JawDropLayer, LegendaryPattern, CircumstantialSignal, SourceReference } from '@/lib/research/types';
@@ -133,10 +135,6 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
       getConvergenceBySession(job.session_id),
     ]);
 
-    const bestScore = outline?.convergence_score ?? Math.max(
-      0,
-      ...convergenceAnalyses.flatMap((a) => a.convergence_points).map((cp) => cp.composite_score),
-    );
     const traditions = outline?.traditions_analyzed ?? [...new Set(findings.flatMap((f) => f.traditions))].sort();
 
     // Parse each section
@@ -169,11 +167,18 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
     const convDeepDive = get('convergence_deep_dive', 'convergence_deep_dive') as Record<string, unknown> | null;
     const sharedElementsMatrix = (convDeepDive?.shared_elements_matrix as { element: string; traditions: Record<string, boolean> }[]) || [];
 
+    // Countable convergence score (replaces the LLM's guessed number). Deterministic
+    // from the findings + shared-elements matrix; 0 when the topic isn't a
+    // cross-tradition convergence study.
+    const convergence = computeConvergence(findings, sharedElementsMatrix, DEFAULT_CONVERGENCE_CONFIG);
+    const convergenceScore = convergence.applicable ? convergence.score : 0;
+
     const synthesizedOutput: SynthesizedOutput = {
       title: outline?.title ?? title,
       subtitle: outline?.subtitle ?? '',
       executive_summary: executiveSummary,
-      convergence_score: bestScore,
+      convergence_score: convergenceScore,
+      convergence_breakdown: convergence,
       key_findings: keyFindings.map((kf) => ({
         finding: kf.finding,
         confidence: kf.confidence,
@@ -227,7 +232,7 @@ export async function handleSynthesisAssembly(job: ResearchJob): Promise<Record<
       summary: executiveSummary.slice(0, 500) || `Cross-tradition research on: ${topic}`,
       synthesized_output: citedOutput,
       ...(slug ? { slug } : {}),
-      best_convergence_score: Math.round(bestScore),
+      best_convergence_score: convergenceScore,
       key_traditions: traditions,
       key_open_questions: openQuestions.slice(0, 10),
       last_researched_at: new Date().toISOString(),

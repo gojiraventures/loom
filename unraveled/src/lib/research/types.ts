@@ -156,7 +156,8 @@ export interface SynthesizedOutput {
   title: string;
   subtitle: string;
   executive_summary: string;
-  convergence_score: number;          // 0–100
+  convergence_score: number;          // 0–100 (0 when not applicable)
+  convergence_breakdown?: import('./scoring/convergence').ConvergenceBreakdown; // countable methodology
   key_findings: {
     finding: string;
     confidence: number;
