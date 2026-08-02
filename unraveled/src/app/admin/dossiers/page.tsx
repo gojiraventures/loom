@@ -147,45 +147,26 @@ export default function DossiersListPage() {
     setLoading(true);
     setError('');
     try {
+      // Complete, uncapped list — the single source of truth for what exists.
+      const dossiersRes = await fetch('/api/admin/dossiers');
+      const dossiersData = await dossiersRes.json() as { dossiers?: Dossier[]; error?: string };
+      if (!dossiersRes.ok) throw new Error(dossiersData.error ?? 'Failed to load dossiers');
+      setDossiers(dossiersData.dossiers ?? []);
+
+      // Sessions are only consulted for the "pending enhancement review" badge —
+      // recency-capped here is fine since it only affects a secondary annotation,
+      // never which topics appear in the list.
       const sessRes = await fetch('/api/admin/sessions');
       const sessData = await sessRes.json() as { sessions?: Array<{
-        id: string; topic: string; status: string; session_type: string; created_at: string;
+        topic: string; status: string; session_type: string;
       }> };
-      const allSessions = sessData.sessions ?? [];
-
-      // Build pending enhancement map
       const enhMap: Record<string, number> = {};
-      for (const s of allSessions) {
+      for (const s of sessData.sessions ?? []) {
         if (s.session_type === 'enhancement' && s.status === 'pending_review') {
           enhMap[s.topic] = (enhMap[s.topic] ?? 0) + 1;
         }
       }
       setPendingEnhancements(enhMap);
-
-      // Most-recent complete session per topic
-      const sorted = [...allSessions]
-        .filter((s) => s.status === 'complete')
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      const topicSessionMap: Record<string, string> = {};
-      for (const s of sorted) {
-        if (!topicSessionMap[s.topic]) topicSessionMap[s.topic] = s.id;
-      }
-      const topics = Object.keys(topicSessionMap);
-
-      const results = await Promise.all(
-        topics.map((t) =>
-          fetch(`/api/admin/dossier?topic=${encodeURIComponent(t)}`)
-            .then((r) => r.json())
-            .then((d: { dossier?: Dossier }) => {
-              const dossier = d.dossier;
-              if (dossier) dossier.session_id = topicSessionMap[t];
-              return dossier ?? null;
-            })
-            .catch(() => null)
-        )
-      );
-      setDossiers(results.filter((d): d is Dossier => d !== null));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
