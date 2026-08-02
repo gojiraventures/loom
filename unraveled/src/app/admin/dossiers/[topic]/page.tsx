@@ -47,6 +47,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
 interface ComponentRecord { id: string; label: string; reason: string; enabled: boolean; data: unknown; }
 
 interface Dossier {
+  id: string;
   topic: string;
   title: string;
   slug: string | null;
@@ -392,7 +393,8 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
   const [socialMsg, setSocialMsg] = useState('');
 
   // Editorial tab state
-  const [editorialData, setEditorialData] = useState<Array<{ id?: string; slug?: string; quality_level?: string; editorial_review?: { flags?: Array<{ severity: string; type: string; section: string; excerpt: string; issue: string; suggested_fix: string; status?: string }> } }> | null>(null);
+  const [editorialData, setEditorialData] = useState<Array<{ id?: string; slug?: string; editorial_review?: { overall_quality?: string; flags?: Array<{ id: string; severity: string; type: string; section: string; excerpt: string; issue: string; suggested_fix: string; status?: string }> } }> | null>(null);
+  const [flagActionStatus, setFlagActionStatus] = useState<Record<string, string>>({});
   const [editorialRunning, setEditorialRunning] = useState(false);
   const [editorialMsg, setEditorialMsg] = useState('');
 
@@ -988,21 +990,77 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
   }, [activeTab, dossier?.slug, dossier?.title]);
 
   const runEditorialReview = async () => {
+    if (!dossier?.id) { setEditorialMsg('error: dossier id not loaded yet'); return; }
     setEditorialRunning(true);
     setEditorialMsg('running review…');
     try {
       const res = await fetch('/api/admin/editorial/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: dossier?.slug }),
+        body: JSON.stringify({ dossierId: dossier.id }),
       });
-      const data = await res.json() as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Failed');
-      setEditorialMsg('review complete ✓ — reload to see updated flags');
+      const data = await res.json() as { flags?: unknown[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Failed');
+      setEditorialMsg('review complete ✓');
       setEditorialData(null); // force reload on next tab open
     } catch (err) {
       setEditorialMsg(`error: ${err instanceof Error ? err.message : String(err)}`);
     } finally { setEditorialRunning(false); }
+  };
+
+  const applyFlagFix = async (flag: { id: string }) => {
+    if (!dossier?.id) return;
+    setFlagActionStatus((s) => ({ ...s, [flag.id]: 'applying…' }));
+    try {
+      const res = await fetch('/api/admin/editorial/apply-fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dossierId: dossier.id, flagId: flag.id }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Fix failed');
+      setFlagActionStatus((s) => ({ ...s, [flag.id]: 'fixed ✓' }));
+      setEditorialData((prev) => {
+        if (!prev) return prev;
+        return prev.map((item) => item.editorial_review ? {
+          ...item,
+          editorial_review: {
+            ...item.editorial_review,
+            flags: item.editorial_review.flags?.map((f) => f.id === flag.id ? { ...f, status: 'resolved' } : f),
+          },
+        } : item);
+      });
+      loadDossier();
+    } catch (err) {
+      setFlagActionStatus((s) => ({ ...s, [flag.id]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
+  };
+
+  const dismissFlag = async (flag: { id: string }) => {
+    if (!dossier?.id) return;
+    setFlagActionStatus((s) => ({ ...s, [flag.id]: 'dismissing…' }));
+    try {
+      const res = await fetch('/api/admin/editorial/apply-fix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dossierId: dossier.id, flagId: flag.id, action: 'dismiss' }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Failed');
+      setFlagActionStatus((s) => ({ ...s, [flag.id]: 'dismissed' }));
+      setEditorialData((prev) => {
+        if (!prev) return prev;
+        return prev.map((item) => item.editorial_review ? {
+          ...item,
+          editorial_review: {
+            ...item.editorial_review,
+            flags: item.editorial_review.flags?.map((f) => f.id === flag.id ? { ...f, status: 'dismissed' } : f),
+          },
+        } : item);
+      });
+    } catch (err) {
+      setFlagActionStatus((s) => ({ ...s, [flag.id]: `error: ${err instanceof Error ? err.message : String(err)}` }));
+    }
   };
 
   // ── Readiness checklist (computed live) ───────────────────────────────────
@@ -1480,32 +1538,37 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                 )}
                 {editorialData !== null && editorialData.length > 0 && (() => {
                   const item = editorialData[0];
+                  const quality = item.editorial_review?.overall_quality;
                   const flags = item.editorial_review?.flags ?? [];
+                  const outstanding = flags.filter((f) => !f.status || f.status === 'pending');
                   const severityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
                   const sorted = [...flags].sort((a, b) => (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2));
                   return (
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
-                          Quality: <span style={{ color: item.quality_level === 'high' ? 'var(--status-complete)' : item.quality_level === 'medium' ? 'var(--status-running)' : 'var(--status-failed)' }}>
-                            {item.quality_level ?? 'unknown'}
+                          Quality: <span style={{ color: quality === 'high' ? 'var(--status-complete)' : quality === 'medium' ? 'var(--status-running)' : quality === 'low' ? 'var(--status-failed)' : 'var(--color-text-tertiary)' }}>
+                            {quality ?? 'unknown'}
                           </span>
                         </span>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-tertiary)' }}>
-                          · {flags.length} flag{flags.length !== 1 ? 's' : ''}
+                          · {outstanding.length} outstanding of {flags.length} flag{flags.length !== 1 ? 's' : ''}
                         </span>
                       </div>
                       {flags.length === 0 ? (
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label)', color: 'var(--status-complete)' }}>No flags — editorial review clean.</p>
                       ) : (
                         <div className="space-y-2">
-                          {sorted.map((flag, i) => {
-                            const sevColor = flag.severity === 'high' ? 'var(--status-failed)' : flag.severity === 'medium' ? 'var(--status-running)' : 'var(--color-text-tertiary)';
+                          {sorted.map((flag) => {
+                            const resolved = flag.status === 'resolved';
+                            const dismissed = flag.status === 'dismissed';
+                            const sevColor = resolved || dismissed ? 'var(--color-border)' : flag.severity === 'high' ? 'var(--status-failed)' : flag.severity === 'medium' ? 'var(--status-running)' : 'var(--color-text-tertiary)';
+                            const actionMsg = flagActionStatus[flag.id];
                             return (
-                              <div key={i} style={{ border: `1px solid ${sevColor}`, background: 'var(--color-ground-light)', borderRadius: '3px', padding: '10px 12px' }}>
+                              <div key={flag.id} style={{ border: `1px solid ${sevColor}`, background: 'var(--color-ground-light)', borderRadius: '3px', padding: '10px 12px', opacity: resolved || dismissed ? 0.55 : 1 }}>
                                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: sevColor, border: `1px solid ${sevColor}`, padding: '1px 5px', borderRadius: '2px' }}>
-                                    {flag.severity}
+                                    {resolved ? 'fixed' : dismissed ? 'dismissed' : flag.severity}
                                   </span>
                                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-text-secondary)' }}>{flag.type}</span>
                                   {flag.section && (
@@ -1517,12 +1580,25 @@ export default function DossierWorkshopPage({ params }: { params: Promise<{ topi
                                 </p>
                                 {flag.excerpt && (
                                   <blockquote style={{ borderLeft: '2px solid var(--color-border)', paddingLeft: '8px', fontFamily: 'var(--font-serif)', fontSize: '12px', fontStyle: 'italic', color: 'var(--color-text-tertiary)', margin: '0 0 6px' }}>
-                                    "{flag.excerpt}"
+                                    &ldquo;{flag.excerpt}&rdquo;
                                   </blockquote>
                                 )}
                                 {flag.suggested_fix && (
-                                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-teal)', marginTop: '4px' }}>
+                                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-sm)', color: 'var(--color-teal)', marginTop: '4px', marginBottom: '8px' }}>
                                     Fix: {flag.suggested_fix}
+                                  </div>
+                                )}
+                                {!resolved && !dismissed && (
+                                  <div className="flex gap-2 items-center">
+                                    <ActionBtn onClick={() => applyFlagFix(flag)} disabled={actionMsg === 'applying…'} variant="gold">
+                                      {actionMsg === 'applying…' ? 'Applying…' : '✓ Apply Fix'}
+                                    </ActionBtn>
+                                    <ActionBtn onClick={() => dismissFlag(flag)} disabled={actionMsg === 'dismissing…'}>
+                                      Dismiss
+                                    </ActionBtn>
+                                    {actionMsg && actionMsg.startsWith('error') && (
+                                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--admin-label-xs)', color: 'var(--status-failed)' }}>{actionMsg}</span>
+                                    )}
                                   </div>
                                 )}
                               </div>
