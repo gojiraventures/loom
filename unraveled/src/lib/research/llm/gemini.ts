@@ -23,20 +23,36 @@ export async function queryGemini(request: LLMRequest): Promise<LLMResponse> {
   const start = Date.now();
   const ai = getClient();
 
+  const resolvedModel = request.model ?? (request.provider === 'gemini-flash' ? 'gemini-2.5-flash' : 'gemini-2.5-pro');
+  // gemini-2.5-flash silently spends part of maxOutputTokens on invisible "thinking"
+  // tokens before any visible output — with a modest cap (e.g. 3000) this can consume
+  // the entire budget and return a response truncated to a few hundred characters
+  // with finishReason MAX_TOKENS, well before the model produces real output. None of
+  // this pipeline's flash use cases want chain-of-thought, so disable it outright.
+  // gemini-2.5-pro REQUIRES thinking mode (budget 0 is rejected) — leave it untouched.
+  const isFlash = resolvedModel.includes('flash');
+
   const model = ai.getGenerativeModel({
-    model: request.model ?? (request.provider === 'gemini-flash' ? 'gemini-2.5-flash' : 'gemini-2.5-pro'),
+    model: resolvedModel,
     safetySettings: SAFETY_SETTINGS,
     generationConfig: {
       maxOutputTokens: request.maxTokens ?? 8192,
       temperature: request.temperature ?? 0.4,
       ...(request.jsonMode ? { responseMimeType: 'application/json' } : {}),
-    },
+      ...(isFlash ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
     systemInstruction: request.systemPrompt,
   });
 
   const result = await model.generateContent(request.userPrompt);
   const response = result.response;
   const text = response.text();
+
+  const finishReason = response.candidates?.[0]?.finishReason;
+  if (finishReason === 'MAX_TOKENS') {
+    console.warn(`[gemini] ${resolvedModel} hit MAX_TOKENS — output may be truncated. thoughtsTokens=${(response.usageMetadata as { thoughtsTokenCount?: number } | undefined)?.thoughtsTokenCount ?? 'n/a'}, candidateTokens=${response.usageMetadata?.candidatesTokenCount ?? 'n/a'}, cap=${request.maxTokens ?? 8192}. Consider raising maxTokens.`);
+  }
 
   let parsed: unknown = undefined;
   if (request.jsonMode) {
@@ -56,7 +72,7 @@ export async function queryGemini(request: LLMRequest): Promise<LLMResponse> {
   return {
     text,
     parsed,
-    model: request.model ?? (request.provider === 'gemini-flash' ? 'gemini-2.5-flash' : 'gemini-2.5-pro'),
+    model: resolvedModel,
     inputTokens: usage?.promptTokenCount ?? 0,
     outputTokens: usage?.candidatesTokenCount ?? 0,
     provider: request.provider,
